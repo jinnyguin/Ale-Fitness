@@ -2,6 +2,7 @@ entrypoint="index.html"
 modules = ["python-3.11"]
 [nix]
 channel = "stable-25_05"
+packages = ["cargo", "libiconv", "rustc"]
 
 [agent]
 expertMode = true
@@ -10,15 +11,33 @@ expertMode = true
 run = "python3 -m http.server 8080"
 
 [workflows]
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "start"
 mode = "sequential"
-author = 32095364
+author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python3 -m http.server 8080"
+args = "python3 server.py"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "start"
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
 
 [[ports]]
 localPort = 8080
