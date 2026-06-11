@@ -1,0 +1,25 @@
+entrypoint="index.html"
+modules = ["python-3.11"]
+[nix]
+channel = "stable-25_05"
+
+[agent]
+expertMode = true
+
+[deployment]
+run = "python3 -m http.server 8080"
+
+[workflows]
+
+[[workflows.workflow]]
+name = "start"
+mode = "sequential"
+author = 32095364
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 -m http.server 8080"
+
+[[ports]]
+localPort = 8080
+externalPort = 80
