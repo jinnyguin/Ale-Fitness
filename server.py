@@ -204,8 +204,15 @@ def static_files(filename):
 
     try:
         filepath = os.path.join(".", filename)
+
+        # If the exact file doesn't exist, try adding .html extension
         if not os.path.isfile(filepath):
-            abort(404)
+            html_path = filepath + ".html"
+            if os.path.isfile(html_path):
+                filepath = html_path
+                filename = filename + ".html"
+            else:
+                abort(404)
 
         if filename.endswith(".html") and path_is_protected("/" + filename.rstrip("/")):
             with open(filepath, "r", encoding="utf-8") as f:
