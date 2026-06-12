@@ -1,173 +1,175 @@
 import os
 import json
-import uuid
-import sqlite3
-import datetime
-import hashlib
-import hmac
-import base64
 import re
-from functools import wraps
-from flask import Flask, request, jsonify, send_from_directory, send_file, abort
-from flask_cors import CORS
+import uuid
+import urllib.request
+import urllib.error
+import urllib.parse
+import psycopg2
+import psycopg2.extras
+from datetime import datetime, timezone
+from flask import Flask, request, jsonify, send_from_directory, send_file, abort, redirect, make_response
 
 app = Flask(__name__, static_folder=".")
-CORS(app)
 
-APP_ID = "6a1f3d189ebdbe71fa7d256c"
-JWT_SECRET = os.environ.get("JWT_SECRET", "alefit-secret-key-change-in-production")
-DB_PATH = "alefit.db"
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+# Service role key — stored in "Database" env var (set during project setup)
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("Database", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+APP_ID = "6a1f3d189ebdbe71fa7d256c"
 
 # ---------------------------------------------------------------------------
-# DB setup
+# Postgres helpers (Replit DB for entity storage)
 # ---------------------------------------------------------------------------
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
+    conn.autocommit = True
     return conn
 
 
-def init_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            full_name TEXT,
-            role TEXT DEFAULT 'user',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            reset_token TEXT,
-            reset_token_expiry TEXT
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS entities (
-            id TEXT PRIMARY KEY,
-            entity_type TEXT NOT NULL,
-            owner_id TEXT,
-            data TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-    """)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_entities_owner ON entities(owner_id)")
-    conn.commit()
-    conn.close()
-
-
-init_db()
+def now_iso():
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ---------------------------------------------------------------------------
-# JWT helpers (no external lib needed — manual HS256)
+# Supabase Auth helpers
 # ---------------------------------------------------------------------------
 
-def _b64url_encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
-
-
-def _b64url_decode(s: str) -> bytes:
-    padding = 4 - len(s) % 4
-    if padding != 4:
-        s += "=" * padding
-    return base64.urlsafe_b64decode(s)
-
-
-def create_token(user_id: str, email: str) -> str:
-    header = _b64url_encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
-    exp = int((datetime.datetime.utcnow() + datetime.timedelta(days=30)).timestamp())
-    payload = _b64url_encode(json.dumps({"sub": user_id, "email": email, "exp": exp}).encode())
-    sig_input = f"{header}.{payload}".encode()
-    sig = hmac.new(JWT_SECRET.encode(), sig_input, hashlib.sha256).digest()
-    return f"{header}.{payload}.{_b64url_encode(sig)}"
-
-
-def verify_token(token: str):
+def supabase_auth(method, path, body=None, token=None):
+    url = f"{SUPABASE_URL}{path}"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token or SUPABASE_KEY}",
+    }
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        parts = token.split(".")
-        if len(parts) != 3:
-            return None
-        header, payload, sig = parts
-        sig_input = f"{header}.{payload}".encode()
-        expected_sig = hmac.new(JWT_SECRET.encode(), sig_input, hashlib.sha256).digest()
-        if not hmac.compare_digest(_b64url_encode(expected_sig), sig):
-            return None
-        data = json.loads(_b64url_decode(payload))
-        if data.get("exp", 0) < datetime.datetime.utcnow().timestamp():
-            return None
-        return data
-    except Exception:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+            return resp.status, json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as e:
+        raw = e.read()
+        try:
+            return e.code, json.loads(raw)
+        except Exception:
+            return e.code, {"error": raw.decode()}
+
+
+def supabase_admin(method, path, body=None):
+    """Call Supabase admin API using the service role key."""
+    key = SUPABASE_SERVICE_KEY or SUPABASE_KEY
+    url = f"{SUPABASE_URL}{path}"
+    headers = {
+        "apikey": key,
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {key}",
+    }
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+            return resp.status, json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as e:
+        raw = e.read()
+        try:
+            return e.code, json.loads(raw)
+        except Exception:
+            return e.code, {"error": raw.decode()}
+
+
+def get_supabase_user(token):
+    if not token:
         return None
-
-
-def hash_password(password: str) -> str:
-    salt = os.urandom(16)
-    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000)
-    return base64.b64encode(salt + dk).decode()
-
-
-def check_password(password: str, stored: str) -> bool:
-    try:
-        raw = base64.b64decode(stored.encode())
-        salt = raw[:16]
-        stored_dk = raw[16:]
-        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000)
-        return hmac.compare_digest(dk, stored_dk)
-    except Exception:
-        return False
-
-
-def now_iso() -> str:
-    return datetime.datetime.utcnow().isoformat() + "Z"
+    status, data = supabase_auth("GET", "/auth/v1/user", token=token)
+    if status == 200 and data.get("id"):
+        return data
+    return None
 
 
 def get_current_user():
     auth = request.headers.get("Authorization", "")
     token = None
     if auth.startswith("Bearer "):
-        token = auth[7:]
+        token = auth[7:].strip()
     if not token:
-        token = request.args.get("token")
+        token = request.args.get("token") or request.args.get("access_token")
     if not token:
-        return None
-    data = verify_token(token)
-    if not data:
-        return None
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE id = ?", (data["sub"],)).fetchone()
-    conn.close()
-    return dict(user) if user else None
+        token = request.cookies.get("sb_token")
+    user = get_supabase_user(token)
+    return user, token
 
 
-def require_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        user = get_current_user()
-        if not user:
-            return jsonify({"error": "Unauthorized"}), 401
-        request.current_user = user
-        return f(*args, **kwargs)
-    return decorated
-
-
-def user_to_dict(user: dict) -> dict:
+def format_user(user):
+    meta = user.get("user_metadata") or {}
     return {
-        "id": user["id"],
-        "email": user["email"],
-        "full_name": user.get("full_name", ""),
-        "role": user.get("role", "user"),
+        "id": user.get("id", ""),
+        "email": user.get("email", ""),
+        "full_name": meta.get("full_name") or meta.get("name") or "",
+        "role": "user",
         "created_date": user.get("created_at", ""),
     }
 
 
+def ensure_profile(user_id, email, full_name=""):
+    if not user_id:
+        return
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO profiles (id, email, full_name)
+               VALUES (%s, %s, %s)
+               ON CONFLICT (id) DO UPDATE SET email=EXCLUDED.email
+            """,
+            (user_id, email, full_name)
+        )
+        conn.close()
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------------------
-# Static file serving
+# Auth guard — inject into HTML responses for protected paths
+# ---------------------------------------------------------------------------
+
+AUTH_GUARD_SCRIPT = """<script>
+(function(){
+  var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
+  if (!token) {
+    var from = encodeURIComponent(window.location.href);
+    window.location.replace('/Login.html?from_url=' + from);
+  }
+})();
+</script>"""
+
+PROTECTED_PATHS = {
+    "/calorie-tracker", "/calorie-tracker.html",
+    "/meal-plan", "/meal-plan.html",
+}
+PROTECTED_PREFIXES = ("/programs/",)
+
+
+def path_is_protected(path):
+    clean = path.rstrip("/").split("?")[0]
+    if clean in PROTECTED_PATHS:
+        return True
+    for prefix in PROTECTED_PREFIXES:
+        if clean.startswith(prefix) and len(clean) > len(prefix):
+            return True
+    return False
+
+
+def inject_guard(html_content):
+    return html_content.replace("<head>", "<head>" + AUTH_GUARD_SCRIPT, 1)
+
+
+# ---------------------------------------------------------------------------
+# Static files with auth guard injection
 # ---------------------------------------------------------------------------
 
 @app.route("/")
@@ -175,18 +177,63 @@ def index():
     return send_file("index.html")
 
 
+@app.route("/login")
+def login_page():
+    return send_file("Login.html")
+
+
+@app.route("/register")
+def register_page():
+    return send_file("Register.html")
+
+
+@app.route("/forgot-password")
+def forgot_password_page():
+    return send_file("ForgotPassword.html")
+
+
+@app.route("/reset-password")
+def reset_password_page():
+    return send_file("ResetPassword.html")
+
+
 @app.route("/<path:filename>")
 def static_files(filename):
     if filename.startswith("api/"):
         abort(404)
+
     try:
+        filepath = os.path.join(".", filename)
+        if not os.path.isfile(filepath):
+            abort(404)
+
+        if filename.endswith(".html") and path_is_protected("/" + filename.rstrip("/")):
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+            content = inject_guard(content)
+            resp = make_response(content)
+            resp.headers["Content-Type"] = "text/html; charset=utf-8"
+            return resp
+
         return send_from_directory(".", filename)
     except Exception:
         abort(404)
 
 
 # ---------------------------------------------------------------------------
-# Public settings (app initialization)
+# Logout redirect
+# ---------------------------------------------------------------------------
+
+@app.route("/api/apps/auth/logout")
+def logout():
+    from_url = request.args.get("from_url") or "/"
+    resp = redirect("/login")
+    resp.delete_cookie("sb_token")
+    return resp
+
+
+# ---------------------------------------------------------------------------
+# Public settings
 # ---------------------------------------------------------------------------
 
 @app.route("/api/apps/public/prod/public-settings/by-id/<app_id>")
@@ -196,7 +243,7 @@ def public_settings(app_id):
         "name": "ALEFIT",
         "auth": {
             "enabled": True,
-            "providers": ["email"],
+            "providers": ["email", "google"],
             "registration_enabled": True,
         },
         "theme": {"primary_color": "#000000"},
@@ -204,394 +251,440 @@ def public_settings(app_id):
 
 
 # ---------------------------------------------------------------------------
-# Auth endpoints
+# Auth endpoints (proxy to Supabase)
 # ---------------------------------------------------------------------------
 
 @app.route("/api/apps/<app_id>/auth/register", methods=["POST"])
-def register(app_id):
-    data = request.get_json(force=True)
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
-    full_name = data.get("full_name") or data.get("name") or ""
+def auth_register(app_id):
+    body = request.get_json(force=True) or {}
+    email = (body.get("email") or "").strip()
+    password = body.get("password") or ""
+    full_name = body.get("full_name") or body.get("name") or ""
 
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    conn = get_db()
-    existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if existing:
-        conn.close()
-        return jsonify({"error": "Email already registered"}), 409
+    # Use admin API to create user with email auto-confirmed (no email verification needed)
+    if SUPABASE_SERVICE_KEY:
+        status, data = supabase_admin("POST", "/auth/v1/admin/users", {
+            "email": email,
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": {"full_name": full_name},
+        })
+        if status in (200, 201) and data.get("id"):
+            user_id = data["id"]
+            ensure_profile(user_id, email, full_name)
+            # Now log the user in to get an access token
+            login_status, login_data = supabase_auth("POST", "/auth/v1/token?grant_type=password", {
+                "email": email,
+                "password": password,
+            })
+            if login_status == 200 and login_data.get("access_token"):
+                user = login_data.get("user", {})
+                return jsonify({"access_token": login_data["access_token"], "user": format_user(user)}), 201
+            return jsonify({"error": "Account created! Please log in."}), 400
+        err = data.get("msg") or data.get("message") or data.get("error") or "Registration failed"
+        # Handle duplicate email
+        if "already" in str(err).lower() or status == 422:
+            return jsonify({"error": "An account with this email already exists. Please log in."}), 409
+        return jsonify({"error": err}), status
 
-    user_id = str(uuid.uuid4())
-    ts = now_iso()
-    conn.execute(
-        "INSERT INTO users (id, email, password_hash, full_name, role, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
-        (user_id, email, hash_password(password), full_name, "user", ts, ts)
-    )
-    conn.commit()
-    user = dict(conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
-    conn.close()
+    # Fallback: regular signup (may require email confirmation)
+    status, data = supabase_auth("POST", "/auth/v1/signup", {
+        "email": email,
+        "password": password,
+        "data": {"full_name": full_name},
+    })
 
-    token = create_token(user_id, email)
-    return jsonify({"access_token": token, "user": user_to_dict(user)}), 201
+    if status in (200, 201):
+        if not data.get("access_token"):
+            # Email confirmation required — attempt immediate login
+            login_status, login_data = supabase_auth("POST", "/auth/v1/token?grant_type=password", {
+                "email": email,
+                "password": password,
+            })
+            if login_status == 200 and login_data.get("access_token"):
+                user = login_data.get("user", {})
+                ensure_profile(user.get("id"), email, full_name)
+                return jsonify({"access_token": login_data["access_token"], "user": format_user(user)}), 201
+            return jsonify({"error": "Account created! Check your email to confirm, then log in."}), 400
+        user = data.get("user", {})
+        ensure_profile(user.get("id"), email, full_name)
+        return jsonify({"access_token": data["access_token"], "user": format_user(user)}), 201
+
+    err = data.get("msg") or data.get("message") or data.get("error") or "Registration failed"
+    return jsonify({"error": err}), status
 
 
 @app.route("/api/apps/<app_id>/auth/login", methods=["POST"])
-def login(app_id):
-    data = request.get_json(force=True)
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
+def auth_login(app_id):
+    body = request.get_json(force=True) or {}
+    email = (body.get("email") or "").strip()
+    password = body.get("password") or ""
 
-    if not email or not password:
-        return jsonify({"error": "Email and password are required"}), 400
+    status, data = supabase_auth("POST", "/auth/v1/token?grant_type=password", {
+        "email": email,
+        "password": password,
+    })
 
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-    conn.close()
+    if status == 200 and data.get("access_token"):
+        user = data.get("user", {})
+        ensure_profile(user.get("id"), email)
+        return jsonify({"access_token": data["access_token"], "user": format_user(user)})
 
-    if not user or not check_password(password, user["password_hash"]):
-        return jsonify({"error": "Invalid email or password"}), 401
-
-    token = create_token(user["id"], email)
-    return jsonify({"access_token": token, "user": user_to_dict(dict(user))})
+    err = data.get("error_description") or data.get("msg") or data.get("error") or "Invalid email or password"
+    return jsonify({"error": err}), 401
 
 
 @app.route("/api/apps/<app_id>/auth/reset-password-request", methods=["POST"])
-def reset_password_request(app_id):
-    data = request.get_json(force=True)
-    email = (data.get("email") or "").strip().lower()
-
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-    if user:
-        reset_token = str(uuid.uuid4())
-        expiry = (datetime.datetime.utcnow() + datetime.timedelta(hours=1)).isoformat() + "Z"
-        conn.execute(
-            "UPDATE users SET reset_token=?, reset_token_expiry=? WHERE email=?",
-            (reset_token, expiry, email)
-        )
-        conn.commit()
-        print(f"[Password Reset] Token for {email}: {reset_token}")
-    conn.close()
+def auth_reset_request(app_id):
+    body = request.get_json(force=True) or {}
+    email = (body.get("email") or "").strip()
+    supabase_auth("POST", "/auth/v1/recover", {"email": email})
     return jsonify({"message": "If this email exists, a reset link has been sent."})
 
 
 @app.route("/api/apps/<app_id>/auth/reset-password", methods=["POST"])
-def reset_password(app_id):
-    data = request.get_json(force=True)
-    reset_token = data.get("reset_token") or ""
-    new_password = data.get("new_password") or ""
-
-    if not reset_token or not new_password:
-        return jsonify({"error": "reset_token and new_password are required"}), 400
-
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE reset_token = ?", (reset_token,)).fetchone()
-    if not user:
-        conn.close()
-        return jsonify({"error": "Invalid or expired reset token"}), 400
-
-    expiry = user["reset_token_expiry"]
-    if expiry and datetime.datetime.fromisoformat(expiry.replace("Z", "")) < datetime.datetime.utcnow():
-        conn.close()
-        return jsonify({"error": "Reset token has expired"}), 400
-
-    conn.execute(
-        "UPDATE users SET password_hash=?, reset_token=NULL, reset_token_expiry=NULL, updated_at=? WHERE id=?",
-        (hash_password(new_password), now_iso(), user["id"])
-    )
-    conn.commit()
-    conn.close()
-    return jsonify({"message": "Password updated successfully"})
+def auth_reset_password(app_id):
+    body = request.get_json(force=True) or {}
+    token = body.get("reset_token") or ""
+    new_password = body.get("new_password") or ""
+    status, data = supabase_auth("PUT", "/auth/v1/user", {"password": new_password}, token=token)
+    if status == 200:
+        return jsonify({"message": "Password updated successfully"})
+    return jsonify({"error": "Invalid or expired reset token"}), 400
 
 
 @app.route("/api/apps/<app_id>/auth/change-password", methods=["POST"])
-@require_auth
-def change_password(app_id):
-    data = request.get_json(force=True)
-    current_password = data.get("current_password") or ""
-    new_password = data.get("new_password") or ""
-    user = request.current_user
-
-    if not check_password(current_password, user["password_hash"]):
-        return jsonify({"error": "Current password is incorrect"}), 400
-
-    conn = get_db()
-    conn.execute(
-        "UPDATE users SET password_hash=?, updated_at=? WHERE id=?",
-        (hash_password(new_password), now_iso(), user["id"])
-    )
-    conn.commit()
-    conn.close()
-    return jsonify({"message": "Password changed successfully"})
+def auth_change_password(app_id):
+    user, token = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    body = request.get_json(force=True) or {}
+    new_password = body.get("new_password") or ""
+    status, _ = supabase_auth("PUT", "/auth/v1/user", {"password": new_password}, token=token)
+    if status == 200:
+        return jsonify({"message": "Password changed successfully"})
+    return jsonify({"error": "Failed to change password"}), 400
 
 
 @app.route("/api/apps/<app_id>/auth/verify-otp", methods=["POST"])
-def verify_otp(app_id):
-    return jsonify({"message": "OTP verification not required"}), 200
+def auth_verify_otp(app_id):
+    return jsonify({"message": "OK"})
 
 
 @app.route("/api/apps/<app_id>/auth/resend-otp", methods=["POST"])
-def resend_otp(app_id):
-    return jsonify({"message": "OTP resent"}), 200
+def auth_resend_otp(app_id):
+    return jsonify({"message": "OK"})
+
+
+@app.route("/api/apps/<app_id>/auth/me", methods=["GET"])
+def auth_me(app_id):
+    user, token = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    return jsonify(format_user(user))
+
+
+@app.route("/api/apps/<app_id>/auth/me", methods=["PUT"])
+def auth_me_update(app_id):
+    user, token = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    body = request.get_json(force=True) or {}
+    full_name = body.get("full_name") or ""
+    if full_name:
+        supabase_auth("PUT", "/auth/v1/user", {"data": {"full_name": full_name}}, token=token)
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute("UPDATE profiles SET full_name=%s, updated_at=NOW() WHERE id=%s", (full_name, user["id"]))
+            conn.close()
+        except Exception:
+            pass
+    status, updated = supabase_auth("GET", "/auth/v1/user", token=token)
+    return jsonify(format_user(updated if status == 200 else user))
 
 
 # ---------------------------------------------------------------------------
-# User entity special endpoint
+# User
 # ---------------------------------------------------------------------------
 
 @app.route("/api/apps/<app_id>/entities/User/me")
-@require_auth
 def get_me(app_id):
-    return jsonify(user_to_dict(request.current_user))
+    user, token = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    return jsonify(format_user(user))
+
+
+@app.route("/api/apps/<app_id>/entities/User/me", methods=["PUT"])
+def update_me(app_id):
+    user, token = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    body = request.get_json(force=True) or {}
+    full_name = body.get("full_name") or ""
+    if full_name:
+        supabase_auth("PUT", "/auth/v1/user", {"data": {"full_name": full_name}}, token=token)
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute("UPDATE profiles SET full_name=%s, updated_at=NOW() WHERE id=%s", (full_name, user["id"]))
+            conn.close()
+        except Exception:
+            pass
+    status, updated = supabase_auth("GET", "/auth/v1/user", token=token)
+    return jsonify(format_user(updated if status == 200 else user))
 
 
 # ---------------------------------------------------------------------------
-# Generic entity CRUD
+# Generic entity CRUD — stored in Replit Postgres
 # ---------------------------------------------------------------------------
 
-def parse_filter_query(q_str: str):
-    try:
-        return json.loads(q_str)
-    except Exception:
-        return {}
-
-
-def entity_matches_filter(data: dict, filters: dict) -> bool:
-    for key, val in filters.items():
-        if isinstance(val, dict):
-            op = list(val.keys())[0] if val else None
-            op_val = list(val.values())[0] if val else None
-            field_val = data.get(key)
-            if op == "$eq" and field_val != op_val:
-                return False
-            elif op == "$ne" and field_val == op_val:
-                return False
-            elif op == "$gt" and not (field_val is not None and field_val > op_val):
-                return False
-            elif op == "$gte" and not (field_val is not None and field_val >= op_val):
-                return False
-            elif op == "$lt" and not (field_val is not None and field_val < op_val):
-                return False
-            elif op == "$lte" and not (field_val is not None and field_val <= op_val):
-                return False
-            elif op == "$in" and field_val not in (op_val or []):
-                return False
-        else:
-            if data.get(key) != val:
-                return False
-    return True
+def require_auth():
+    user, token = get_current_user()
+    if not user:
+        return None, None, (jsonify({"error": "Unauthorized"}), 401)
+    return user, token, None
 
 
 @app.route("/api/apps/<app_id>/entities/<entity_type>", methods=["GET"])
-@require_auth
 def list_entities(app_id, entity_type):
     if entity_type == "User":
-        return jsonify([user_to_dict(request.current_user)])
+        user, token = get_current_user()
+        if not user:
+            return jsonify({"error": "Unauthorized"}), 401
+        return jsonify([format_user(user)])
 
-    user_id = request.current_user["id"]
-    sort = request.args.get("sort")
+    user, token, err = require_auth()
+    if err:
+        return err
+
     limit = int(request.args.get("limit", 1000))
     skip = int(request.args.get("skip", 0))
     filter_q = request.args.get("q")
 
-    conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM entities WHERE entity_type=? AND owner_id=? ORDER BY created_at DESC",
-        (entity_type, user_id)
-    ).fetchall()
-    conn.close()
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "SELECT * FROM entities WHERE user_id=%s AND entity_type=%s ORDER BY created_at DESC LIMIT %s OFFSET %s",
+            (user["id"], entity_type, limit, skip)
+        )
+        rows = cur.fetchall()
+        conn.close()
+    except Exception as e:
+        return jsonify([])
 
     results = []
     for row in rows:
-        d = json.loads(row["data"])
+        d = dict(row.get("data") or {})
         d["id"] = row["id"]
-        d["created_date"] = row["created_at"]
-        d["updated_date"] = row["updated_at"]
+        d["created_date"] = row["created_at"].isoformat() if row.get("created_at") else ""
+        d["updated_date"] = row["updated_at"].isoformat() if row.get("updated_at") else ""
         results.append(d)
 
     if filter_q:
-        filters = parse_filter_query(filter_q)
-        results = [r for r in results if entity_matches_filter(r, filters)]
+        try:
+            filters = json.loads(filter_q)
+            results = [r for r in results if _matches(r, filters)]
+        except Exception:
+            pass
 
-    if sort:
-        reverse = sort.startswith("-")
-        sort_key = sort.lstrip("-")
-        results.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
-
-    results = results[skip:skip + limit]
     return jsonify(results)
 
 
+def _matches(data, filters):
+    for key, val in filters.items():
+        if isinstance(val, dict):
+            op = next(iter(val))
+            op_val = val[op]
+            field = data.get(key)
+            if op == "$eq" and field != op_val: return False
+            elif op == "$ne" and field == op_val: return False
+            elif op == "$gt" and not (field is not None and field > op_val): return False
+            elif op == "$gte" and not (field is not None and field >= op_val): return False
+            elif op == "$lt" and not (field is not None and field < op_val): return False
+            elif op == "$lte" and not (field is not None and field <= op_val): return False
+            elif op == "$in" and field not in (op_val or []): return False
+        else:
+            if data.get(key) != val: return False
+    return True
+
+
 @app.route("/api/apps/<app_id>/entities/<entity_type>", methods=["POST"])
-@require_auth
 def create_entity(app_id, entity_type):
-    user_id = request.current_user["id"]
-    data = request.get_json(force=True) or {}
+    user, token, err = require_auth()
+    if err:
+        return err
+
+    body = request.get_json(force=True) or {}
+    body.pop("id", None)
+    body.pop("created_date", None)
+    body.pop("updated_date", None)
+    body.pop("user_id", None)
 
     entity_id = str(uuid.uuid4())
-    ts = now_iso()
-    data.pop("id", None)
-    data.pop("created_date", None)
-    data.pop("updated_date", None)
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO entities (id, user_id, entity_type, data) VALUES (%s, %s, %s, %s)",
+            (entity_id, user["id"], entity_type, json.dumps(body))
+        )
+        conn.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    conn = get_db()
-    conn.execute(
-        "INSERT INTO entities (id, entity_type, owner_id, data, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-        (entity_id, entity_type, user_id, json.dumps(data), ts, ts)
-    )
-    conn.commit()
-    conn.close()
-
-    data["id"] = entity_id
-    data["created_date"] = ts
-    data["updated_date"] = ts
-    return jsonify(data), 201
+    body["id"] = entity_id
+    body["created_date"] = now_iso()
+    body["updated_date"] = now_iso()
+    return jsonify(body), 201
 
 
 @app.route("/api/apps/<app_id>/entities/<entity_type>/<entity_id>", methods=["GET"])
-@require_auth
 def get_entity(app_id, entity_type, entity_id):
     if entity_type == "User" and entity_id == "me":
-        return jsonify(user_to_dict(request.current_user))
+        return get_me(app_id)
 
-    user_id = request.current_user["id"]
-    conn = get_db()
-    row = conn.execute(
-        "SELECT * FROM entities WHERE id=? AND entity_type=? AND owner_id=?",
-        (entity_id, entity_type, user_id)
-    ).fetchone()
-    conn.close()
+    user, token, err = require_auth()
+    if err:
+        return err
+
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "SELECT * FROM entities WHERE id=%s AND user_id=%s AND entity_type=%s",
+            (entity_id, user["id"], entity_type)
+        )
+        row = cur.fetchone()
+        conn.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
     if not row:
         return jsonify({"error": "Not found"}), 404
 
-    d = json.loads(row["data"])
+    d = dict(row.get("data") or {})
     d["id"] = row["id"]
-    d["created_date"] = row["created_at"]
-    d["updated_date"] = row["updated_at"]
+    d["created_date"] = row["created_at"].isoformat() if row.get("created_at") else ""
+    d["updated_date"] = row["updated_at"].isoformat() if row.get("updated_at") else ""
     return jsonify(d)
 
 
 @app.route("/api/apps/<app_id>/entities/<entity_type>/<entity_id>", methods=["PUT"])
-@require_auth
 def update_entity(app_id, entity_type, entity_id):
     if entity_type == "User":
-        data = request.get_json(force=True) or {}
-        allowed = ["full_name", "role"]
+        return update_me(app_id)
+
+    user, token, err = require_auth()
+    if err:
+        return err
+
+    body = request.get_json(force=True) or {}
+    body.pop("id", None)
+    body.pop("created_date", None)
+    body.pop("updated_date", None)
+    body.pop("user_id", None)
+
+    try:
         conn = get_db()
-        for field in allowed:
-            if field in data:
-                conn.execute(f"UPDATE users SET {field}=?, updated_at=? WHERE id=?",
-                             (data[field], now_iso(), request.current_user["id"]))
-        conn.commit()
-        user = dict(conn.execute("SELECT * FROM users WHERE id=?", (request.current_user["id"],)).fetchone())
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        # Merge existing data with new data
+        cur.execute(
+            "SELECT data FROM entities WHERE id=%s AND user_id=%s AND entity_type=%s",
+            (entity_id, user["id"], entity_type)
+        )
+        existing = cur.fetchone()
+        if not existing:
+            conn.close()
+            return jsonify({"error": "Not found"}), 404
+        merged = dict(existing["data"] or {})
+        merged.update(body)
+        cur.execute(
+            "UPDATE entities SET data=%s, updated_at=NOW() WHERE id=%s AND user_id=%s RETURNING *",
+            (json.dumps(merged), entity_id, user["id"])
+        )
+        row = cur.fetchone()
         conn.close()
-        return jsonify(user_to_dict(user))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    user_id = request.current_user["id"]
-    conn = get_db()
-    row = conn.execute(
-        "SELECT * FROM entities WHERE id=? AND entity_type=? AND owner_id=?",
-        (entity_id, entity_type, user_id)
-    ).fetchone()
-
-    if not row:
-        conn.close()
-        return jsonify({"error": "Not found"}), 404
-
-    existing = json.loads(row["data"])
-    new_data = request.get_json(force=True) or {}
-    new_data.pop("id", None)
-    new_data.pop("created_date", None)
-    new_data.pop("updated_date", None)
-    existing.update(new_data)
-    ts = now_iso()
-
-    conn.execute(
-        "UPDATE entities SET data=?, updated_at=? WHERE id=?",
-        (json.dumps(existing), ts, entity_id)
-    )
-    conn.commit()
-    conn.close()
-
-    existing["id"] = entity_id
-    existing["created_date"] = row["created_at"]
-    existing["updated_date"] = ts
-    return jsonify(existing)
+    d = dict(row.get("data") or {})
+    d["id"] = row["id"]
+    d["created_date"] = row["created_at"].isoformat() if row.get("created_at") else ""
+    d["updated_date"] = row["updated_at"].isoformat() if row.get("updated_at") else ""
+    return jsonify(d)
 
 
 @app.route("/api/apps/<app_id>/entities/<entity_type>/<entity_id>", methods=["DELETE"])
-@require_auth
 def delete_entity(app_id, entity_type, entity_id):
-    user_id = request.current_user["id"]
-    conn = get_db()
-    result = conn.execute(
-        "DELETE FROM entities WHERE id=? AND entity_type=? AND owner_id=?",
-        (entity_id, entity_type, user_id)
-    )
-    conn.commit()
-    conn.close()
-
-    if result.rowcount == 0:
+    user, token, err = require_auth()
+    if err:
+        return err
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM entities WHERE id=%s AND user_id=%s AND entity_type=%s",
+            (entity_id, user["id"], entity_type)
+        )
+        affected = cur.rowcount
+        conn.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    if affected == 0:
         return jsonify({"error": "Not found"}), 404
     return jsonify({"success": True})
 
 
 @app.route("/api/apps/<app_id>/entities/<entity_type>", methods=["DELETE"])
-@require_auth
 def delete_many_entities(app_id, entity_type):
-    user_id = request.current_user["id"]
-    data = request.get_json(force=True) or {}
-    ids = data if isinstance(data, list) else data.get("ids", [])
-
-    conn = get_db()
-    for entity_id in ids:
-        conn.execute(
-            "DELETE FROM entities WHERE id=? AND entity_type=? AND owner_id=?",
-            (entity_id, entity_type, user_id)
-        )
-    conn.commit()
-    conn.close()
+    user, token, err = require_auth()
+    if err:
+        return err
+    body = request.get_json(force=True) or {}
+    ids = body if isinstance(body, list) else body.get("ids", [])
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        for eid in ids:
+            cur.execute(
+                "DELETE FROM entities WHERE id=%s AND user_id=%s AND entity_type=%s",
+                (eid, user["id"], entity_type)
+            )
+        conn.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     return jsonify({"success": True})
 
 
 # ---------------------------------------------------------------------------
-# AI / LLM integration endpoint
+# AI / LLM
 # ---------------------------------------------------------------------------
 
 @app.route("/api/apps/<app_id>/integration-endpoints/Core/InvokeLLM", methods=["POST"])
-@require_auth
 def invoke_llm(app_id):
-    if not OPENAI_API_KEY:
-        return jsonify({
-            "error": "OpenAI API key not configured. Set the OPENAI_API_KEY environment variable."
-        }), 503
+    user, token, err = require_auth()
+    if err:
+        return err
 
-    import urllib.request
+    if not OPENAI_API_KEY:
+        return jsonify({"error": "OpenAI API key not configured. Add OPENAI_API_KEY to secrets."}), 503
+
     data = request.get_json(force=True) or {}
     prompt = data.get("prompt", "")
     response_json_schema = data.get("response_json_schema")
-    image_urls = data.get("image_urls", [])
 
     messages = [{"role": "user", "content": prompt}]
-
-    if image_urls:
-        content = [{"type": "text", "text": prompt}]
-        for url in image_urls:
-            content.append({"type": "image_url", "image_url": {"url": url}})
-        messages = [{"role": "user", "content": content}]
-
-    payload = {
-        "model": "gpt-4o-mini",
-        "messages": messages,
-    }
-
+    payload = {"model": "gpt-4o-mini", "messages": messages}
     if response_json_schema:
         payload["response_format"] = {"type": "json_object"}
         payload["messages"] = [
-            {"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON only."},
+            {"role": "system", "content": "Respond with valid JSON only."},
             *messages
         ]
 
@@ -599,12 +692,8 @@ def invoke_llm(app_id):
     req = urllib.request.Request(
         "https://api.openai.com/v1/chat/completions",
         data=req_body,
-        headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json",
-        }
+        headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
     )
-
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read())
@@ -617,14 +706,13 @@ def invoke_llm(app_id):
                 return jsonify(json.loads(cleaned))
         return jsonify({"result": text})
     except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        return jsonify({"error": f"OpenAI error: {body}"}), 502
+        return jsonify({"error": f"OpenAI error: {e.read().decode()}"}), 502
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 
 
 # ---------------------------------------------------------------------------
-# Analytics (no-op)
+# No-op stubs
 # ---------------------------------------------------------------------------
 
 @app.route("/api/apps/<app_id>/analytics/track/batch", methods=["POST"])
@@ -637,25 +725,11 @@ def log_page_view(app_id, page_name):
     return jsonify({"success": True})
 
 
-# ---------------------------------------------------------------------------
-# Runtime / invite (stubs)
-# ---------------------------------------------------------------------------
-
 @app.route("/api/apps/<app_id>/runtime/users/invite-user", methods=["POST"])
-@require_auth
-def invite_user(app_id):
-    return jsonify({"message": "Invite sent"}), 200
-
-
 @app.route("/api/apps/<app_id>/users/invite-user", methods=["POST"])
-@require_auth
-def invite_user_alt(app_id):
-    return jsonify({"message": "Invite sent"}), 200
+def invite_user(app_id):
+    return jsonify({"message": "Invite sent"})
 
-
-# ---------------------------------------------------------------------------
-# Manifest
-# ---------------------------------------------------------------------------
 
 @app.route("/api/apps/manifests/<app_id>/manifest.json")
 def manifest(app_id):

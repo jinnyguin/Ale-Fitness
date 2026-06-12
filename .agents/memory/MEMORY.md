@@ -1,0 +1,1 @@
+- [ALEFIT auth architecture](alefit-auth.md) — standalone Login.html/Register.html bypass React SPA; Supabase service key stored in "Database" env var
