@@ -15,8 +15,8 @@ app = Flask(__name__, static_folder=".")
 CORS(app)
 
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
-JWT_SECRET = os.environ.get("JWT_SECRET", "pulsefit-secret-key-change-in-production")
-DB_PATH = "pulsefit.db"
+JWT_SECRET = os.environ.get("JWT_SECRET", "alefit-secret-key-change-in-production")
+DB_PATH = "alefit.db"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 
@@ -193,7 +193,7 @@ def static_files(filename):
 def public_settings(app_id):
     return jsonify({
         "id": app_id,
-        "name": "PulseFit",
+        "name": "ALEFIT",
         "auth": {
             "enabled": True,
             "providers": ["email"],
@@ -660,8 +660,8 @@ def invite_user_alt(app_id):
 @app.route("/api/apps/manifests/<app_id>/manifest.json")
 def manifest(app_id):
     return jsonify({
-        "name": "PulseFit",
-        "short_name": "PulseFit",
+        "name": "ALEFIT",
+        "short_name": "ALEFIT",
         "description": "An elite fitness management engine for high-performance training.",
         "icons": [],
         "start_url": "/",
