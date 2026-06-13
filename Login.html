@@ -156,7 +156,9 @@
         localStorage.setItem('base44_access_token', data.access_token);
         localStorage.setItem('token', data.access_token);
         if (data.user) localStorage.setItem('alefit_user', JSON.stringify(data.user));
-        window.location.replace(fromUrl);
+        var dest = new URL(fromUrl, window.location.origin);
+        dest.searchParams.set('access_token', data.access_token);
+        window.location.replace(dest.toString());
       } else {
         showError(data.error || data.message || 'Login failed. Check your email and password.');
         submitBtn.disabled = false;

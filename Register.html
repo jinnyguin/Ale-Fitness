@@ -181,11 +181,9 @@
         localStorage.setItem('base44_access_token', data.access_token);
         localStorage.setItem('token', data.access_token);
         if (data.user) localStorage.setItem('alefit_user', JSON.stringify(data.user));
-        window.location.replace(fromUrl);
-      } else if (data.error && data.error.includes('email')) {
-        showSuccess(data.error);
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Create Account';
+        var dest = new URL(fromUrl, window.location.origin);
+        dest.searchParams.set('access_token', data.access_token);
+        window.location.replace(dest.toString());
       } else {
         showError(data.error || data.message || 'Registration failed. Please try again.');
         submitBtn.disabled = false;
