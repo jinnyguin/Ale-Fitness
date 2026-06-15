@@ -1,1 +1,1 @@
-- [ALEFIT auth architecture](alefit-auth.md) — SPA reads token from URL param (?access_token=) AND localStorage fallback; redirect after login must include ?access_token= in dest URL
+- [InvokeLLM server-side generator](meal-plan-generator.md) — External free AI APIs (Hack Club, Pollinations) are blocked from Replit's network; use server-side template generator instead.
