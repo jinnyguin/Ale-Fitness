@@ -256,11 +256,23 @@ SUPPORTED_OAUTH_PROVIDERS = {"google", "apple"}
 
 @app.route("/api/oauth/authorize")
 def oauth_authorize():
+    import http.client
     provider = (request.args.get("provider") or "").lower()
     if provider not in SUPPORTED_OAUTH_PROVIDERS:
         return jsonify({"error": f"Unsupported provider: {provider}"}), 400
     redirect_to = request.args.get("redirect_to") or (request.host_url + "auth/callback")
     url = f"{SUPABASE_URL}/auth/v1/authorize?provider={provider}&redirect_to={urllib.parse.quote(redirect_to, safe='')}"
+    # Pre-check whether the provider is actually enabled in Supabase
+    try:
+        parsed = urllib.parse.urlparse(url)
+        conn = http.client.HTTPSConnection(parsed.netloc, timeout=5)
+        conn.request("GET", parsed.path + "?" + parsed.query)
+        resp = conn.getresponse()
+        conn.close()
+        if resp.status >= 400:
+            return jsonify({"error": f"{provider.capitalize()} sign-in is not yet enabled. Please use email sign-in."}), 400
+    except Exception:
+        pass  # Network issue — return URL anyway and let browser handle it
     return jsonify({"url": url})
 
 
