@@ -137,6 +137,28 @@
   <script crossorigin="" src="assets/index-C7oXusOW.js" type="module">
   </script>
   <link crossorigin="" href="assets/index-AqnWfqV4.css" rel="stylesheet"/>
+  <style>
+    /* Remove hero background image from home page */
+    img[alt="Athlete gripping a barbell with chalk on hands"],
+    img[src*="bbcf3126a_generated_52fdbe43"] {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+    }
+    section#home > div:first-child {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    section#home {
+      justify-content: center !important;
+    }
+    section#home > div:nth-child(2) {
+      width: 100% !important;
+      max-width: 860px !important;
+      padding-left: 3rem !important;
+      padding-right: 3rem !important;
+    }
+  </style>
   <meta content="An elite fitness management engine designed for high-performance training, featuring kinetic class scheduling and personalized athlete data tracking." name="description"/>
   <meta content="ALEFIT" property="og:title"/>
   <meta content="An elite fitness management engine designed for high-performance training, featuring kinetic class scheduling and personalized athlete data tracking." property="og:description"/>
