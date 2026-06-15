@@ -178,6 +178,11 @@ def index():
     return send_file("index.html")
 
 
+@app.route("/uploads/<path:filename>")
+def serve_upload(filename):
+    return send_from_directory("uploads", filename)
+
+
 @app.route("/login")
 def login_page():
     return send_file("Login.html")
@@ -435,12 +440,29 @@ def auth_resend_otp(app_id):
     return jsonify({"message": "OK"})
 
 
+def get_profile_extras(user_id):
+    """Return bio, avatar_url, daily_calorie_goal from the profiles table."""
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT bio, avatar_url, daily_calorie_goal FROM profiles WHERE id=%s", (user_id,))
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return {"bio": row["bio"] or "", "avatar_url": row["avatar_url"] or "", "daily_calorie_goal": row["daily_calorie_goal"] or 2000}
+    except Exception:
+        pass
+    return {"bio": "", "avatar_url": "", "daily_calorie_goal": 2000}
+
+
 @app.route("/api/apps/<app_id>/auth/me", methods=["GET"])
 def auth_me(app_id):
     user, token = get_current_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
-    return jsonify(format_user(user))
+    result = format_user(user)
+    result.update(get_profile_extras(user["id"]))
+    return jsonify(result)
 
 
 @app.route("/api/apps/<app_id>/auth/me", methods=["PUT"])
@@ -449,18 +471,61 @@ def auth_me_update(app_id):
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     body = request.get_json(force=True) or {}
-    full_name = body.get("full_name") or ""
-    if full_name:
+    full_name = body.get("full_name")
+    bio = body.get("bio")
+    daily_calorie_goal = body.get("daily_calorie_goal")
+
+    if full_name is not None:
         supabase_auth("PUT", "/auth/v1/user", {"data": {"full_name": full_name}}, token=token)
-        try:
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("UPDATE profiles SET full_name=%s, updated_at=NOW() WHERE id=%s", (full_name, user["id"]))
-            conn.close()
-        except Exception:
-            pass
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        updates, vals = ["updated_at=NOW()"], []
+        if full_name is not None:
+            updates.append("full_name=%s"); vals.append(full_name)
+        if bio is not None:
+            updates.append("bio=%s"); vals.append(bio)
+        if daily_calorie_goal is not None:
+            updates.append("daily_calorie_goal=%s"); vals.append(int(daily_calorie_goal))
+        vals.append(user["id"])
+        cur.execute(f"UPDATE profiles SET {', '.join(updates)} WHERE id=%s", vals)
+        conn.close()
+    except Exception:
+        pass
+
     status, updated = supabase_auth("GET", "/auth/v1/user", token=token)
-    return jsonify(format_user(updated if status == 200 else user))
+    result = format_user(updated if status == 200 else user)
+    result.update(get_profile_extras(user["id"]))
+    return jsonify(result)
+
+
+@app.route("/api/apps/<app_id>/auth/avatar", methods=["POST"])
+def auth_avatar(app_id):
+    from werkzeug.utils import secure_filename
+    user, token = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    f = request.files["file"]
+    if not f or f.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+    ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else "jpg"
+    if ext not in ("jpg", "jpeg", "png", "gif", "webp"):
+        return jsonify({"error": "Unsupported file type"}), 400
+    os.makedirs(os.path.join("uploads", "avatars"), exist_ok=True)
+    filename = f"{user['id']}.{ext}"
+    f.save(os.path.join("uploads", "avatars", filename))
+    avatar_url = f"/uploads/avatars/{filename}"
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("UPDATE profiles SET avatar_url=%s, updated_at=NOW() WHERE id=%s", (avatar_url, user["id"]))
+        conn.close()
+    except Exception:
+        pass
+    return jsonify({"avatar_url": avatar_url})
 
 
 # ---------------------------------------------------------------------------
