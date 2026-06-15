@@ -148,8 +148,6 @@ AUTH_GUARD_SCRIPT = """<script>
 </script>"""
 
 PROTECTED_PATHS = {
-    "/calorie-tracker", "/calorie-tracker.html",
-    "/meal-plan", "/meal-plan.html",
     "/account", "/Account.html",
 }
 PROTECTED_PREFIXES = ("/programs/",)
