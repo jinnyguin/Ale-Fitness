@@ -3,83 +3,63 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Register | ALEFIT</title>
+  <title>Create Account | ALEFIT</title>
   <link rel="icon" href="/images/c88292ed9_logo.png" type="image/png"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-      background: #0f172a;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 1.5rem;
+      background: #000; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 1.5rem;
     }
     .card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 1rem;
-      padding: 2.5rem 2rem;
-      width: 100%;
-      max-width: 420px;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+      background: #0f0f0f; border: 1px solid #1f1f1f; border-radius: 1rem;
+      padding: 2.5rem 2rem; width: 100%; max-width: 420px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.6);
     }
     .logo { text-align: center; margin-bottom: 2rem; }
-    .logo h1 {
-      font-size: 2rem; font-weight: 800;
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text; letter-spacing: 0.05em;
-    }
-    .logo p { color: #94a3b8; font-size: 0.875rem; margin-top: 0.25rem; }
-    h2 { color: #f1f5f9; font-size: 1.375rem; font-weight: 600; margin-bottom: 1.25rem; text-align: center; }
-    label { display: block; color: #94a3b8; font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.375rem; }
+    .logo h1 { font-size: 2rem; font-weight: 900; color: #4ade80; letter-spacing: 0.06em; }
+    .logo p { color: #555; font-size: 0.875rem; margin-top: 0.25rem; }
+    h2 { color: #fff; font-size: 1.375rem; font-weight: 700; margin-bottom: 1.25rem; text-align: center; }
+    label { display: block; color: #666; font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.375rem; }
     .field { margin-bottom: 1.125rem; }
     input[type=email], input[type=password], input[type=text] {
-      width: 100%; background: #0f172a; border: 1px solid #334155;
-      border-radius: 0.5rem; padding: 0.6875rem 0.875rem;
-      color: #f1f5f9; font-size: 0.9375rem; outline: none;
-      transition: border-color 0.15s;
+      width: 100%; background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 0.5rem;
+      padding: 0.6875rem 0.875rem; color: #fff; font-size: 0.9375rem;
+      outline: none; transition: border-color 0.15s;
     }
-    input:focus { border-color: #3b82f6; }
-    input::placeholder { color: #475569; }
+    input:focus { border-color: #4ade80; }
+    input::placeholder { color: #333; }
     .btn {
-      width: 100%; background: linear-gradient(135deg, #3b82f6, #6366f1);
-      color: #fff; border: none; border-radius: 0.5rem;
-      padding: 0.75rem; font-size: 0.9375rem; font-weight: 600;
-      cursor: pointer; margin-top: 0.5rem;
-      transition: opacity 0.15s, transform 0.1s;
+      width: 100%; background: #4ade80; color: #000; border: none; border-radius: 0.5rem;
+      padding: 0.75rem; font-size: 0.9375rem; font-weight: 800; cursor: pointer;
+      margin-top: 0.5rem; transition: opacity 0.15s, transform 0.1s; letter-spacing: 0.02em;
     }
-    .btn:hover { opacity: 0.92; }
+    .btn:hover { opacity: 0.88; }
     .btn:active { transform: scale(0.98); }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-social {
-      width: 100%; background: #0f172a; color: #f1f5f9;
-      border: 1px solid #334155; border-radius: 0.5rem;
-      padding: 0.7rem; font-size: 0.9rem; font-weight: 500;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      gap: 0.6rem; transition: border-color 0.15s, background 0.15s;
-      margin-bottom: 0.6rem; text-decoration: none;
+      width: 100%; background: #0a0a0a; color: #ddd;
+      border: 1px solid #1f1f1f; border-radius: 0.5rem;
+      padding: 0.7rem; font-size: 0.9rem; font-weight: 500; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+      transition: border-color 0.15s; margin-bottom: 0.6rem; text-decoration: none;
     }
-    .btn-social:hover { border-color: #475569; background: #1e293b; }
-    .btn-social svg { flex-shrink: 0; }
+    .btn-social:hover { border-color: #333; }
     .divider-row {
       display: flex; align-items: center; gap: 0.75rem;
-      margin: 1rem 0; color: #475569; font-size: 0.8125rem;
+      margin: 1rem 0; color: #333; font-size: 0.8125rem;
     }
-    .divider-row::before, .divider-row::after {
-      content: ''; flex: 1; border-top: 1px solid #334155;
-    }
+    .divider-row::before, .divider-row::after { content: ''; flex: 1; border-top: 1px solid #1f1f1f; }
     .error-msg {
-      background: #450a0a; border: 1px solid #7f1d1d; color: #fca5a5;
-      border-radius: 0.5rem; padding: 0.75rem 0.875rem;
-      font-size: 0.875rem; margin-bottom: 1rem; display: none;
+      background: #1a0000; border: 1px solid #7f1d1d; color: #fca5a5;
+      border-radius: 0.5rem; padding: 0.75rem 0.875rem; font-size: 0.875rem;
+      margin-bottom: 1rem; display: none;
     }
-    .links { text-align: center; margin-top: 1.25rem; color: #64748b; font-size: 0.875rem; }
-    .links a { color: #60a5fa; text-decoration: none; font-weight: 500; }
+    .hint { color: #444; font-size: 0.75rem; margin-top: 0.25rem; }
+    .links { text-align: center; margin-top: 1.25rem; color: #444; font-size: 0.875rem; }
+    .links a { color: #4ade80; text-decoration: none; font-weight: 500; }
     .links a:hover { text-decoration: underline; }
-    .hint { color: #64748b; font-size: 0.75rem; margin-top: 0.25rem; }
   </style>
 </head>
 <body>
@@ -91,13 +71,12 @@
   <h2>Create Account</h2>
   <div class="error-msg" id="errorMsg"></div>
 
-  <!-- Social signup buttons -->
-  <a href="#" class="btn-social" id="googleBtn" onclick="socialLogin('google'); return false;">
+  <a href="#" class="btn-social" onclick="socialLogin('google'); return false;">
     <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
     Sign up with Google
   </a>
-  <a href="#" class="btn-social" id="appleBtn" onclick="socialLogin('apple'); return false;">
-    <svg width="18" height="18" viewBox="0 0 814 1000" fill="currentColor"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.3-164-39.3c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46.7 790.7 0 663 0 541.8c0-194.3 127.4-297.5 252.8-297.5 66.1 0 121.2 43.4 162.7 43.4 39.5 0 101.1-46 176.3-46 28.5 0 130.9 2.6 198.3 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z"/></svg>
+  <a href="#" class="btn-social" onclick="socialLogin('apple'); return false;">
+    <svg width="18" height="18" viewBox="0 0 814 1000" fill="white"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.3-164-39.3c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46.7 790.7 0 663 0 541.8c0-194.3 127.4-297.5 252.8-297.5 66.1 0 121.2 43.4 162.7 43.4 39.5 0 101.1-46 176.3-46 28.5 0 130.9 2.6 198.3 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z"/></svg>
     Sign up with Apple
   </a>
 
@@ -105,22 +84,23 @@
 
   <form id="registerForm">
     <div class="field">
-      <label for="fullName">Full Name</label>
-      <input type="text" id="fullName" name="fullName" placeholder="Alex Johnson" required autocomplete="name"/>
+      <label>Full Name</label>
+      <input type="text" id="fullName" placeholder="Alex Johnson" required autocomplete="name"/>
     </div>
     <div class="field">
-      <label for="email">Email address</label>
-      <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email"/>
+      <label>Email address</label>
+      <input type="email" id="email" placeholder="you@example.com" required autocomplete="email"/>
     </div>
     <div class="field">
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" placeholder="At least 6 characters" required autocomplete="new-password" minlength="6"/>
+      <label>Password</label>
+      <input type="password" id="password" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password"/>
       <p class="hint">Minimum 6 characters</p>
     </div>
-    <button type="submit" class="btn" id="submitBtn">Create Account</button>
+    <button type="submit" class="btn" id="submitBtn">Create Account — It's Free</button>
   </form>
   <div class="links">
     Already have an account? <a href="/Login.html">Sign in</a>
+    <div style="margin-top:0.5rem"><a href="/">← Back to home</a></div>
   </div>
 </div>
 <script>
@@ -130,10 +110,7 @@
   var fromUrl = params.get('from_url') || '/';
 
   var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
-  if (token) {
-    window.location.replace(fromUrl);
-    return;
-  }
+  if (token) { window.location.replace(fromUrl); return; }
 
   window.socialLogin = function(provider) {
     var callbackUrl = window.location.origin + '/auth/callback?from_url=' + encodeURIComponent(fromUrl);
@@ -141,37 +118,27 @@
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.url) window.location.href = d.url;
-        else showError('OAuth not configured for ' + provider + '. Please use email sign-up.');
+        else showError('OAuth not configured for ' + provider + '. Please use email.');
       })
-      .catch(function() { showError('Could not start ' + provider + ' sign-up. Try email instead.'); });
+      .catch(function() { showError('Network error.'); });
   };
 
   var form = document.getElementById('registerForm');
   var errorMsg = document.getElementById('errorMsg');
   var submitBtn = document.getElementById('submitBtn');
-
-  function showError(msg) {
-    errorMsg.textContent = msg;
-    errorMsg.style.display = 'block';
-    successMsg && (successMsg.style.display = 'none');
-  }
-  var successMsg = null;
+  function showError(msg) { errorMsg.textContent = msg; errorMsg.style.display = 'block'; }
 
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
     errorMsg.style.display = 'none';
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating account…';
-
+    submitBtn.disabled = true; submitBtn.textContent = 'Creating account…';
     var fullName = document.getElementById('fullName').value.trim();
     var email = document.getElementById('email').value.trim();
     var password = document.getElementById('password').value;
-
     try {
       var resp = await fetch('/api/apps/' + APP_ID + '/auth/register', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email: email, password: password, full_name: fullName})
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password, full_name: fullName})
       });
       var data = await resp.json();
       if ((resp.status === 200 || resp.status === 201) && data.access_token) {
@@ -182,14 +149,12 @@
         dest.searchParams.set('access_token', data.access_token);
         window.location.replace(dest.toString());
       } else {
-        showError(data.error || data.message || 'Registration failed. Please try again.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Create Account';
+        showError(data.error || 'Registration failed. Please try again.');
+        submitBtn.disabled = false; submitBtn.textContent = 'Create Account — It\'s Free';
       }
     } catch(err) {
       showError('Network error. Please try again.');
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Create Account';
+      submitBtn.disabled = false; submitBtn.textContent = 'Create Account — It\'s Free';
     }
   });
 })();
