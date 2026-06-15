@@ -9,6 +9,131 @@
   <title>
    ALEFIT
   </title>
+  <script src="https://js.puter.com/v2/"></script>
+  <script>
+  /* ── InvokeLLM interceptor (XHR level) ────────────────────────────
+     The React SPA uses axios (which uses XMLHttpRequest) for its API calls.
+     We intercept XMLHttpRequest at the prototype level so ALL requests —
+     fetch, axios, xhr — that hit InvokeLLM get routed to puter.ai.chat()
+     without needing an OpenAI API key.
+  ──────────────────────────────────────────────── */
+  (function() {
+    var _open = XMLHttpRequest.prototype.open;
+    var _send = XMLHttpRequest.prototype.send;
+    var _setRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+
+    function waitPuter(cb) {
+      if (window.puter && window.puter.ai) { cb(); return; }
+      var iv = setInterval(function() {
+        if (window.puter && window.puter.ai) { clearInterval(iv); cb(); }
+      }, 60);
+      setTimeout(function() { clearInterval(iv); cb(); }, 8000);
+    }
+
+    function normalizeResp(resp) {
+      var text = '';
+      if (typeof resp === 'string') { text = resp; }
+      else if (resp && resp.message) {
+        var c = resp.message.content;
+        if (typeof c === 'string') text = c;
+        else if (Array.isArray(c)) text = c.map(function(x){ return x.text || x.content || ''; }).join('');
+        else text = String(c || '');
+      }
+      return text;
+    }
+
+    function savePlan(result, prompt) {
+      var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
+      if (!token) return;
+      fetch('/api/apps/6a1f3d189ebdbe71fa7d256c/entities/MealPlan', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: result, generated_at: new Date().toISOString(), prompt: prompt })
+      }).catch(function() {});
+    }
+
+    function handleInvokeLLM(prompt, wantsJson, onDone) {
+      var sysMsg = wantsJson
+        ? 'You are an expert sports nutritionist for ALEFIT. You MUST respond with valid JSON only — no markdown fences, no extra text, just a raw JSON object matching the requested schema.'
+        : 'You are an expert sports nutritionist and performance coach for ALEFIT. Give detailed, practical, athlete-optimised responses.';
+
+      waitPuter(function() {
+        puter.ai.chat([
+          { role: 'system', content: sysMsg },
+          { role: 'user',   content: prompt }
+        ]).then(function(resp) {
+          var text = normalizeResp(resp);
+          var result;
+          if (wantsJson) {
+            try { result = JSON.parse(text); }
+            catch(e) {
+              var cleaned = text.replace(/```(?:json)?|```/g, '').trim();
+              try { result = JSON.parse(cleaned); }
+              catch(e2) { result = { error: 'Could not parse AI response. Please try again.' }; }
+            }
+          } else {
+            result = { result: text };
+          }
+          if (wantsJson && result && !result.error) savePlan(result, prompt);
+          onDone(200, JSON.stringify(result));
+        }).catch(function(err) {
+          onDone(502, JSON.stringify({ error: 'AI unavailable: ' + (err.message || err) }));
+        });
+      });
+    }
+
+    XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
+      this._interceptUrl = (typeof url === 'string') ? url : '';
+      this._interceptMethod = method;
+      this._interceptHeaders = {};
+      return _open.call(this, method, url, async !== false, user, password);
+    };
+
+    XMLHttpRequest.prototype.setRequestHeader = function(header, value) {
+      if (this._interceptHeaders) this._interceptHeaders[header.toLowerCase()] = value;
+      return _setRequestHeader.call(this, header, value);
+    };
+
+    XMLHttpRequest.prototype.send = function(data) {
+      var self = this;
+      var url = this._interceptUrl || '';
+      if (url.indexOf('InvokeLLM') === -1) {
+        return _send.call(this, data);
+      }
+
+      var body = {};
+      try { body = JSON.parse(data || '{}'); } catch(e) {}
+      var prompt = body.prompt || '';
+      var wantsJson = !!body.response_json_schema;
+
+      handleInvokeLLM(prompt, wantsJson, function(status, respText) {
+        Object.defineProperty(self, 'readyState', { value: 4, writable: true });
+        Object.defineProperty(self, 'status',     { value: status, writable: true });
+        Object.defineProperty(self, 'statusText', { value: status === 200 ? 'OK' : 'Error', writable: true });
+        Object.defineProperty(self, 'responseText',{ value: respText, writable: true });
+        Object.defineProperty(self, 'response',   { value: respText, writable: true });
+        self._interceptHeaders = self._interceptHeaders || {};
+        if (self.onreadystatechange) self.onreadystatechange();
+        if (self.onload) self.onload();
+        if (self.onloadend) self.onloadend();
+      });
+    };
+
+    /* Also intercept fetch in case axios uses the fetch adapter */
+    var _fetch = window.fetch.bind(window);
+    window.fetch = async function(url, opts) {
+      var urlStr = (typeof url === 'string') ? url : (url && url.url) || '';
+      if (urlStr.indexOf('InvokeLLM') === -1) return _fetch(url, opts);
+      return new Promise(function(resolve) {
+        var body = {};
+        try { body = JSON.parse(opts && opts.body ? opts.body : '{}'); } catch(e) {}
+        handleInvokeLLM(body.prompt || '', !!body.response_json_schema, function(status, text) {
+          resolve(new Response(text, { status: status, headers: { 'Content-Type': 'application/json' } }));
+        });
+      });
+    };
+  })();
+  </script>
   <script crossorigin="" src="assets/index-C7oXusOW.js" type="module">
   </script>
   <link crossorigin="" href="assets/index-AqnWfqV4.css" rel="stylesheet"/>
