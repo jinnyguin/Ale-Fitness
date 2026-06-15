@@ -8,6 +8,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <script>
+  (function(){
+    var t = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
+    if (!t) {
+      window.location.replace('/Login.html?from_url=' + encodeURIComponent(window.location.href));
+    }
+  })();
+  </script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     :root{--lime:#D4FF00;--bg:#0F0F0F;--surface:#141414;--border:#1f1f1f;--text:#fff;--muted:rgba(255,255,255,0.4)}
