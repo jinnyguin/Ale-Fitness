@@ -1536,7 +1536,8 @@ def invoke_llm(app_id):
     data = request.get_json(force=True) or {}
     prompt = data.get("prompt", "")
     response_json_schema = data.get("response_json_schema")
-    want_json = bool(response_json_schema)
+    # Treat meal-plan prompts as JSON requests even when schema not sent
+    want_json = bool(response_json_schema) or "meal plan" in prompt.lower() or "7-day" in prompt.lower()
 
     # Try OpenAI first if key exists
     if OPENAI_API_KEY:
