@@ -175,11 +175,6 @@ def inject_guard(html_content):
 
 @app.route("/")
 def index():
-    return send_file("landing.html")
-
-
-@app.route("/app")
-def app_page():
     return send_file("index.html")
 
 
