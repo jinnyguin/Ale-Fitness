@@ -1,32 +1,40 @@
 ---
 name: ALEFIT auth architecture
-description: How auth, login/register pages, and Supabase keys are wired in this project
+description: How auth flows between Flask backend, Supabase, standalone HTML pages, and React SPA bundle
 ---
 
-## Key decisions
+## Stack
+- Flask (server.py, port 5000) + Supabase Auth + Replit Postgres
+- React SPA bundle: assets/index-C7oXusOW.js (compiled, patched in-place)
+- Standalone auth pages: Login.html, Register.html, Account.html, OAuthCallback.html
 
-**Login.html and Register.html are standalone pages** (no React SPA bundle). The React SPA's `navigateToLogin()` redirects to `/Login.html?from_url=...`, and the React router has no `/Login.html` route — so the pages MUST be standalone HTML with their own form/fetch logic, not SPA entry points.
+## Token flow
+The React SPA SDK reads `access_token` from URL search params first (`Vn("access_token", {removeFromUrl:true})`), then falls back to `localStorage.getItem("base44_access_token")`. After login/register, both Login.html and Register.html must append `?access_token=TOKEN` to the redirect URL so the SPA picks it up immediately.
 
-**Why:** The compiled React bundle (assets/index-C7oXusOW.js) uses BrowserRouter and its catch-all route renders a 404 for any unknown path including `/Login.html`. Injecting `history.replaceState` before React loads would cause infinite redirect loops because `auth_required` → `navigateToLogin()` → browser redirect.
+**Why:** Without the URL param, the SPA at `/` calls `/entities/User/me` before localStorage is consulted by the SDK init, triggering an auth_required error and login loop.
 
-**How to apply:** Keep Login.html and Register.html as self-contained HTML pages with inline `<script>` that call the Flask backend directly at `/api/apps/6a1f3d189ebdbe71fa7d256c/auth/login` and `/auth/register`. After successful login, read `from_url` from URL params and redirect there.
+## Bundle patches applied
+- Image URLs: all `https://media.base44.com/...` replaced with `/images/filename` (7 total)
+- Nav G0 array: Login item is now dynamic — reads localStorage to show "My Account"/Account.html vs "Login"/Login.html
+- Login redirect: `/#signup` → `#signup` (already done earlier)
+- Nav LOGIN link added earlier
 
-## Supabase keys
+## Protected paths (server.py)
+PROTECTED_PATHS: /calorie-tracker, /calorie-tracker.html, /meal-plan, /meal-plan.html, /account, /Account.html
+PROTECTED_PREFIXES: /programs/
 
-- `SUPABASE_KEY` — anon/public JWT (208 chars). Used for user-facing auth calls.
-- `SUPABASE_SERVICE_KEY` or `Database` env var — contains `sb_secret_3QH-...` which is the service role key that unlocks `/auth/v1/admin/*` endpoints.
-- **Why:** Admin API is required to create users with `email_confirm: true` (bypassing email verification flow). The anon key returns 403 for all admin endpoints.
+## OAuth (Google / Apple)
+Route: GET /api/oauth/authorize?provider=google&redirect_to=URL → returns {url: "supabase_oauth_url"}
+Callback page: /auth/callback → OAuthCallback.html reads #access_token from hash, stores to localStorage, redirects with ?access_token= in URL
+**Requires:** Google/Apple OAuth providers must be enabled in Supabase dashboard + callback URL registered
 
-## Auth flow summary
+## Supabase admin API
+Uses SUPABASE_SERVICE_KEY (from "Database" env var: sb_secret_3QH-...) for admin/users endpoint — auto-confirms emails, no verification needed.
 
-1. Protected page → auth guard script checks `localStorage.getItem('base44_access_token')` → if missing, `window.location.replace('/Login.html?from_url=...')`
-2. Login.html → user submits form → `POST /api/apps/.../auth/login` → Supabase password grant → token stored in `localStorage` under both `base44_access_token` and `token` → redirect to `from_url`
-3. Register.html → `POST /api/apps/.../auth/register` → server uses admin API with `email_confirm: true` → immediate login → redirect
-
-## React SPA internal auth
-
-The SPA checks `GET /api/apps/{id}/auth/me` (not `/entities/User/me`) to verify auth status. Both endpoints exist in server.py. The SPA stores token as `base44_access_token` in localStorage. The auth guard reads the same key.
-
-## Protected paths
-
-`/calorie-tracker`, `/calorie-tracker.html`, `/meal-plan`, `/meal-plan.html`, and anything under `/programs/` with a non-empty trailing path. Defined in `PROTECTED_PATHS` and `PROTECTED_PREFIXES` in server.py.
+## Key files
+- server.py — all backend routes
+- Login.html, Register.html — standalone auth pages with Google/Apple buttons
+- Account.html — profile page (protected)
+- OAuthCallback.html — handles Supabase OAuth hash fragment redirect
+- images/ — locally cached images (6 files)
+- assets/index-C7oXusOW.js — patched React SPA bundle

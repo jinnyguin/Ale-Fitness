@@ -150,6 +150,7 @@ AUTH_GUARD_SCRIPT = """<script>
 PROTECTED_PATHS = {
     "/calorie-tracker", "/calorie-tracker.html",
     "/meal-plan", "/meal-plan.html",
+    "/account", "/Account.html",
 }
 PROTECTED_PREFIXES = ("/programs/",)
 
@@ -197,6 +198,26 @@ def reset_password_page():
     return send_file("ResetPassword.html")
 
 
+@app.route("/account")
+def account_page():
+    with open("Account.html", "r", encoding="utf-8") as f:
+        content = f.read()
+    content = inject_guard(content)
+    resp = make_response(content)
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    return resp
+
+
+@app.route("/auth/callback")
+def auth_callback_page():
+    return send_file("OAuthCallback.html")
+
+
+@app.route("/images/<path:filename>")
+def serve_image(filename):
+    return send_from_directory("images", filename)
+
+
 @app.route("/<path:filename>")
 def static_files(filename):
     if filename.startswith("api/"):
@@ -225,6 +246,22 @@ def static_files(filename):
         return send_from_directory(".", filename)
     except Exception:
         abort(404)
+
+
+# ---------------------------------------------------------------------------
+# OAuth (Google / Apple) — redirect to Supabase provider
+# ---------------------------------------------------------------------------
+
+SUPPORTED_OAUTH_PROVIDERS = {"google", "apple"}
+
+@app.route("/api/oauth/authorize")
+def oauth_authorize():
+    provider = (request.args.get("provider") or "").lower()
+    if provider not in SUPPORTED_OAUTH_PROVIDERS:
+        return jsonify({"error": f"Unsupported provider: {provider}"}), 400
+    redirect_to = request.args.get("redirect_to") or (request.host_url + "auth/callback")
+    url = f"{SUPABASE_URL}/auth/v1/authorize?provider={provider}&redirect_to={urllib.parse.quote(redirect_to, safe='')}"
+    return jsonify({"url": url})
 
 
 # ---------------------------------------------------------------------------

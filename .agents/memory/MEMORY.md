@@ -1,1 +1,1 @@
-- [ALEFIT auth architecture](alefit-auth.md) — standalone Login.html/Register.html bypass React SPA; Supabase service key stored in "Database" env var
+- [ALEFIT auth architecture](alefit-auth.md) — SPA reads token from URL param (?access_token=) AND localStorage fallback; redirect after login must include ?access_token= in dest URL

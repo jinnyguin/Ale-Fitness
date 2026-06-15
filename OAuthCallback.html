@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Signing in… | ALEFIT</title>
+  <link rel="icon" href="/images/c88292ed9_logo.png" type="image/png"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      text-align: center;
+      color: #94a3b8;
+    }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 3px solid #334155;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    h2 { color: #f1f5f9; font-size: 1.25rem; margin-bottom: 0.5rem; }
+    .error { color: #fca5a5; margin-top: 1rem; font-size: 0.875rem; }
+    a { color: #60a5fa; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="spinner" id="spinner"></div>
+  <h2 id="heading">Completing sign-in…</h2>
+  <p id="sub">Please wait a moment.</p>
+  <p class="error" id="errMsg" style="display:none"></p>
+</div>
+<script>
+(function() {
+  var APP_ID = '6a1f3d189ebdbe71fa7d256c';
+
+  function setError(msg) {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('heading').textContent = 'Sign-in failed';
+    document.getElementById('sub').textContent = '';
+    var e = document.getElementById('errMsg');
+    e.textContent = msg + ' — ';
+    var a = document.createElement('a');
+    a.href = '/Login.html';
+    a.textContent = 'Try again';
+    e.appendChild(a);
+    e.style.display = 'block';
+  }
+
+  // Read access_token from URL hash (#access_token=...&token_type=bearer...)
+  var hash = window.location.hash.substring(1);
+  var params = new URLSearchParams(hash);
+  var token = params.get('access_token');
+
+  // Also check query string (some providers use ?access_token=)
+  if (!token) {
+    var qp = new URLSearchParams(window.location.search);
+    token = qp.get('access_token');
+  }
+
+  if (!token) {
+    setError('No access token received.');
+    return;
+  }
+
+  // Determine where to redirect after login
+  var qp2 = new URLSearchParams(window.location.search);
+  var fromUrl = qp2.get('from_url') || '/';
+
+  // Store token in localStorage
+  localStorage.setItem('base44_access_token', token);
+  localStorage.setItem('token', token);
+
+  // Fetch user info to confirm token is valid and create profile
+  fetch('/api/apps/' + APP_ID + '/auth/me', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  }).then(function(r) { return r.json(); }).then(function(user) {
+    if (user && user.id) {
+      localStorage.setItem('alefit_user', JSON.stringify(user));
+    }
+    // Redirect with token in URL so React SPA picks it up
+    var dest = new URL(fromUrl, window.location.origin);
+    dest.searchParams.set('access_token', token);
+    window.location.replace(dest.toString());
+  }).catch(function() {
+    // Even if /auth/me fails, proceed with stored token
+    var dest = new URL(fromUrl, window.location.origin);
+    dest.searchParams.set('access_token', token);
+    window.location.replace(dest.toString());
+  });
+})();
+</script>
+</body>
+</html>
