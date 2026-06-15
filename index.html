@@ -183,6 +183,22 @@
   </script>
  </head>
  <body>
+ <script>
+ (function(){
+   var OLD = 'Join ALEFIT today and unlock your true potential with expert coaching, state-of-the-art equipment, and a community that drives you forward.';
+   var NEW = 'Precision-engineered for the obsessed. Every program is built on science, forged in intensity, and designed to make you the best version of yourself — no shortcuts, no excuses.';
+   function replaceText(node){
+     if(node.nodeType===3&&node.nodeValue.trim()===OLD){node.nodeValue=NEW;return true;}
+     for(var i=0;i<node.childNodes.length;i++){if(replaceText(node.childNodes[i]))return true;}
+     return false;
+   }
+   var done=false;
+   var obs=new MutationObserver(function(){
+     if(!done&&replaceText(document.body)){done=true;obs.disconnect();}
+   });
+   obs.observe(document.body||document.documentElement,{childList:true,subtree:true,characterData:true});
+ })();
+ </script>
   <div id="root">
    <div data-seo-source="builder" id="seo-snapshot" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
     <main>
