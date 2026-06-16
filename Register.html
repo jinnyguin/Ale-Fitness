@@ -100,10 +100,18 @@
     var password = document.getElementById('password').value;
     try {
       var resp = await fetch('/api/apps/' + APP_ID + '/auth/register', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email, password, full_name: fullName})
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email, password: password, full_name: fullName})
       });
-      var data = await resp.json();
+      var text = await resp.text();
+      var data;
+      try { data = JSON.parse(text); } catch(e) {
+        console.error('Non-JSON response (' + resp.status + '):', text.slice(0, 200));
+        showError('Server error (' + resp.status + '). Please try again.');
+        submitBtn.disabled = false; submitBtn.textContent = 'Create Account — Free';
+        return;
+      }
       if ((resp.status === 200 || resp.status === 201) && data.access_token) {
         localStorage.setItem('base44_access_token', data.access_token);
         localStorage.setItem('token', data.access_token);
@@ -112,11 +120,12 @@
         dest.searchParams.set('access_token', data.access_token);
         window.location.replace(dest.toString());
       } else {
-        showError(data.error || 'Registration failed. Please try again.');
+        showError(data.error || 'Registration failed (status ' + resp.status + ').');
         submitBtn.disabled = false; submitBtn.textContent = 'Create Account — Free';
       }
     } catch(err) {
-      showError('Network error. Please try again.');
+      console.error('Register fetch error:', err);
+      showError('Could not reach server: ' + (err.message || err));
       submitBtn.disabled = false; submitBtn.textContent = 'Create Account — Free';
     }
   });

@@ -9,18 +9,17 @@
   <title>
    ALEFIT
   </title>
-  <script src="https://js.puter.com/v2/"></script>
   <script>
-  /* ── InvokeLLM interceptor (XHR level) ────────────────────────────
-     The React SPA uses axios (which uses XMLHttpRequest) for its API calls.
-     We intercept XMLHttpRequest at the prototype level so ALL requests —
-     fetch, axios, xhr — that hit InvokeLLM get routed to puter.ai.chat()
-     without needing an OpenAI API key.
-  ──────────────────────────────────────────────── */
+  /* ── ALEFIT interceptor — must load BEFORE puter.js and SPA bundle ──
+     Captures NATIVE XMLHttpRequest and fetch before puter.js patches them.
+     This ensures our URL-rewriting and InvokeLLM proxy work correctly.
+  ──────────────────────────────────────────────────────────────────── */
   (function() {
+    /* Capture native APIs before puter.js loads */
     var _open = XMLHttpRequest.prototype.open;
     var _send = XMLHttpRequest.prototype.send;
     var _setRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+    var _nativeFetch = window.fetch ? window.fetch.bind(window) : null;
 
     function waitPuter(cb) {
       if (window.puter && window.puter.ai) { cb(); return; }
@@ -91,6 +90,12 @@
 
     XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
       var rewritten = rewriteBase44(url);
+      if (typeof url === 'string' && url !== rewritten) {
+        console.log('[ALEFIT interceptor] rewriting XHR:', url, '->', rewritten);
+      }
+      if (typeof url === 'string' && (url.indexOf('auth') !== -1 || url.indexOf('register') !== -1 || url.indexOf('login') !== -1)) {
+        console.log('[ALEFIT interceptor] auth XHR:', method, url);
+      }
       this._interceptUrl = (typeof rewritten === 'string') ? rewritten : '';
       this._interceptMethod = method;
       this._interceptHeaders = {};
@@ -105,6 +110,7 @@
     XMLHttpRequest.prototype.send = function(data) {
       var self = this;
       var url = this._interceptUrl || '';
+      console.log('[ALEFIT XHR send]', this._interceptMethod, url);
       if (url.indexOf('InvokeLLM') === -1) {
         return _send.call(this, data);
       }
@@ -127,8 +133,7 @@
       });
     };
 
-    /* Also intercept fetch in case axios uses the fetch adapter */
-    var _fetch = window.fetch.bind(window);
+    /* Intercept fetch — uses native fetch captured before puter.js loads */
     window.fetch = async function(url, opts) {
       var urlStr = (typeof url === 'string') ? url : (url && url.url) || '';
       /* Rewrite base44.app calls to local server */
@@ -136,7 +141,28 @@
         urlStr = urlStr.replace('https://base44.app', '');
         url = urlStr;
       }
-      if (urlStr.indexOf('InvokeLLM') === -1) return _fetch(url, opts);
+      if (urlStr.indexOf('auth') !== -1 || urlStr.indexOf('register') !== -1) {
+        console.log('[ALEFIT fetch]', (opts && opts.method) || 'GET', urlStr);
+      }
+      /* Use native fetch (not puter's) for all non-InvokeLLM requests */
+      if (urlStr.indexOf('InvokeLLM') === -1) {
+        var nf = _nativeFetch || XMLHttpRequest.prototype._nativeFetch;
+        if (!nf) {
+          /* Fallback: create a fresh XMLHttpRequest bypass */
+          return new Promise(function(resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            _open.call(xhr, (opts && opts.method) || 'GET', urlStr, true);
+            var headers = (opts && opts.headers) ? opts.headers : {};
+            Object.keys(headers).forEach(function(k) { _setRequestHeader.call(xhr, k, headers[k]); });
+            xhr.onload = function() {
+              resolve(new Response(xhr.responseText, { status: xhr.status, headers: { 'Content-Type': 'application/json' } }));
+            };
+            xhr.onerror = function() { reject(new TypeError('Network Error')); };
+            _send.call(xhr, opts && opts.body ? opts.body : null);
+          });
+        }
+        return nf(url, opts);
+      }
       return new Promise(function(resolve) {
         var body = {};
         try { body = JSON.parse(opts && opts.body ? opts.body : '{}'); } catch(e) {}
@@ -147,6 +173,8 @@
     };
   })();
   </script>
+  <!-- puter.js loads AFTER our interceptor so we captured native XHR/fetch above -->
+  <script src="https://js.puter.com/v2/"></script>
   <script crossorigin="" src="assets/index-C7oXusOW.js" type="module">
   </script>
   <link crossorigin="" href="assets/index-AqnWfqV4.css" rel="stylesheet"/>
@@ -248,38 +276,43 @@
    }
 
    /* Wire "START YOUR JOURNEY" button to /Register.html */
+   var _wiredJourneyEls = new WeakSet();
    function wireJourneyButton(){
      var btns = document.querySelectorAll('button, a');
      for(var i=0;i<btns.length;i++){
-       var txt = (btns[i].textContent||'').trim().toLowerCase();
+       var btn = btns[i];
+       if(_wiredJourneyEls.has(btn)) continue;
+       var txt = (btn.textContent||'').trim().toLowerCase();
        if(txt.indexOf('start your journey')!==-1){
-         btns[i].removeAttribute('href');
-         btns[i].onclick = function(e){
+         _wiredJourneyEls.add(btn);
+         btn.removeAttribute('href');
+         btn.addEventListener('click', function(e){
            e.preventDefault();
            e.stopPropagation();
            window.location.href='/Register.html';
-           return false;
-         };
+         }, true);
        }
      }
    }
 
-   /* Wire nav LOGIN and SIGN UP to custom auth pages */
-   var _wiredNav = {};
+   /* Wire nav LOGIN and SIGN UP to custom auth pages.
+      Uses a WeakSet so we re-wire every time React replaces DOM nodes. */
+   var _wiredNavEls = new WeakSet();
    function wireNavButtons(){
      var btns = document.querySelectorAll('button, a');
      for(var i=0;i<btns.length;i++){
        var el = btns[i];
+       if(_wiredNavEls.has(el)) continue;
        var txt = (el.textContent||'').trim().toLowerCase();
-       if((txt==='login'||txt==='sign in') && !_wiredNav['login']){
-         _wiredNav['login'] = true;
+       if(txt==='login'||txt==='sign in'){
+         _wiredNavEls.add(el);
          el.removeAttribute('href');
-         el.onclick = function(e){ e.preventDefault(); e.stopPropagation(); window.location.href='/Login.html'; return false; };
+         el.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.location.href='/Login.html'; return false; }, true);
        }
-       if((txt==='sign up'||txt==='signup'||txt==='register') && !_wiredNav['signup']){
-         _wiredNav['signup'] = true;
+       if(txt==='sign up'||txt==='signup'||txt==='register'){
+         _wiredNavEls.add(el);
          el.removeAttribute('href');
-         el.onclick = function(e){ e.preventDefault(); e.stopPropagation(); window.location.href='/Register.html'; return false; };
+         el.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.location.href='/Register.html'; return false; }, true);
        }
      }
    }
@@ -296,6 +329,65 @@
      }
    }
 
+   /* Intercept SPA auth form submissions at document level (capture phase).
+      This fires BEFORE React's capture listener at #root, so we handle auth
+      before React can trigger its broken axios call to base44.app. */
+   var _authInterceptInstalled = false;
+   function interceptAuthForms(){
+     if(_authInterceptInstalled) return;
+     _authInterceptInstalled = true;
+     document.addEventListener('submit', function(e){
+       var f = e.target;
+       if(!f || f.tagName !== 'FORM') return;
+       var hasPassword = f.querySelector('input[type="password"]');
+       if(!hasPassword) return;
+       var emailEl = f.querySelector('input[type="email"]') || f.querySelector('input[name="email"]');
+       var passEl  = f.querySelector('input[type="password"]');
+       var nameEl  = f.querySelector('input[name="name"]') || f.querySelector('input[name="full_name"]') || f.querySelector('input[placeholder*="name" i]') || f.querySelector('input[placeholder*="Name" i]');
+       var isRegister = !!(nameEl) || f.querySelectorAll('input[type="password"]').length > 1;
+       var email    = emailEl ? emailEl.value.trim() : '';
+       var password = passEl  ? passEl.value : '';
+       if(!email || !password) return;
+       e.preventDefault();
+       e.stopImmediatePropagation();
+       console.log('[ALEFIT] intercepted auth form submit, isRegister=', isRegister, 'email=', email);
+       if(isRegister){
+         var fullName = nameEl ? nameEl.value.trim() : '';
+         fetch('/api/apps/6a1f3d189ebdbe71fa7d256c/auth/register',{
+           method:'POST', headers:{'Content-Type':'application/json'},
+           body: JSON.stringify({email:email, password:password, full_name:fullName})
+         }).then(function(r){return r.json();}).then(function(d){
+           if(d.access_token){
+             localStorage.setItem('base44_access_token',d.access_token);
+             localStorage.setItem('token',d.access_token);
+             if(d.user) localStorage.setItem('alefit_user',JSON.stringify(d.user));
+             window.location.reload();
+           } else {
+             var err = f.querySelector('.error-msg,[class*="error"],[class*="Error"]');
+             if(err){ err.textContent=d.error||'Registration failed.'; err.style.display='block'; }
+             else { alert(d.error||'Registration failed. Please try again.'); }
+           }
+         }).catch(function(err){ console.error('[ALEFIT] register fetch failed',err); window.location.href='/Register.html'; });
+       } else {
+         fetch('/api/apps/6a1f3d189ebdbe71fa7d256c/auth/login',{
+           method:'POST', headers:{'Content-Type':'application/json'},
+           body: JSON.stringify({email:email, password:password})
+         }).then(function(r){return r.json();}).then(function(d){
+           if(d.access_token){
+             localStorage.setItem('base44_access_token',d.access_token);
+             localStorage.setItem('token',d.access_token);
+             if(d.user) localStorage.setItem('alefit_user',JSON.stringify(d.user));
+             window.location.reload();
+           } else {
+             var err = f.querySelector('.error-msg,[class*="error"],[class*="Error"]');
+             if(err){ err.textContent=d.error||'Login failed.'; err.style.display='block'; }
+             else { alert(d.error||'Invalid email or password.'); }
+           }
+         }).catch(function(err){ console.error('[ALEFIT] login fetch failed',err); window.location.href='/Login.html'; });
+       }
+     }, true); /* capture=true fires before React's #root handler */
+   }
+
    var subtitleDone = false;
    function runAll(){
      if(!subtitleDone && replaceText(document.body)) subtitleDone = true;
@@ -303,6 +395,7 @@
      wireJourneyButton();
      wireNavButtons();
      hidePulseText();
+     interceptAuthForms();
    }
 
    var obs = new MutationObserver(runAll);
