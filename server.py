@@ -192,7 +192,11 @@ def handle_exception(e):
 
 @app.route("/")
 def index():
-    return send_file("index.html")
+    resp = make_response(send_file("index.html"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @app.route("/uploads/<path:filename>")
@@ -202,12 +206,20 @@ def serve_upload(filename):
 
 @app.route("/login")
 def login_page():
-    return send_file("Login.html")
+    resp = make_response(send_file("Login.html"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @app.route("/register")
 def register_page():
-    return send_file("Register.html")
+    resp = make_response(send_file("Register.html"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @app.route("/forgot-password")
