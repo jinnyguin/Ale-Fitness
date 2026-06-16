@@ -57,6 +57,8 @@ def supabase_auth(method, path, body=None, token=None):
             return e.code, json.loads(raw)
         except Exception:
             return e.code, {"error": raw.decode()}
+    except Exception as e:
+        return 503, {"error": f"Auth service unavailable: {str(e)}"}
 
 
 def supabase_admin(method, path, body=None):
@@ -80,6 +82,8 @@ def supabase_admin(method, path, body=None):
             return e.code, json.loads(raw)
         except Exception:
             return e.code, {"error": raw.decode()}
+    except Exception as e:
+        return 503, {"error": f"Auth service unavailable: {str(e)}"}
 
 
 def get_supabase_user(token):
@@ -165,6 +169,21 @@ def path_is_protected(path):
 
 def inject_guard(html_content):
     return html_content.replace("<head>", "<head>" + AUTH_GUARD_SCRIPT, 1)
+
+
+# ---------------------------------------------------------------------------
+# Global error handlers — always return JSON so the browser never sees HTML
+# ---------------------------------------------------------------------------
+
+@app.errorhandler(500)
+def handle_500(e):
+    return jsonify({"error": "Internal server error. Please try again."}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    traceback.print_exc()
+    return jsonify({"error": "An unexpected error occurred. Please try again."}), 500
 
 
 # ---------------------------------------------------------------------------
