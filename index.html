@@ -158,6 +158,14 @@
       padding-left: 3rem !important;
       padding-right: 3rem !important;
     }
+    /* Hide "PULSE" background watermark text in hero */
+    section#home [class*="pulse"],
+    section#home [class*="Pulse"],
+    section#home [class*="watermark"],
+    section#home [class*="bg-text"],
+    section#home [class*="background-text"] {
+      display: none !important;
+    }
   </style>
   <meta content="An elite fitness management engine designed for high-performance training, featuring kinetic class scheduling and personalized athlete data tracking." name="description"/>
   <meta content="ALEFIT" property="og:title"/>
@@ -243,11 +251,45 @@
      }
    }
 
+   /* Wire nav LOGIN and SIGN UP to custom auth pages */
+   var _wiredNav = {};
+   function wireNavButtons(){
+     var btns = document.querySelectorAll('button, a');
+     for(var i=0;i<btns.length;i++){
+       var el = btns[i];
+       var txt = (el.textContent||'').trim().toLowerCase();
+       if((txt==='login'||txt==='sign in') && !_wiredNav['login']){
+         _wiredNav['login'] = true;
+         el.removeAttribute('href');
+         el.onclick = function(e){ e.preventDefault(); e.stopPropagation(); window.location.href='/Login.html'; return false; };
+       }
+       if((txt==='sign up'||txt==='signup'||txt==='register') && !_wiredNav['signup']){
+         _wiredNav['signup'] = true;
+         el.removeAttribute('href');
+         el.onclick = function(e){ e.preventDefault(); e.stopPropagation(); window.location.href='/Register.html'; return false; };
+       }
+     }
+   }
+
+   /* Hide PULSE watermark text node if rendered as plain text */
+   function hidePulseText(){
+     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+     var node;
+     while((node=walker.nextNode())){
+       if(node.nodeValue && node.nodeValue.trim()==='PULSE'){
+         var parent = node.parentElement;
+         if(parent) parent.style.setProperty('display','none','important');
+       }
+     }
+   }
+
    var subtitleDone = false;
    function runAll(){
      if(!subtitleDone && replaceText(document.body)) subtitleDone = true;
      hideCreateAccountSection();
      wireJourneyButton();
+     wireNavButtons();
+     hidePulseText();
    }
 
    var obs = new MutationObserver(runAll);
