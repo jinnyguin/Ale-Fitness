@@ -400,7 +400,10 @@ def auth_login(app_id):
 def auth_reset_request(app_id):
     body = request.get_json(force=True) or {}
     email = (body.get("email") or "").strip()
-    supabase_auth("POST", "/auth/v1/recover", {"email": email})
+    # Build redirect URL from the incoming request so it works on any domain
+    origin = request.headers.get("Origin") or request.host_url.rstrip("/")
+    redirect_to = f"{origin}/ResetPassword.html"
+    supabase_auth("POST", "/auth/v1/recover", {"email": email, "redirectTo": redirect_to})
     return jsonify({"message": "If this email exists, a reset link has been sent."})
 
 
