@@ -185,18 +185,74 @@
  <body>
  <script>
  (function(){
-   var OLD = 'Join ALEFIT today and unlock your true potential with expert coaching, state-of-the-art equipment, and a community that drives you forward.';
-   var NEW = 'Precision-engineered for the obsessed. Every program is built on science, forged in intensity, and designed to make you the best version of yourself — no shortcuts, no excuses.';
+   var OLD_SUB = 'Join ALEFIT today and unlock your true potential with expert coaching, state-of-the-art equipment, and a community that drives you forward.';
+   var NEW_SUB = 'Precision-engineered for the obsessed. Every program is built on science, forged in intensity, and designed to make you the best version of yourself — no shortcuts, no excuses.';
+
    function replaceText(node){
-     if(node.nodeType===3&&node.nodeValue.trim()===OLD){node.nodeValue=NEW;return true;}
+     if(node.nodeType===3&&node.nodeValue.trim()===OLD_SUB){node.nodeValue=NEW_SUB;return true;}
      for(var i=0;i<node.childNodes.length;i++){if(replaceText(node.childNodes[i]))return true;}
      return false;
    }
-   var done=false;
-   var obs=new MutationObserver(function(){
-     if(!done&&replaceText(document.body)){done=true;obs.disconnect();}
-   });
-   obs.observe(document.body||document.documentElement,{childList:true,subtree:true,characterData:true});
+
+   /* Find elements whose trimmed visible text matches a string */
+   function findByText(selector, text){
+     var els = document.querySelectorAll(selector);
+     var t = text.toLowerCase();
+     for(var i=0;i<els.length;i++){
+       if((els[i].textContent||'').trim().toLowerCase().indexOf(t)!==-1) return els[i];
+     }
+     return null;
+   }
+
+   /* Hide the bottom "create account / join" CTA section */
+   function hideCreateAccountSection(){
+     /* Walk up from any "Create Account" button to hide its whole section */
+     var allEls = document.querySelectorAll('button, a, h2, h3, p');
+     for(var i=0;i<allEls.length;i++){
+       var txt = (allEls[i].textContent||'').trim().toLowerCase();
+       if(txt === 'create account'){
+         /* Walk up to find a section or a large container div */
+         var el = allEls[i];
+         for(var j=0;j<8;j++){
+           if(!el.parentElement) break;
+           el = el.parentElement;
+           var tag = el.tagName.toLowerCase();
+           if(tag==='section' || (tag==='div' && el.parentElement && (el.parentElement.tagName.toLowerCase()==='main' || el.parentElement.id==='root' || el.parentElement === document.body))){
+             el.style.setProperty('display','none','important');
+             break;
+           }
+         }
+       }
+     }
+   }
+
+   /* Wire "START YOUR JOURNEY" button to /Register.html */
+   function wireJourneyButton(){
+     var btns = document.querySelectorAll('button, a');
+     for(var i=0;i<btns.length;i++){
+       var txt = (btns[i].textContent||'').trim().toLowerCase();
+       if(txt.indexOf('start your journey')!==-1){
+         btns[i].removeAttribute('href');
+         btns[i].onclick = function(e){
+           e.preventDefault();
+           e.stopPropagation();
+           window.location.href='/Register.html';
+           return false;
+         };
+       }
+     }
+   }
+
+   var subtitleDone = false;
+   function runAll(){
+     if(!subtitleDone && replaceText(document.body)) subtitleDone = true;
+     hideCreateAccountSection();
+     wireJourneyButton();
+   }
+
+   var obs = new MutationObserver(runAll);
+   obs.observe(document.documentElement, {childList:true, subtree:true});
+   runAll();
  })();
  </script>
   <div id="root">
