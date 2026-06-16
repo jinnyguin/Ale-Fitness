@@ -329,6 +329,83 @@ def public_settings(app_id):
 
 
 # ---------------------------------------------------------------------------
+# Short-path aliases — SPA calls /apps/<id>/... without /api/ prefix
+# ---------------------------------------------------------------------------
+
+@app.route("/apps/<app_id>/auth/register", methods=["POST"])
+def alias_auth_register(app_id):
+    return auth_register(app_id)
+
+@app.route("/apps/<app_id>/auth/login", methods=["POST"])
+def alias_auth_login(app_id):
+    return auth_login(app_id)
+
+@app.route("/apps/<app_id>/auth/me", methods=["GET"])
+def alias_auth_me_get(app_id):
+    return auth_me(app_id)
+
+@app.route("/apps/<app_id>/auth/me", methods=["PUT"])
+def alias_auth_me_put(app_id):
+    return auth_me_update(app_id)
+
+@app.route("/apps/<app_id>/auth/reset-password-request", methods=["POST"])
+def alias_auth_reset_request(app_id):
+    return auth_reset_request(app_id)
+
+@app.route("/apps/<app_id>/auth/reset-password", methods=["POST"])
+def alias_auth_reset_password(app_id):
+    return auth_reset_password(app_id)
+
+@app.route("/apps/<app_id>/auth/change-password", methods=["POST"])
+def alias_auth_change_password(app_id):
+    return auth_change_password(app_id)
+
+@app.route("/apps/<app_id>/auth/verify-otp", methods=["POST"])
+def alias_auth_verify_otp(app_id):
+    return auth_verify_otp(app_id)
+
+@app.route("/apps/<app_id>/auth/resend-otp", methods=["POST"])
+def alias_auth_resend_otp(app_id):
+    return auth_resend_otp(app_id)
+
+@app.route("/apps/<app_id>/entities/User/me", methods=["GET"])
+def alias_get_me(app_id):
+    return get_me(app_id)
+
+@app.route("/apps/<app_id>/entities/User/me", methods=["PUT"])
+def alias_update_me(app_id):
+    return update_me(app_id)
+
+@app.route("/apps/<app_id>/entities/<entity_type>", methods=["GET"])
+def alias_list_entities(app_id, entity_type):
+    return list_entities(app_id, entity_type)
+
+@app.route("/apps/<app_id>/entities/<entity_type>", methods=["POST"])
+def alias_create_entity(app_id, entity_type):
+    return create_entity(app_id, entity_type)
+
+@app.route("/apps/<app_id>/entities/<entity_type>/<entity_id>", methods=["GET"])
+def alias_get_entity(app_id, entity_type, entity_id):
+    return get_entity(app_id, entity_type, entity_id)
+
+@app.route("/apps/<app_id>/entities/<entity_type>/<entity_id>", methods=["PUT"])
+def alias_update_entity(app_id, entity_type, entity_id):
+    return update_entity(app_id, entity_type, entity_id)
+
+@app.route("/apps/<app_id>/entities/<entity_type>/<entity_id>", methods=["DELETE"])
+def alias_delete_entity(app_id, entity_type, entity_id):
+    return delete_entity(app_id, entity_type, entity_id)
+
+@app.route("/apps/<app_id>/runtime/users/invite-user", methods=["POST"])
+def alias_invite_user(app_id):
+    return invite_user(app_id)
+
+@app.route("/apps/<app_id>/integration-endpoints/Core/InvokeLLM", methods=["POST"])
+def alias_invoke_llm(app_id):
+    return invoke_llm(app_id)
+
+
+# ---------------------------------------------------------------------------
 # Auth endpoints (proxy to Supabase)
 # ---------------------------------------------------------------------------
 
