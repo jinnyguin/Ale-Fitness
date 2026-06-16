@@ -88,6 +88,42 @@
       return url;
     }
 
+    /* Intercept window.location.href setter to fix broken SPA redirects.
+       The SPA calls redirectToLogin() which sets location.href to
+       "undefined/Login.html?..." when appBaseUrl is not configured.
+       We catch that and redirect to our real Login.html instead. */
+    (function() {
+      try {
+        var locProto = Object.getPrototypeOf(window.location);
+        var origHrefDesc = Object.getOwnPropertyDescriptor(locProto, 'href');
+        if (origHrefDesc && origHrefDesc.set) {
+          var origSet = origHrefDesc.set;
+          Object.defineProperty(locProto, 'href', {
+            get: origHrefDesc.get,
+            set: function(val) {
+              if (typeof val === 'string') {
+                /* Fix "undefined/Login.html?..." → "/Login.html?..." */
+                if (val.indexOf('undefined/') === 0) {
+                  val = '/' + val.slice('undefined/'.length);
+                  console.log('[ALEFIT] fixed undefined/Login.html redirect →', val);
+                }
+                /* Fix "https://base44.app/..." → relative path */
+                if (val.indexOf('https://base44.app') === 0) {
+                  val = val.replace('https://base44.app', '');
+                  console.log('[ALEFIT] fixed base44 href redirect →', val);
+                }
+              }
+              return origSet.call(this, val);
+            },
+            configurable: true,
+            enumerable: true
+          });
+        }
+      } catch(e) {
+        console.warn('[ALEFIT] could not patch location.href setter:', e);
+      }
+    })();
+
     XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
       var rewritten = rewriteBase44(url);
       if (typeof url === 'string' && url !== rewritten) {
@@ -96,9 +132,13 @@
       if (typeof url === 'string' && (url.indexOf('auth') !== -1 || url.indexOf('register') !== -1 || url.indexOf('login') !== -1)) {
         console.log('[ALEFIT interceptor] auth XHR:', method, url);
       }
+      /* Detect User/me requests — on 401 redirect to Login.html so the
+         SPA never shows its broken inline auth form */
+      var isUserMe = (typeof rewritten === 'string' && rewritten.indexOf('/entities/User/me') !== -1);
       this._interceptUrl = (typeof rewritten === 'string') ? rewritten : '';
       this._interceptMethod = method;
       this._interceptHeaders = {};
+      this._isUserMe = isUserMe;
       return _open.call(this, method, rewritten, async !== false, user, password);
     };
 
@@ -111,6 +151,19 @@
       var self = this;
       var url = this._interceptUrl || '';
       console.log('[ALEFIT XHR send]', this._interceptMethod, url);
+
+      /* When User/me returns 401, redirect to Login.html instead of
+         letting the SPA render its broken inline auth form */
+      if (this._isUserMe) {
+        this.addEventListener('readystatechange', function() {
+          if (self.readyState === 4 && self.status === 401) {
+            var fromUrl = encodeURIComponent(window.location.href);
+            console.log('[ALEFIT] User/me 401 — redirecting to Login.html');
+            window.location.href = '/Login.html?from_url=' + fromUrl;
+          }
+        });
+      }
+
       if (url.indexOf('InvokeLLM') === -1) {
         return _send.call(this, data);
       }

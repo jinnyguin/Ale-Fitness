@@ -319,6 +319,7 @@ def public_settings(app_id):
     return jsonify({
         "id": app_id,
         "name": "ALEFIT",
+        "app_base_url": "",          # tells SPA to redirect to /Login.html etc. on THIS server
         "auth": {
             "enabled": True,
             "providers": ["email", "google"],
