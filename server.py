@@ -269,12 +269,16 @@ def static_files(filename):
             else:
                 abort(404)
 
-        if filename.endswith(".html") and path_is_protected("/" + filename.rstrip("/")):
+        if filename.endswith(".html"):
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
-            content = inject_guard(content)
+            if path_is_protected("/" + filename.rstrip("/")):
+                content = inject_guard(content)
             resp = make_response(content)
             resp.headers["Content-Type"] = "text/html; charset=utf-8"
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
             return resp
 
         return send_from_directory(".", filename)
