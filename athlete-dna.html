@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Athlete DNA Profile — ALEFIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--lime:#D4FF00;--dark:#0F0F0F;--card:#141414;--border:rgba(255,255,255,.08)}
+body{background:var(--dark);color:#fff;font-family:'Inter',sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2.5rem;border-bottom:1px solid var(--border)}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.18em}
+.logo span{color:var(--lime)}
+.back{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);transition:color .2s}
+.back:hover{color:var(--lime)}
+
+.hero{padding:4rem 2.5rem 2rem;text-align:center;max-width:700px;margin:0 auto}
+.page-tag{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border:1px solid rgba(212,255,0,.3);color:var(--lime);font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;margin-bottom:1.5rem}
+.hero h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3rem,6vw,5.5rem);text-transform:uppercase;line-height:.92;margin-bottom:1rem}
+.hero h1 em{color:var(--lime);font-style:normal}
+.hero p{color:rgba(255,255,255,.45);font-size:.95rem;line-height:1.65;font-weight:300}
+
+/* QUIZ */
+.quiz-wrap{max-width:680px;margin:3rem auto;padding:0 2.5rem 6rem}
+.progress-bar{height:3px;background:#222;border-radius:2px;margin-bottom:3rem;overflow:hidden}
+.progress-fill{height:100%;background:var(--lime);border-radius:2px;transition:width .4s ease}
+.step{display:none}
+.step.active{display:block}
+.q-num{font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.75rem}
+.q-text{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:clamp(1.6rem,3vw,2.5rem);text-transform:uppercase;line-height:1;margin-bottom:2rem}
+.options{display:flex;flex-direction:column;gap:.75rem}
+.option{display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:border-color .2s,background .2s;position:relative}
+.option:hover{border-color:rgba(212,255,0,.4);background:#1a1a1a}
+.option.selected{border-color:var(--lime);background:rgba(212,255,0,.06)}
+.opt-letter{width:30px;height:30px;border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600;letter-spacing:.06em;flex-shrink:0;transition:background .2s,border-color .2s}
+.option.selected .opt-letter{background:var(--lime);color:#000;border-color:var(--lime)}
+.opt-text{font-size:.9rem;font-weight:400;color:rgba(255,255,255,.8)}
+.nav-btns{display:flex;gap:1rem;margin-top:2rem;align-items:center;justify-content:space-between}
+.btn-next{background:var(--lime);color:#000;padding:.75rem 2rem;font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .2s;opacity:.4;pointer-events:none}
+.btn-next.enabled{opacity:1;pointer-events:all}
+.btn-next.enabled:hover{opacity:.88}
+.btn-prev{background:transparent;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.4);padding:.75rem 1.5rem;font-weight:500;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s}
+.btn-prev:hover{border-color:rgba(255,255,255,.4);color:#fff}
+
+/* RESULT */
+.result{display:none;max-width:860px;margin:0 auto;padding:0 2.5rem 6rem}
+.result.show{display:block}
+.result-header{text-align:center;margin-bottom:3rem}
+.archetype-badge{display:inline-block;background:var(--lime);color:#000;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1rem;letter-spacing:.2em;text-transform:uppercase;padding:.5rem 1.5rem;margin-bottom:1.5rem}
+.result-header h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3rem,6vw,5rem);text-transform:uppercase;line-height:.92;margin-bottom:1rem}
+.result-header p{color:rgba(255,255,255,.45);font-size:.95rem;line-height:1.65;max-width:500px;margin:0 auto}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:3rem}
+.radar-wrap{background:var(--card);border:1px solid var(--border);padding:2rem;display:flex;flex-direction:column;align-items:center}
+.radar-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:1.5rem;color:rgba(255,255,255,.6)}
+canvas#radar{display:block}
+.attrs-wrap{background:var(--card);border:1px solid var(--border);padding:2rem}
+.attr-row{margin-bottom:1.5rem}
+.attr-row:last-child{margin-bottom:0}
+.attr-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem}
+.attr-name{font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.attr-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;color:var(--lime)}
+.attr-bar{height:4px;background:#222;border-radius:2px;overflow:hidden}
+.attr-fill{height:100%;border-radius:2px;background:var(--lime);transition:width 1s ease}
+.programs-rec{margin-top:2rem;grid-column:span 2}
+.programs-rec h3{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:1.5rem;color:rgba(255,255,255,.6)}
+.rec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.rec-card{background:var(--card);border:1px solid var(--border);padding:1.5rem;cursor:pointer;transition:border-color .2s}
+.rec-card:hover{border-color:rgba(212,255,0,.35)}
+.rec-rank{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--lime);font-weight:600;margin-bottom:.5rem}
+.rec-name{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;text-transform:uppercase;margin-bottom:.3rem}
+.rec-why{font-size:.75rem;color:rgba(255,255,255,.4);line-height:1.5}
+.retake-btn{display:block;margin:3rem auto 0;background:transparent;border:1px solid var(--border);color:rgba(255,255,255,.4);padding:.75rem 2rem;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s;width:fit-content}
+.retake-btn:hover{border-color:rgba(255,255,255,.4);color:#fff}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">ALE<span>FIT</span></a>
+  <a href="/" class="back">← Back to Home</a>
+</nav>
+
+<div class="hero">
+  <div class="page-tag">🧬 New Feature</div>
+  <h1>Athlete<br><em>DNA</em> Profile</h1>
+  <p>8 questions. 60 seconds. Discover your athlete archetype and get programs matched to your exact physical profile.</p>
+</div>
+
+<div class="quiz-wrap" id="quizWrap">
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:12.5%"></div></div>
+
+  <!-- Q1 -->
+  <div class="step active" data-q="0">
+    <div class="q-num">Question 1 of 8</div>
+    <div class="q-text">What's your primary sport or training style?</div>
+    <div class="options">
+      <div class="option" data-scores="speed:2,power:3,endurance:1,agility:2,strength:3,recovery:1"><div class="opt-letter">A</div><div class="opt-text">Football / Rugby / Contact Sports</div></div>
+      <div class="option" data-scores="speed:3,power:2,endurance:1,agility:3,strength:1,recovery:2"><div class="opt-letter">B</div><div class="opt-text">Basketball / Soccer / Court Sports</div></div>
+      <div class="option" data-scores="speed:1,power:1,endurance:4,agility:1,strength:1,recovery:3"><div class="opt-letter">C</div><div class="opt-text">Running / Cycling / Endurance</div></div>
+      <div class="option" data-scores="speed:1,power:3,endurance:1,agility:1,strength:4,recovery:2"><div class="opt-letter">D</div><div class="opt-text">Weightlifting / Strength Training</div></div>
+      <div class="option" data-scores="speed:2,power:2,endurance:2,agility:2,strength:2,recovery:2"><div class="opt-letter">E</div><div class="opt-text">CrossFit / HIIT / Mixed Training</div></div>
+    </div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="step" data-q="1">
+    <div class="q-num">Question 2 of 8</div>
+    <div class="q-text">How many days per week do you train?</div>
+    <div class="options">
+      <div class="option" data-scores="recovery:3,endurance:1"><div class="opt-letter">A</div><div class="opt-text">1–2 days (just getting started)</div></div>
+      <div class="option" data-scores="endurance:1,strength:1,recovery:2"><div class="opt-letter">B</div><div class="opt-text">3–4 days (consistent training)</div></div>
+      <div class="option" data-scores="endurance:2,strength:2,power:2,recovery:1"><div class="opt-letter">C</div><div class="opt-text">5–6 days (serious athlete)</div></div>
+      <div class="option" data-scores="endurance:3,strength:3,power:3,agility:2,speed:2,recovery:0"><div class="opt-letter">D</div><div class="opt-text">Every day (competitor / elite)</div></div>
+    </div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="step" data-q="2">
+    <div class="q-num">Question 3 of 8</div>
+    <div class="q-text">Which describes your biggest physical strength?</div>
+    <div class="options">
+      <div class="option" data-scores="speed:4,agility:2"><div class="opt-letter">A</div><div class="opt-text">I'm fast — quicker than most</div></div>
+      <div class="option" data-scores="power:3,strength:3"><div class="opt-letter">B</div><div class="opt-text">I'm strong — I can move serious weight</div></div>
+      <div class="option" data-scores="endurance:4,recovery:2"><div class="opt-letter">C</div><div class="opt-text">I never get tired — cardio machine</div></div>
+      <div class="option" data-scores="agility:4,speed:2"><div class="opt-letter">D</div><div class="opt-text">I'm agile — quick change of direction</div></div>
+      <div class="option" data-scores="speed:2,power:2,endurance:2,agility:2,strength:2"><div class="opt-letter">E</div><div class="opt-text">I'm balanced — no obvious standout</div></div>
+    </div>
+  </div>
+
+  <!-- Q4 -->
+  <div class="step" data-q="3">
+    <div class="q-num">Question 4 of 8</div>
+    <div class="q-text">What's your #1 goal right now?</div>
+    <div class="options">
+      <div class="option" data-scores="strength:3,power:2"><div class="opt-letter">A</div><div class="opt-text">Get significantly stronger</div></div>
+      <div class="option" data-scores="speed:3,agility:2"><div class="opt-letter">B</div><div class="opt-text">Move faster and be more explosive</div></div>
+      <div class="option" data-scores="endurance:3,recovery:2"><div class="opt-letter">C</div><div class="opt-text">Build cardio / last longer</div></div>
+      <div class="option" data-scores="power:2,speed:2,agility:2,strength:2"><div class="opt-letter">D</div><div class="opt-text">Sport-specific performance gains</div></div>
+      <div class="option" data-scores="endurance:1,strength:2,recovery:1"><div class="opt-letter">E</div><div class="opt-text">Lose fat and get leaner</div></div>
+    </div>
+  </div>
+
+  <!-- Q5 -->
+  <div class="step" data-q="4">
+    <div class="q-num">Question 5 of 8</div>
+    <div class="q-text">How would you rate your current strength level?</div>
+    <div class="options">
+      <div class="option" data-scores="strength:1,power:1"><div class="opt-letter">A</div><div class="opt-text">Beginner — still learning the basics</div></div>
+      <div class="option" data-scores="strength:2,power:2"><div class="opt-letter">B</div><div class="opt-text">Intermediate — solid foundation</div></div>
+      <div class="option" data-scores="strength:3,power:3"><div class="opt-letter">C</div><div class="opt-text">Advanced — lift heavy regularly</div></div>
+      <div class="option" data-scores="strength:4,power:4"><div class="opt-letter">D</div><div class="opt-text">Elite — compete or train at high level</div></div>
+    </div>
+  </div>
+
+  <!-- Q6 -->
+  <div class="step" data-q="5">
+    <div class="q-num">Question 6 of 8</div>
+    <div class="q-text">How do you handle rest and recovery?</div>
+    <div class="options">
+      <div class="option" data-scores="recovery:1"><div class="opt-letter">A</div><div class="opt-text">I push through — more is always better</div></div>
+      <div class="option" data-scores="recovery:2"><div class="opt-letter">B</div><div class="opt-text">I rest when I feel like I need it</div></div>
+      <div class="option" data-scores="recovery:3"><div class="opt-letter">C</div><div class="opt-text">I schedule rest days into my training</div></div>
+      <div class="option" data-scores="recovery:4"><div class="opt-letter">D</div><div class="opt-text">I prioritize sleep, nutrition & active recovery</div></div>
+    </div>
+  </div>
+
+  <!-- Q7 -->
+  <div class="step" data-q="6">
+    <div class="q-num">Question 7 of 8</div>
+    <div class="q-text">What equipment do you have access to?</div>
+    <div class="options">
+      <div class="option" data-scores="strength:1,power:1"><div class="opt-letter">A</div><div class="opt-text">Just dumbbells / home setup</div></div>
+      <div class="option" data-scores="strength:2,power:2,endurance:1"><div class="opt-letter">B</div><div class="opt-text">Basic gym — racks, barbells, machines</div></div>
+      <div class="option" data-scores="strength:3,power:3,endurance:2,agility:2"><div class="opt-letter">C</div><div class="opt-text">Full gym — everything available</div></div>
+      <div class="option" data-scores="agility:3,speed:3,endurance:2"><div class="opt-letter">D</div><div class="opt-text">Outdoor / track / field space</div></div>
+    </div>
+  </div>
+
+  <!-- Q8 -->
+  <div class="step" data-q="7">
+    <div class="q-num">Question 8 of 8</div>
+    <div class="q-text">When it gets hard, what drives you?</div>
+    <div class="options">
+      <div class="option" data-scores="power:3,strength:2"><div class="opt-letter">A</div><div class="opt-text">Proving I'm stronger than yesterday</div></div>
+      <div class="option" data-scores="speed:2,agility:2,endurance:2"><div class="opt-letter">B</div><div class="opt-text">Competition — I need to win</div></div>
+      <div class="option" data-scores="recovery:2,endurance:3"><div class="opt-letter">C</div><div class="opt-text">The long game — I trust the process</div></div>
+      <div class="option" data-scores="speed:3,power:2,agility:3"><div class="opt-letter">D</div><div class="opt-text">Being the most athletic person in the room</div></div>
+    </div>
+  </div>
+
+  <div class="nav-btns">
+    <button class="btn-prev" id="btnPrev" style="visibility:hidden">← Back</button>
+    <button class="btn-next" id="btnNext">Next →</button>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="result" id="resultSection">
+  <div class="result-header">
+    <div class="archetype-badge" id="archetypeBadge">Loading...</div>
+    <h2 id="archetypeTitle">Your Archetype</h2>
+    <p id="archetypeDesc">Description</p>
+  </div>
+  <div class="result-grid">
+    <div class="radar-wrap">
+      <div class="radar-title">Athlete Attributes</div>
+      <canvas id="radar" width="260" height="260"></canvas>
+    </div>
+    <div class="attrs-wrap" id="attrsWrap"></div>
+    <div class="programs-rec">
+      <h3>— Recommended Programs for You</h3>
+      <div class="rec-grid" id="recGrid"></div>
+    </div>
+  </div>
+  <button class="retake-btn" onclick="retake()">Retake Quiz</button>
+</div>
+
+<script>
+const ATTRS = ['Speed','Power','Endurance','Agility','Strength','Recovery'];
+const scores = {speed:0,power:0,endurance:0,agility:0,strength:0,recovery:0};
+let currentQ = 0;
+const answers = new Array(8).fill(null);
+const TOTAL = 8;
+
+const ARCHETYPES = [
+  {name:'The Power Athlete',title:'Power<br>Athlete',desc:'You were built to move heavy things fast. Explosive, dominant, and built for force — your body thrives on strength and power training.',top:['strength','power'],programs:['Football','CrossFit','Weight Gain']},
+  {name:'The Speed Demon',title:'Speed<br>Demon',desc:'Quickness is your weapon. You excel in reactive sports that demand fast-twitch dominance, cutting speed, and explosive bursts.',top:['speed','agility'],programs:['Basketball','Soccer','Track']},
+  {name:'The Endurance Machine',title:'Endurance<br>Machine',desc:'You run forever. Your aerobic engine is exceptional — you thrive on volume, pacing, and the slow grind of sustained effort.',top:['endurance','recovery'],programs:['Cross Country','Swimming','Weight Loss']},
+  {name:'The Hybrid Athlete',title:'Hybrid<br>Athlete',desc:'You can do it all. Balanced across every attribute, you adapt to any sport and any training style. The most dangerous kind.',top:['speed','strength'],programs:['CrossFit','HIIT','Football']},
+  {name:'The Agile Competitor',title:'Agile<br>Competitor',desc:'Direction changes are your weapon. You move in ways others can\'t — reading the field, reacting instantly, owning space.',top:['agility','speed'],programs:['Basketball','Tennis','Soccer']},
+];
+
+function getArchetype(){
+  const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  const top1 = sorted[0][0], top2 = sorted[1][0];
+  if((top1==='power'||top1==='strength')&&(top2==='power'||top2==='strength')) return ARCHETYPES[0];
+  if((top1==='speed'||top1==='agility')&&(top2==='speed'||top2==='agility')) return ARCHETYPES[1];
+  if((top1==='endurance'||top1==='recovery')&&(top2==='endurance'||top2==='recovery')) return ARCHETYPES[2];
+  if((top1==='agility')&&(top2==='speed')) return ARCHETYPES[4];
+  const max=sorted[0][1], min=sorted[sorted.length-1][1];
+  if(max-min<4) return ARCHETYPES[3];
+  return ARCHETYPES[0];
+}
+
+function drawRadar(vals){
+  const c=document.getElementById('radar'),ctx=c.getContext('2d');
+  const cx=130,cy=130,r=100,n=6;
+  ctx.clearRect(0,0,260,260);
+  const MAX=20;
+  // Grid rings
+  for(let ring=1;ring<=4;ring++){
+    const rr=r*(ring/4);
+    ctx.beginPath();
+    for(let i=0;i<n;i++){
+      const a=(Math.PI*2*i/n)-Math.PI/2;
+      const x=cx+Math.cos(a)*rr,y=cy+Math.sin(a)*rr;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;ctx.stroke();
+  }
+  // Spokes
+  for(let i=0;i<n;i++){
+    const a=(Math.PI*2*i/n)-Math.PI/2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.stroke();
+  }
+  // Data
+  ctx.beginPath();
+  for(let i=0;i<n;i++){
+    const a=(Math.PI*2*i/n)-Math.PI/2;
+    const v=Math.min(vals[i],MAX)/MAX;
+    const x=cx+Math.cos(a)*r*v,y=cy+Math.sin(a)*r*v;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+  ctx.fillStyle='rgba(212,255,0,0.15)';ctx.fill();
+  ctx.strokeStyle='#D4FF00';ctx.lineWidth=2;ctx.stroke();
+  // Dots
+  for(let i=0;i<n;i++){
+    const a=(Math.PI*2*i/n)-Math.PI/2;
+    const v=Math.min(vals[i],MAX)/MAX;
+    const x=cx+Math.cos(a)*r*v,y=cy+Math.sin(a)*r*v;
+    ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);
+    ctx.fillStyle='#D4FF00';ctx.fill();
+  }
+  // Labels
+  ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='500 10px Inter';ctx.textAlign='center';
+  const LBLS=ATTRS;
+  for(let i=0;i<n;i++){
+    const a=(Math.PI*2*i/n)-Math.PI/2;
+    const x=cx+Math.cos(a)*(r+18),y=cy+Math.sin(a)*(r+18);
+    ctx.fillText(LBLS[i],x,y+3);
+  }
+}
+
+function showResult(){
+  document.getElementById('quizWrap').style.display='none';
+  const rs=document.getElementById('resultSection');rs.classList.add('show');
+  const at=getArchetype();
+  document.getElementById('archetypeBadge').textContent=at.name;
+  document.getElementById('archetypeTitle').innerHTML=at.title;
+  document.getElementById('archetypeDesc').textContent=at.desc;
+
+  // Normalize to max 20
+  const keys=['speed','power','endurance','agility','strength','recovery'];
+  const maxScore=Math.max(...keys.map(k=>scores[k]))||1;
+  const norm=keys.map(k=>Math.round((scores[k]/maxScore)*18)+2);
+
+  // Attrs
+  const aw=document.getElementById('attrsWrap');aw.innerHTML='';
+  keys.forEach((k,i)=>{
+    const pct=Math.round((norm[i]/20)*100);
+    aw.innerHTML+=`<div class="attr-row">
+      <div class="attr-top"><span class="attr-name">${ATTRS[i]}</span><span class="attr-val">${pct}</span></div>
+      <div class="attr-bar"><div class="attr-fill" style="width:0%" data-w="${pct}%"></div></div>
+    </div>`;
+  });
+  setTimeout(()=>document.querySelectorAll('.attr-fill').forEach(el=>el.style.width=el.dataset.w),50);
+
+  // Radar
+  drawRadar(norm);
+
+  // Recs
+  const rg=document.getElementById('recGrid');rg.innerHTML='';
+  at.programs.forEach((p,i)=>{
+    rg.innerHTML+=`<div class="rec-card">
+      <div class="rec-rank">${['🥇 Best Match','🥈 Great Fit','🥉 Strong Option'][i]}</div>
+      <div class="rec-name">${p}</div>
+      <div class="rec-why">${['Perfectly matches your dominant profile','High compatibility with your attributes','Excellent for developing your secondary traits'][i]}</div>
+    </div>`;
+  });
+}
+
+function retake(){
+  Object.keys(scores).forEach(k=>scores[k]=0);
+  answers.fill(null);
+  currentQ=0;
+  document.getElementById('resultSection').classList.remove('show');
+  document.getElementById('quizWrap').style.display='block';
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.querySelector('[data-q="0"]').classList.add('active');
+  document.getElementById('progressFill').style.width='12.5%';
+  document.getElementById('btnPrev').style.visibility='hidden';
+  document.getElementById('btnNext').classList.remove('enabled');
+  document.querySelectorAll('.option').forEach(o=>o.classList.remove('selected'));
+}
+
+// Option selection
+document.querySelectorAll('.option').forEach(opt=>{
+  opt.addEventListener('click',()=>{
+    const step=opt.closest('.step');
+    step.querySelectorAll('.option').forEach(o=>o.classList.remove('selected'));
+    opt.classList.add('selected');
+    answers[currentQ]=opt;
+    document.getElementById('btnNext').classList.add('enabled');
+  });
+});
+
+document.getElementById('btnNext').addEventListener('click',()=>{
+  if(!answers[currentQ]) return;
+  // Apply scores
+  const sc=answers[currentQ].dataset.scores;
+  sc.split(',').forEach(pair=>{
+    const [k,v]=pair.split(':');
+    if(scores.hasOwnProperty(k)) scores[k]+=parseInt(v);
+  });
+  if(currentQ===TOTAL-1){showResult();return;}
+  currentQ++;
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.querySelector(`[data-q="${currentQ}"]`).classList.add('active');
+  document.getElementById('progressFill').style.width=`${((currentQ+1)/TOTAL)*100}%`;
+  document.getElementById('btnPrev').style.visibility='visible';
+  if(!answers[currentQ]) document.getElementById('btnNext').classList.remove('enabled');
+});
+
+document.getElementById('btnPrev').addEventListener('click',()=>{
+  if(currentQ===0) return;
+  // Undo scores
+  if(answers[currentQ-1]){
+    const sc=answers[currentQ-1].dataset.scores;
+    sc.split(',').forEach(pair=>{
+      const [k,v]=pair.split(':');
+      if(scores.hasOwnProperty(k)) scores[k]-=parseInt(v);
+    });
+    answers[currentQ-1]=null;
+    document.querySelectorAll(`.step[data-q="${currentQ-1}"] .option`).forEach(o=>o.classList.remove('selected'));
+  }
+  currentQ--;
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.querySelector(`[data-q="${currentQ}"]`).classList.add('active');
+  document.getElementById('progressFill').style.width=`${((currentQ+1)/TOTAL)*100}%`;
+  if(currentQ===0) document.getElementById('btnPrev').style.visibility='hidden';
+  document.getElementById('btnNext').classList.remove('enabled');
+});
+</script>
+</body>
+</html>

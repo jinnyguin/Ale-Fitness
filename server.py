@@ -257,18 +257,18 @@ def static_files(filename):
     if filename.startswith("api/"):
         abort(404)
 
+    filepath = os.path.join(".", filename)
+
+    # If the exact file doesn't exist, try adding .html extension
+    if not os.path.isfile(filepath):
+        html_path = filepath + ".html"
+        if os.path.isfile(html_path):
+            filepath = html_path
+            filename = filename + ".html"
+        else:
+            abort(404)
+
     try:
-        filepath = os.path.join(".", filename)
-
-        # If the exact file doesn't exist, try adding .html extension
-        if not os.path.isfile(filepath):
-            html_path = filepath + ".html"
-            if os.path.isfile(html_path):
-                filepath = html_path
-                filename = filename + ".html"
-            else:
-                abort(404)
-
         if filename.endswith(".html"):
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()

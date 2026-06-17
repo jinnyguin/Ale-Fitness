@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1-Rep Max Calculator — ALEFIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--lime:#D4FF00;--dark:#0F0F0F;--card:#141414;--border:rgba(255,255,255,.08)}
+body{background:var(--dark);color:#fff;font-family:'Inter',sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2.5rem;border-bottom:1px solid var(--border)}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.18em}
+.logo span{color:var(--lime)}
+.back{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);transition:color .2s}
+.back:hover{color:var(--lime)}
+
+.page-wrap{max-width:900px;margin:0 auto;padding:4rem 2.5rem 6rem}
+.page-header{margin-bottom:3rem}
+.page-tag{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border:1px solid rgba(212,255,0,.3);color:var(--lime);font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;margin-bottom:1.5rem}
+h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3rem,6vw,5rem);text-transform:uppercase;line-height:.92;margin-bottom:1rem}
+h1 em{color:var(--lime);font-style:normal}
+.sub{color:rgba(255,255,255,.4);font-size:.9rem;line-height:1.6;font-weight:300;max-width:480px}
+
+/* CALC */
+.calc-card{background:var(--card);border:1px solid var(--border);padding:2.5rem;margin-bottom:2rem}
+.calc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin-bottom:2rem}
+.field{display:flex;flex-direction:column;gap:.6rem}
+.field label{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600}
+.field select,.field input{background:#0a0a0a;border:1px solid rgba(255,255,255,.12);color:#fff;padding:.85rem 1rem;font-size:.95rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.field select:focus,.field input:focus{border-color:rgba(212,255,0,.5)}
+.field select option{background:#111}
+.unit-toggle{display:flex;border:1px solid rgba(255,255,255,.12)}
+.unit-toggle button{flex:1;padding:.85rem;font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;border:none;background:transparent;color:rgba(255,255,255,.4);cursor:pointer;transition:all .2s}
+.unit-toggle button.active{background:var(--lime);color:#000}
+.calc-btn{width:100%;background:var(--lime);color:#000;padding:1rem;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .2s}
+.calc-btn:hover{opacity:.88}
+
+/* 1RM DISPLAY */
+.orm-display{display:none;margin-bottom:2rem}
+.orm-display.show{display:block}
+.orm-number-wrap{background:var(--card);border:1px solid var(--border);border-top:3px solid var(--lime);padding:2.5rem;text-align:center;margin-bottom:1.5rem}
+.orm-label{font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:.5rem}
+.orm-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:6rem;color:var(--lime);line-height:1}
+.orm-unit{font-family:'Barlow Condensed',sans-serif;font-size:2rem;color:rgba(255,255,255,.4);font-weight:400}
+.orm-formula{font-size:.72rem;color:rgba(255,255,255,.25);margin-top:.5rem;letter-spacing:.05em}
+
+/* TABLE */
+.table-wrap{background:var(--card);border:1px solid var(--border)}
+.table-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.table-header h3{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase}
+.table-header span{font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3)}
+table{width:100%;border-collapse:collapse}
+thead th{padding:.75rem 1.5rem;text-align:left;font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3);border-bottom:1px solid var(--border);font-weight:600}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+tbody tr:last-child{border-bottom:none}
+td{padding:.9rem 1.5rem;font-size:.88rem}
+td.pct{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;color:var(--lime)}
+td.weight{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem}
+td.purpose{color:rgba(255,255,255,.45);font-size:.78rem}
+td.reps{color:rgba(255,255,255,.35);font-size:.75rem}
+.zone-bar-cell{width:120px}
+.zone-bar{height:4px;background:#222;border-radius:2px;overflow:hidden}
+.zone-fill{height:100%;background:var(--lime);border-radius:2px}
+
+/* TIPS */
+.tips{margin-top:2rem;display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.tip{background:var(--card);border:1px solid var(--border);padding:1.25rem;border-left:2px solid var(--lime)}
+.tip-title{font-weight:600;font-size:.78rem;margin-bottom:.4rem}
+.tip-text{font-size:.72rem;color:rgba(255,255,255,.35);line-height:1.5}
+
+/* FORMULAS */
+.formulas{margin-top:2rem;background:var(--card);border:1px solid var(--border);padding:1.5rem}
+.formulas h4{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:.9rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:1rem}
+.formula-list{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.formula-item{font-size:.75rem;color:rgba(255,255,255,.3);padding:.6rem .8rem;background:#0a0a0a;border-radius:2px}
+.formula-item strong{color:rgba(255,255,255,.6);display:block;margin-bottom:.2rem}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">ALE<span>FIT</span></a>
+  <a href="/" class="back">← Back to Home</a>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <div class="page-tag">🎯 Calculator</div>
+    <h1>1-Rep Max<br><em>Calculator</em></h1>
+    <p class="sub">Enter any lift and rep count. Instantly get your estimated 1RM and a full week of precise training loads — no guessing.</p>
+  </div>
+
+  <div class="calc-card">
+    <div class="calc-grid">
+      <div class="field">
+        <label>Exercise</label>
+        <select id="exercise">
+          <option value="Squat">Back Squat</option>
+          <option value="Bench Press">Bench Press</option>
+          <option value="Deadlift">Deadlift</option>
+          <option value="Overhead Press">Overhead Press</option>
+          <option value="Front Squat">Front Squat</option>
+          <option value="Romanian Deadlift">Romanian Deadlift</option>
+          <option value="Barbell Row">Barbell Row</option>
+          <option value="Incline Bench">Incline Bench</option>
+          <option value="Custom">Custom Exercise</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Weight Lifted</label>
+        <input type="number" id="weight" placeholder="e.g. 225" min="1" max="2000">
+      </div>
+      <div class="field">
+        <label>Reps Completed</label>
+        <input type="number" id="reps" placeholder="e.g. 5" min="1" max="30">
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:1.5rem">
+      <label>Unit</label>
+      <div class="unit-toggle">
+        <button class="active" id="lbsBtn" onclick="setUnit('lbs')">LBS</button>
+        <button id="kgBtn" onclick="setUnit('kg')">KG</button>
+      </div>
+    </div>
+    <button class="calc-btn" onclick="calculate()">Calculate My 1RM →</button>
+  </div>
+
+  <div class="orm-display" id="ormDisplay">
+    <div class="orm-number-wrap">
+      <div class="orm-label">Estimated 1-Rep Max</div>
+      <div><span class="orm-val" id="ormVal">—</span> <span class="orm-unit" id="ormUnitDisplay">lbs</span></div>
+      <div class="orm-formula" id="ormFormula"></div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <h3>Training Load Breakdown</h3>
+        <span id="exerciseDisplay">—</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>% of 1RM</th>
+            <th>Weight</th>
+            <th>Purpose</th>
+            <th>Target Reps</th>
+            <th style="width:120px">Intensity</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tips">
+    <div class="tip">
+      <div class="tip-title">Test Safely</div>
+      <div class="tip-text">Never attempt a true 1RM without a spotter or safety equipment. Use this calculator instead of actually maxing out every session.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-title">Re-Test Monthly</div>
+      <div class="tip-text">Recalculate every 4–6 weeks as your strength improves. Your training loads should increase as your 1RM goes up.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-title">Warm Up First</div>
+      <div class="tip-text">Always build to a working set through progressive warm-up sets at 40%, 60%, and 80% before hitting your training weight.</div>
+    </div>
+  </div>
+
+  <div class="formulas">
+    <h4>Calculation Methods Used</h4>
+    <div class="formula-list">
+      <div class="formula-item"><strong>Epley Formula</strong>weight × (1 + reps / 30)</div>
+      <div class="formula-item"><strong>Brzycki Formula</strong>weight × 36 / (37 - reps)</div>
+      <div class="formula-item"><strong>Lombardi Formula</strong>weight × reps^0.1</div>
+      <div class="formula-item"><strong>Average</strong>Mean of all three for best accuracy</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentUnit = 'lbs';
+
+function setUnit(u){
+  currentUnit=u;
+  document.getElementById('lbsBtn').classList.toggle('active',u==='lbs');
+  document.getElementById('kgBtn').classList.toggle('active',u==='kg');
+  document.querySelector('#weight').placeholder=u==='lbs'?'e.g. 225':'e.g. 100';
+}
+
+const LOADS = [
+  {pct:50, purpose:'Warm-Up / Technique', reps:'10–15', color:40},
+  {pct:60, purpose:'Hypertrophy — High Rep', reps:'10–12', color:52},
+  {pct:65, purpose:'Hypertrophy — Volume', reps:'8–10', color:58},
+  {pct:70, purpose:'Hypertrophy — Moderate', reps:'6–8', color:65},
+  {pct:75, purpose:'Strength-Hypertrophy', reps:'5–6', color:72},
+  {pct:80, purpose:'Strength Training', reps:'4–5', color:80},
+  {pct:85, purpose:'Strength — Heavy', reps:'3–4', color:87},
+  {pct:90, purpose:'Near-Max Strength', reps:'2–3', color:93},
+  {pct:95, purpose:'Max Strength Attempt', reps:'1–2', color:97},
+  {pct:100, purpose:'1-Rep Max', reps:'1', color:100},
+];
+
+function calculate(){
+  const w=parseFloat(document.getElementById('weight').value);
+  const r=parseInt(document.getElementById('reps').value);
+  if(!w||!r||r<1||r>30||w<=0){
+    alert('Please enter a valid weight and reps (1–30).');return;
+  }
+  // Three formulas, take average
+  const epley = w*(1+r/30);
+  const brzycki = r===1?w:w*(36/(37-r));
+  const lombardi = w*Math.pow(r,0.1);
+  const orm = Math.round((epley+brzycki+lombardi)/3);
+
+  document.getElementById('ormVal').textContent=orm;
+  document.getElementById('ormUnitDisplay').textContent=currentUnit;
+  document.getElementById('exerciseDisplay').textContent=document.getElementById('exercise').value;
+  document.getElementById('ormFormula').textContent=`Based on ${w}${currentUnit} × ${r} reps — avg of Epley, Brzycki & Lombardi formulas`;
+
+  const tbody=document.getElementById('tableBody');tbody.innerHTML='';
+  LOADS.forEach(row=>{
+    const wt=Math.round(orm*(row.pct/100)/2.5)*2.5;
+    const tr=document.createElement('tr');
+    if(row.pct===100) tr.style.background='rgba(212,255,0,0.04)';
+    tr.innerHTML=`<td class="pct">${row.pct}%</td><td class="weight">${wt} <span style="font-size:.7rem;color:rgba(255,255,255,.3);font-family:Inter">${currentUnit}</span></td><td class="purpose">${row.purpose}</td><td class="reps">${row.reps} reps</td><td class="zone-bar-cell"><div class="zone-bar"><div class="zone-fill" style="width:${row.color}%"></div></div></td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('ormDisplay').classList.add('show');
+  document.getElementById('ormDisplay').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+document.getElementById('weight').addEventListener('keydown',e=>{if(e.key==='Enter')calculate();});
+document.getElementById('reps').addEventListener('keydown',e=>{if(e.key==='Enter')calculate();});
+</script>
+</body>
+</html>
