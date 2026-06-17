@@ -170,6 +170,16 @@ td.reps{color:rgba(255,255,255,.35);font-size:.75rem}
     </div>
   </div>
 
+  <div id="historySection" style="margin-top:2rem;display:none">
+    <div style="background:var(--card);border:1px solid var(--border)">
+      <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <h3 style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase">Your Saved Lifts</h3>
+        <span style="font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3)" id="historyCount"></span>
+      </div>
+      <div id="historyBody"></div>
+    </div>
+  </div>
+
   <div class="formulas">
     <h4>Calculation Methods Used</h4>
     <div class="formula-list">
@@ -182,6 +192,42 @@ td.reps{color:rgba(255,255,255,.35);font-size:.75rem}
 </div>
 
 <script>
+// ── AUTH GATE & SAVE/LOAD ─────────────────────────────────────────────────
+var _AF_APP='6a1f3d189ebdbe71fa7d256c';
+(function(){
+  var p=new URLSearchParams(window.location.search),ut=p.get('access_token');
+  if(ut){localStorage.setItem('base44_access_token',ut);localStorage.setItem('token',ut);p.delete('access_token');window.history.replaceState({},'',window.location.pathname+(p.toString()?'?'+p.toString():''));}
+  var tok=localStorage.getItem('base44_access_token')||localStorage.getItem('token');
+  if(!tok){window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));return;}
+  window._aftok=tok;
+  fetch('/api/apps/'+_AF_APP+'/auth/me',{headers:{'Authorization':'Bearer '+tok}})
+    .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+    .then(function(u){window._afuser=u;loadSaved();})
+    .catch(function(){localStorage.removeItem('base44_access_token');localStorage.removeItem('token');window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));});
+})();
+function _afSave(type,data){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+window._aftok},body:JSON.stringify(data)}).catch(function(){});}
+function _afLoad(type,limit,cb){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type+'?limit='+limit,{headers:{'Authorization':'Bearer '+window._aftok}}).then(function(r){return r.json();}).then(cb).catch(function(){});}
+function loadSaved(){
+  _afLoad('OneRepMax',20,function(results){
+    if(!results||!results.length)return;
+    var sec=document.getElementById('historySection');
+    var body=document.getElementById('historyBody');
+    sec.style.display='block';
+    document.getElementById('historyCount').textContent=results.length+' saved';
+    body.innerHTML='';
+    results.slice(0,10).forEach(function(r){
+      var dateStr=r.saved_at?new Date(r.saved_at).toLocaleDateString():'';
+      body.innerHTML+='<div style="display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.04)">'+
+        '<div><div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:1rem;text-transform:uppercase;color:#fff">'+r.exercise+'</div>'+
+        '<div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:.15rem">'+r.weight+' '+r.unit+' × '+r.reps+' reps'+(dateStr?' · '+dateStr:'')+'</div></div>'+
+        '<div style="text-align:right"><span style="font-family:\'Barlow Condensed\',sans-serif;font-weight:900;font-size:1.5rem;color:#D4FF00">'+r.orm+'</span>'+
+        '<span style="font-size:.7rem;color:rgba(255,255,255,.3);margin-left:.25rem">'+r.unit+'</span>'+
+        '<div style="font-size:.6rem;color:rgba(255,255,255,.25);letter-spacing:.08em;text-transform:uppercase">Est 1RM</div></div></div>';
+    });
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 let currentUnit = 'lbs';
 
 function setUnit(u){
@@ -232,6 +278,10 @@ function calculate(){
 
   document.getElementById('ormDisplay').classList.add('show');
   document.getElementById('ormDisplay').scrollIntoView({behavior:'smooth',block:'start'});
+  var exercise=document.getElementById('exercise').value;
+  _afSave('OneRepMax',{exercise:exercise,weight:w,reps:r,unit:currentUnit,orm:orm,saved_at:new Date().toISOString()});
+  // Refresh history panel
+  setTimeout(function(){loadSaved();},600);
 }
 
 document.getElementById('weight').addEventListener('keydown',e=>{if(e.key==='Enter')calculate();});

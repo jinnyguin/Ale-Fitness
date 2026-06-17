@@ -101,6 +101,15 @@ h1 em{color:var(--lime);font-style:normal}
   <h1>Injury Risk<br><em>Scanner</em></h1>
   <p class="sub">Answer 10 questions about your movement patterns, training history, and pain signals. Get a color-coded risk assessment for your most vulnerable areas.</p>
   <p class="disclaimer">This tool is for educational purposes only — not medical advice. Consult a professional for any pain or injury.</p>
+  <div id="savedBannerInj" style="display:none;margin-bottom:2rem">
+    <div style="background:#141414;border:1px solid rgba(212,255,0,.2);padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+      <div>
+        <div style="color:#D4FF00;font-size:.62rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:.25rem">Saved Scan</div>
+        <div style="color:rgba(255,255,255,.7);font-size:.85rem" class="saved-text">Your previous scan results are saved</div>
+      </div>
+      <button onclick="viewSavedScan()" style="background:#D4FF00;color:#000;border:none;padding:.55rem 1.1rem;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap;flex-shrink:0">View Saved →</button>
+    </div>
+  </div>
 
   <div class="progress-track" id="progressTrack"></div>
 
@@ -265,6 +274,39 @@ h1 em{color:var(--lime);font-style:normal}
 </div>
 
 <script>
+// ── AUTH GATE & SAVE/LOAD ─────────────────────────────────────────────────
+var _AF_APP='6a1f3d189ebdbe71fa7d256c';
+(function(){
+  var p=new URLSearchParams(window.location.search),ut=p.get('access_token');
+  if(ut){localStorage.setItem('base44_access_token',ut);localStorage.setItem('token',ut);p.delete('access_token');window.history.replaceState({},'',window.location.pathname+(p.toString()?'?'+p.toString():''));}
+  var tok=localStorage.getItem('base44_access_token')||localStorage.getItem('token');
+  if(!tok){window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));return;}
+  window._aftok=tok;
+  fetch('/api/apps/'+_AF_APP+'/auth/me',{headers:{'Authorization':'Bearer '+tok}})
+    .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+    .then(function(u){window._afuser=u;loadSaved();})
+    .catch(function(){localStorage.removeItem('base44_access_token');localStorage.removeItem('token');window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));});
+})();
+function _afSave(type,data){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+window._aftok},body:JSON.stringify(data)}).catch(function(){});}
+function _afLoad(type,limit,cb){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type+'?limit='+limit,{headers:{'Authorization':'Bearer '+window._aftok}}).then(function(r){return r.json();}).then(cb).catch(function(){});}
+var _savedScan=null;
+function loadSaved(){
+  _afLoad('InjuryScanner',1,function(results){
+    if(!results||!results.length)return;
+    _savedScan=results[0];
+    var b=document.getElementById('savedBannerInj');
+    var dateStr=_savedScan.saved_at?new Date(_savedScan.saved_at).toLocaleDateString():'previously';
+    b.querySelector('.saved-text').textContent='Last scan ('+dateStr+'): '+(_savedScan.safeScore||'?')+'% overall safety score';
+    b.style.display='block';
+  });
+}
+function viewSavedScan(){
+  if(!_savedScan)return;
+  Object.assign(riskScores,_savedScan.zones||{});
+  showResult();
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const TOTAL = 10;
 let currentQ = 0;
 const answers = new Array(TOTAL).fill(null);
@@ -393,6 +435,9 @@ function showResult(){
     </div>`;
   });
   setTimeout(()=>document.querySelectorAll('.risk-fill').forEach(el=>el.style.width=el.dataset.w),100);
+  var total2=Object.values(riskScores).reduce(function(a,b){return a+b;},0);
+  var safeScore2=100-Math.min(100,Math.round((total2/30)*100));
+  _afSave('InjuryScanner',{zones:Object.assign({},riskScores),safeScore:safeScore2,saved_at:new Date().toISOString()});
 }
 
 function retakeScan(){

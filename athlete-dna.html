@@ -88,6 +88,16 @@ canvas#radar{display:block}
   <p>8 questions. 60 seconds. Discover your athlete archetype and get programs matched to your exact physical profile.</p>
 </div>
 
+<div id="savedBanner" style="display:none;max-width:680px;margin:0 auto 1.5rem;padding:0 2.5rem">
+  <div style="background:#141414;border:1px solid rgba(212,255,0,.2);padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+    <div>
+      <div style="color:#D4FF00;font-size:.62rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:.25rem">Saved Profile</div>
+      <div style="color:rgba(255,255,255,.7);font-size:.85rem" id="savedBannerText">You have a saved DNA profile</div>
+    </div>
+    <button onclick="viewSaved()" style="background:#D4FF00;color:#000;border:none;padding:.55rem 1.1rem;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap;flex-shrink:0">View Saved →</button>
+  </div>
+</div>
+
 <div class="quiz-wrap" id="quizWrap">
   <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:12.5%"></div></div>
 
@@ -218,6 +228,53 @@ canvas#radar{display:block}
 </div>
 
 <script>
+// ── AUTH GATE & SAVE/LOAD ─────────────────────────────────────────────────
+var _AF_APP='6a1f3d189ebdbe71fa7d256c';
+(function(){
+  var p=new URLSearchParams(window.location.search),ut=p.get('access_token');
+  if(ut){localStorage.setItem('base44_access_token',ut);localStorage.setItem('token',ut);p.delete('access_token');window.history.replaceState({},'',window.location.pathname+(p.toString()?'?'+p.toString():''));}
+  var tok=localStorage.getItem('base44_access_token')||localStorage.getItem('token');
+  if(!tok){window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));return;}
+  window._aftok=tok;
+  fetch('/api/apps/'+_AF_APP+'/auth/me',{headers:{'Authorization':'Bearer '+tok}})
+    .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+    .then(function(u){window._afuser=u;loadSaved();})
+    .catch(function(){localStorage.removeItem('base44_access_token');localStorage.removeItem('token');window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));});
+})();
+function _afSave(type,data){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+window._aftok},body:JSON.stringify(data)}).catch(function(){});}
+function _afLoad(type,limit,cb){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type+'?limit='+limit,{headers:{'Authorization':'Bearer '+window._aftok}}).then(function(r){return r.json();}).then(cb).catch(function(){});}
+var _savedDNA=null;
+function loadSaved(){
+  _afLoad('AthleteDNA',1,function(results){
+    if(!results||!results.length)return;
+    _savedDNA=results[0];
+    document.getElementById('savedBannerText').textContent='Your '+(_savedDNA.archetype||'')+ ' profile is saved — view it or retake below';
+    document.getElementById('savedBanner').style.display='block';
+  });
+}
+function viewSaved(){
+  if(!_savedDNA)return;
+  var at=ARCHETYPES.find(function(a){return a.name===_savedDNA.archetype;})||ARCHETYPES[0];
+  document.getElementById('archetypeBadge').textContent=at.name;
+  document.getElementById('archetypeTitle').innerHTML=at.title;
+  document.getElementById('archetypeDesc').textContent=at.desc;
+  var norm=_savedDNA.normalized||[10,10,10,10,10,10];
+  var aw=document.getElementById('attrsWrap');aw.innerHTML='';
+  ['speed','power','endurance','agility','strength','recovery'].forEach(function(k,i){
+    var pct=Math.round((norm[i]/20)*100);
+    aw.innerHTML+='<div class="attr-row"><div class="attr-top"><span class="attr-name">'+ATTRS[i]+'</span><span class="attr-val">'+pct+'</span></div><div class="attr-bar"><div class="attr-fill" style="width:0%" data-w="'+pct+'%"></div></div></div>';
+  });
+  setTimeout(function(){document.querySelectorAll('.attr-fill').forEach(function(el){el.style.width=el.dataset.w;});},50);
+  drawRadar(norm);
+  var rg=document.getElementById('recGrid');rg.innerHTML='';
+  at.programs.forEach(function(p,i){
+    rg.innerHTML+='<div class="rec-card"><div class="rec-rank">'+['🥇 Best Match','🥈 Great Fit','🥉 Strong Option'][i]+'</div><div class="rec-name">'+p+'</div><div class="rec-why">'+['Perfectly matches your dominant profile','High compatibility with your attributes','Excellent for developing your secondary traits'][i]+'</div></div>';
+  });
+  document.getElementById('quizWrap').style.display='none';
+  document.getElementById('resultSection').classList.add('show');
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const ATTRS = ['Speed','Power','Endurance','Agility','Strength','Recovery'];
 const scores = {speed:0,power:0,endurance:0,agility:0,strength:0,recovery:0};
 let currentQ = 0;
@@ -322,6 +379,7 @@ function showResult(){
 
   // Radar
   drawRadar(norm);
+  _afSave('AthleteDNA',{archetype:at.name,scores:Object.assign({},scores),normalized:norm,saved_at:new Date().toISOString()});
 
   // Recs
   const rg=document.getElementById('recGrid');rg.innerHTML='';
