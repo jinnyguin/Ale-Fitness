@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supplement Stack Builder — ALEFIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--lime:#D4FF00;--dark:#0F0F0F;--card:#141414;--border:rgba(255,255,255,.08)}
+body{background:var(--dark);color:#fff;font-family:'Inter',sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2.5rem;border-bottom:1px solid var(--border)}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.18em}
+.logo span{color:var(--lime)}
+.back{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);transition:color .2s}
+.back:hover{color:var(--lime)}
+.page-wrap{max-width:900px;margin:0 auto;padding:4rem 2.5rem 6rem}
+.page-tag{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border:1px solid rgba(212,255,0,.3);color:var(--lime);font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;margin-bottom:1.5rem}
+h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3rem,6vw,5rem);text-transform:uppercase;line-height:.92;margin-bottom:1rem}
+h1 em{color:var(--lime);font-style:normal}
+.sub{color:rgba(255,255,255,.4);font-size:.9rem;line-height:1.6;max-width:520px;margin-bottom:3rem}
+.input-card{background:var(--card);border:1px solid var(--border);padding:2rem;margin-bottom:2rem}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-bottom:1.5rem}
+.field{display:flex;flex-direction:column;gap:.5rem}
+.field label{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600}
+.field select{background:#0a0a0a;border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;font-size:.9rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field select:focus{border-color:rgba(212,255,0,.5)}
+.field select option{background:#111}
+.gen-btn{width:100%;background:var(--lime);color:#000;padding:1rem;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .2s}
+.gen-btn:hover{opacity:.88}
+.stacks{display:none}.stacks.show{display:block}
+.tier{margin-bottom:2rem}
+.tier-header{display:flex;align-items:center;gap:1rem;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.tier-badge{padding:.3rem .9rem;font-size:.65rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase}
+.tier-count{font-size:.75rem;color:rgba(255,255,255,.3)}
+.supp-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.supp-card{background:var(--card);border:1px solid var(--border);padding:1.5rem;position:relative;overflow:hidden}
+.supp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.supp-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.3rem;text-transform:uppercase;margin-bottom:.25rem}
+.supp-dose{font-size:.78rem;color:rgba(255,255,255,.4);margin-bottom:.75rem}
+.supp-timing{display:inline-flex;align-items:center;gap:.4rem;font-size:.65rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--lime);margin-bottom:.75rem}
+.supp-why{font-size:.78rem;color:rgba(255,255,255,.4);line-height:1.5}
+.evidence-bar{display:flex;align-items:center;gap:.5rem;margin-top:.75rem}
+.evidence-label{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.25);flex-shrink:0}
+.evidence-dots{display:flex;gap:3px}
+.evidence-dot{width:7px;height:7px;border-radius:50%}
+.evidence-dot.filled{background:var(--lime)}
+.evidence-dot.empty{background:rgba(255,255,255,.12)}
+.disclaimer{background:rgba(255,255,255,.03);border:1px solid var(--border);padding:1.25rem 1.5rem;margin-top:2rem}
+.disclaimer p{font-size:.75rem;color:rgba(255,255,255,.3);line-height:1.6}
+@media(max-width:640px){.grid-3{grid-template-columns:1fr}.supp-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">ALE<span>FIT</span></a>
+  <a href="/#tools" class="back">← Back to Site</a>
+</nav>
+<div class="page-wrap">
+  <div class="page-tag">💊 Science-Based</div>
+  <h1>Supplement Stack<br><em>Builder</em></h1>
+  <p class="sub">Pick your goal and budget. Get a tiered supplement stack — Tier 1 essentials, Tier 2 performance, Tier 3 advanced — with dosages and timing.</p>
+
+  <div class="input-card">
+    <div class="grid-3">
+      <div class="field">
+        <label>Primary Goal</label>
+        <select id="goal">
+          <option value="strength">Strength & Power</option>
+          <option value="hypertrophy">Muscle Growth</option>
+          <option value="endurance">Endurance</option>
+          <option value="fatloss">Fat Loss</option>
+          <option value="health">General Health</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Training Frequency</label>
+        <select id="freq">
+          <option value="low">1–3x per week</option>
+          <option value="moderate" selected>4–5x per week</option>
+          <option value="high">6+ per week</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Budget Tier</label>
+        <select id="budget">
+          <option value="essential">Essential Only</option>
+          <option value="standard" selected>Standard</option>
+          <option value="premium">Premium</option>
+        </select>
+      </div>
+    </div>
+    <button class="gen-btn" onclick="generate()">Build My Stack →</button>
+  </div>
+
+  <div class="stacks" id="stacks"></div>
+</div>
+
+<script>
+var _AF_APP='6a1f3d189ebdbe71fa7d256c';
+(function(){
+  var p=new URLSearchParams(window.location.search),ut=p.get('access_token');
+  if(ut){localStorage.setItem('base44_access_token',ut);localStorage.setItem('token',ut);p.delete('access_token');window.history.replaceState({},'',window.location.pathname+(p.toString()?'?'+p.toString():''));}
+  var tok=localStorage.getItem('base44_access_token')||localStorage.getItem('token');
+  if(!tok){window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));return;}
+  window._aftok=tok;
+  fetch('/api/apps/'+_AF_APP+'/auth/me',{headers:{'Authorization':'Bearer '+tok}})
+    .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+    .then(function(u){window._afuser=u;loadSaved();})
+    .catch(function(){localStorage.removeItem('base44_access_token');localStorage.removeItem('token');window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));});
+})();
+function _afSave(t,d){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+t,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+window._aftok},body:JSON.stringify(d)}).catch(function(){});}
+function _afLoad(t,l,cb){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+t+'?limit='+l,{headers:{'Authorization':'Bearer '+window._aftok}}).then(function(r){return r.json();}).then(cb).catch(function(){});}
+function loadSaved(){
+  _afLoad('SupplementStack',1,function(res){
+    if(!res||!res.length)return;
+    var r=res[0];
+    if(r.goal)document.getElementById('goal').value=r.goal;
+    if(r.freq)document.getElementById('freq').value=r.freq;
+    if(r.budget)document.getElementById('budget').value=r.budget;
+    generate();
+  });
+}
+
+const STACKS={
+  strength:{
+    tier1:[
+      {name:'Creatine Monohydrate',dose:'5g daily',timing:'Post-workout or any time',why:'The most researched supplement in history. Increases phosphocreatine stores for ATP regeneration, boosting strength and power output by 5–15%.',evidence:5},
+      {name:'Whey Protein',dose:'25–50g post-workout',timing:'Within 60 min of training',why:'Rapidly absorbed complete protein providing all essential amino acids. Accelerates muscle protein synthesis after resistance training.',evidence:5},
+      {name:'Vitamin D3',dose:'2000–4000 IU daily',timing:'With morning meal',why:'Critical for testosterone production, immune function, and muscle contractile force. Most athletes are deficient, especially indoors.',evidence:4},
+    ],
+    tier2:[
+      {name:'Caffeine',dose:'3–6mg/kg bodyweight',timing:'30–45 min pre-workout',why:'Proven to increase maximal strength, reduce RPE, and delay fatigue. One of the most effective legal performance enhancers.',evidence:5},
+      {name:'Beta-Alanine',dose:'3.2–6.4g daily',timing:'Split into 2 doses (tingling is normal)',why:'Increases muscle carnosine which buffers acid during intense sets of 8–15 reps. Most effective for strength-endurance hybrids.',evidence:4},
+      {name:'Magnesium Glycinate',dose:'300–400mg',timing:'Before bed',why:'Required for 300+ enzymatic reactions. Deficiency is common in athletes and limits strength, sleep quality, and recovery.',evidence:4},
+    ],
+    tier3:[
+      {name:'Citrulline Malate',dose:'6–8g',timing:'30 min pre-workout',why:'Increases nitric oxide production, improving blood flow, reducing fatigue markers, and increasing rep volume at a given load.',evidence:4},
+      {name:'Ashwagandha KSM-66',dose:'600mg daily',timing:'With morning meal',why:'Clinically shown to increase testosterone, reduce cortisol, and improve VO2max. 8–12 weeks for full effect.',evidence:4},
+      {name:'Zinc',dose:'25–45mg daily',timing:'With evening meal',why:'Required for testosterone synthesis and immune function. Frequently depleted in athletes due to sweat losses.',evidence:3},
+    ]
+  },
+  hypertrophy:{
+    tier1:[
+      {name:'Creatine Monohydrate',dose:'5g daily',timing:'Any time (consistency matters)',why:'Increases muscle cell volume, enhances recovery between sets, and boosts training volume — the key driver of hypertrophy.',evidence:5},
+      {name:'Whey + Casein Blend',dose:'30–50g post-workout',timing:'Post-workout and before bed',why:'Fast whey provides immediate amino acids. Slow casein sustains elevated muscle protein synthesis for hours overnight.',evidence:5},
+      {name:'Omega-3 Fish Oil',dose:'2–3g EPA+DHA daily',timing:'With meals',why:'Reduces training inflammation, improves insulin sensitivity, and directly stimulates muscle protein synthesis at rest.',evidence:4},
+    ],
+    tier2:[
+      {name:'Caffeine',dose:'200–400mg',timing:'30 min pre-workout',why:'Increases training volume by reducing perceived exertion. More volume = more hypertrophic stimulus.',evidence:5},
+      {name:'Citrulline Malate',dose:'6–8g',timing:'30 min pre-workout',why:'Proven to increase total reps before failure in multiple sets — exactly the stimulus needed for muscle growth.',evidence:4},
+      {name:'Vitamin D3 + K2',dose:'3000–5000 IU D3 + 100mcg K2',timing:'With morning meal',why:'D3 supports testosterone and anabolic signalling. K2 directs calcium into bones not arteries.',evidence:4},
+    ],
+    tier3:[
+      {name:'HMB (Free Acid)',dose:'3g daily',timing:'Split across 3 meals',why:'Reduces muscle protein breakdown, especially during caloric deficits. Most effective for drug-free athletes in hypertrophy blocks.',evidence:3},
+      {name:'Ashwagandha KSM-66',dose:'600mg daily',timing:'Morning with food',why:'Shown to increase lean mass and strength compared to placebo in resistance-trained individuals over 8 weeks.',evidence:4},
+      {name:'L-Leucine',dose:'2–3g extra',timing:'With protein meals',why:'The primary anabolic trigger amino acid. Adding extra leucine to meals can maximise muscle protein synthesis response.',evidence:4},
+    ]
+  },
+  endurance:{
+    tier1:[
+      {name:'Electrolytes (Na/K/Mg)',dose:'Per label — tailored to sweat rate',timing:'During sessions >60 min',why:'Sodium and potassium maintain fluid balance and prevent cramping. Critical for any session involving heavy sweating.',evidence:5},
+      {name:'Whey Protein',dose:'20–30g post-workout',timing:'Within 45 min of finishing',why:'Endurance training breaks down muscle protein. Adequate post-workout protein preserves muscle mass during high-volume training.',evidence:4},
+      {name:'Iron',dose:'18–27mg daily (with vitamin C)',timing:'Morning on empty stomach',why:'Endurance athletes frequently develop iron deficiency which severely impairs VO2max and fatigue resistance. Test first.',evidence:5},
+    ],
+    tier2:[
+      {name:'Beta-Alanine',dose:'3.2–6.4g daily',timing:'Split into 2 doses',why:'Delays acidosis in efforts from 1–4 minutes — directly relevant to threshold intervals and repeated sprint efforts.',evidence:4},
+      {name:'Caffeine',dose:'3–6mg/kg',timing:'60 min before competition',why:'Proven to improve endurance performance at every distance. Most effective when cycling on/off to maintain sensitivity.',evidence:5},
+      {name:'Vitamin D3',dose:'2000–4000 IU',timing:'Morning with food',why:'Supports immune function during heavy training, reduces upper respiratory infections, and improves muscle function.',evidence:4},
+    ],
+    tier3:[
+      {name:'Beetroot / Nitrates',dose:'500mg nitrate or 2–3 shots',timing:'2–3 hours pre-competition',why:'Increases nitric oxide, reduces oxygen cost of exercise, and improves performance at threshold. Huge evidence base.',evidence:5},
+      {name:'Quercetin',dose:'1g daily',timing:'With meals',why:'Anti-inflammatory flavonoid shown to modestly improve VO2max and reduce illness risk during high training load.',evidence:3},
+      {name:'CoQ10',dose:'100–200mg',timing:'With fatty meal',why:'Supports mitochondrial energy production. Most useful for athletes over 35 or those with high training volumes.',evidence:3},
+    ]
+  },
+  fatloss:{
+    tier1:[
+      {name:'Whey Protein',dose:'30–50g daily',timing:'Between meals or post-workout',why:'High-protein intake preserves muscle mass during a caloric deficit. Protein is also the most satiating macronutrient.',evidence:5},
+      {name:'Caffeine',dose:'200–400mg',timing:'Morning and pre-workout',why:'Increases metabolic rate by 3–11% and fat oxidation. Also blunts appetite and boosts training performance in a deficit.',evidence:5},
+      {name:'Vitamin D3',dose:'2000–4000 IU',timing:'With morning meal',why:'Deficiency is associated with increased fat mass and reduced ability to lose fat during a caloric deficit.',evidence:4},
+    ],
+    tier2:[
+      {name:'Green Tea Extract (EGCG)',dose:'400–600mg EGCG',timing:'Morning with caffeine',why:'Synergistic with caffeine. Modestly increases fat oxidation and thermogenesis. Best as part of a combined stack.',evidence:3},
+      {name:'Omega-3 Fish Oil',dose:'2–4g EPA+DHA',timing:'With meals',why:'Improves insulin sensitivity, reduces inflammation, and may shift substrate utilisation toward fat oxidation.',evidence:4},
+      {name:'Fibre (Psyllium Husk)',dose:'5–10g before meals',timing:'10 min before eating with water',why:'Dramatically improves satiety, reduces calorie intake, and stabilises blood sugar — all critical during a cut.',evidence:4},
+    ],
+    tier3:[
+      {name:'L-Carnitine L-Tartrate',dose:'2g daily',timing:'Pre-workout',why:'Transports long-chain fatty acids into mitochondria. Most effective when combined with carbohydrates for uptake.',evidence:3},
+      {name:'Berberine',dose:'500mg 2–3x daily',timing:'With meals',why:'Activates AMPK, improving insulin sensitivity and glucose disposal. Effective but requires breaks every 8–12 weeks.',evidence:4},
+      {name:'Ashwagandha',dose:'600mg daily',timing:'Morning',why:'Reduces cortisol which drives fat storage, especially abdominal. Helps manage stress-related eating during a cut.',evidence:4},
+    ]
+  },
+  health:{
+    tier1:[
+      {name:'Vitamin D3 + K2',dose:'3000 IU D3 + 100mcg K2',timing:'With morning meal',why:'The most prevalent deficiency in modern populations. Critical for immune function, bone density, and mood regulation.',evidence:5},
+      {name:'Omega-3 Fish Oil',dose:'2–3g EPA+DHA',timing:'With meals',why:'Reduces cardiovascular risk markers, supports brain function, reduces systemic inflammation, and improves joint health.',evidence:5},
+      {name:'Magnesium Glycinate',dose:'300–400mg',timing:'Before bed',why:'Required for 300+ bodily functions. Improves sleep quality, reduces anxiety, and supports cardiovascular health.',evidence:4},
+    ],
+    tier2:[
+      {name:'Zinc + Copper',dose:'15–25mg zinc + 1–2mg copper',timing:'With evening meal',why:'Zinc supports immune function and testosterone. Copper prevents zinc-induced copper depletion. Take together.',evidence:4},
+      {name:'Creatine Monohydrate',dose:'3–5g daily',timing:'Any time',why:'Beyond athletic benefits, creatine supports brain health, reduces cognitive fatigue, and benefits those over 40 significantly.',evidence:5},
+      {name:'Probiotic',dose:'10–50 billion CFU',timing:'Morning on empty stomach',why:'Supports gut microbiome diversity, immune function, and mood via the gut-brain axis. Particularly relevant post-antibiotics.',evidence:3},
+    ],
+    tier3:[
+      {name:'Ashwagandha KSM-66',dose:'600mg',timing:'Morning with food',why:'Reduces cortisol, improves stress resilience, supports thyroid function, and modestly improves body composition.',evidence:4},
+      {name:'Alpha-Lipoic Acid',dose:'600–1200mg',timing:'Before meals',why:'Potent antioxidant that improves insulin sensitivity, supports mitochondrial health, and reduces oxidative stress.',evidence:3},
+      {name:'Coenzyme Q10',dose:'100–200mg ubiquinol',timing:'With fatty meal',why:'Declines with age. Supports mitochondrial energy production, cardiovascular health, and reduces statin side effects.',evidence:3},
+    ]
+  }
+};
+
+const TIER_META=[
+  {label:'Tier 1 — Foundation',badge:'ESSENTIAL',color:'#D4FF00',desc:'These supplements have the strongest evidence base and should be prioritised regardless of budget.'},
+  {label:'Tier 2 — Performance',badge:'RECOMMENDED',color:'#38BDF8',desc:'Add these once the foundation is solid. Meaningful performance and recovery benefits.'},
+  {label:'Tier 3 — Advanced',badge:'OPTIONAL',color:'#FB923C',desc:'Marginal gains for serious athletes. Only add when Tier 1 and 2 are dialled in.'}
+];
+
+function generate(){
+  var goal=document.getElementById('goal').value;
+  var budget=document.getElementById('budget').value;
+  var freq=document.getElementById('freq').value;
+  var stack=STACKS[goal]||STACKS.strength;
+  var tiers=budget==='essential'?1:budget==='standard'?2:3;
+  var el=document.getElementById('stacks');el.innerHTML='';
+  [stack.tier1,stack.tier2,stack.tier3].slice(0,tiers).forEach(function(tier,i){
+    var meta=TIER_META[i];
+    el.innerHTML+='<div class="tier">'
+      +'<div class="tier-header">'
+      +'<div class="tier-badge" style="background:'+meta.color+'20;color:'+meta.color+';border:1px solid '+meta.color+'40">'+meta.badge+'</div>'
+      +'<div style="flex:1"><div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:800;font-size:1rem;text-transform:uppercase">'+meta.label+'</div>'
+      +'<div class="tier-count">'+meta.desc+'</div></div></div>'
+      +'<div class="supp-grid">'
+      +tier.map(function(s){
+        var dots='';for(var d=1;d<=5;d++)dots+='<div class="evidence-dot '+(d<=s.evidence?'filled':'empty')+'"></div>';
+        return '<div class="supp-card" style="border-top-color:'+meta.color+';border-top-width:2px;border-top-style:solid">'
+          +'<div class="supp-name">'+s.name+'</div>'
+          +'<div class="supp-dose">'+s.dose+'</div>'
+          +'<div class="supp-timing">⏱ '+s.timing+'</div>'
+          +'<div class="supp-why">'+s.why+'</div>'
+          +'<div class="evidence-bar"><span class="evidence-label">Evidence</span><div class="evidence-dots">'+dots+'</div></div></div>';
+      }).join('')+'</div></div>';
+  });
+  el.innerHTML+='<div class="disclaimer"><p>⚠️ This tool is for informational purposes only. Supplements are not FDA-evaluated as treatments. Consult a healthcare provider before starting any supplement regimen, especially if you have medical conditions or take medications.</p></div>';
+  el.classList.add('show');
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+  _afSave('SupplementStack',{goal:goal,freq:freq,budget:budget,saved_at:new Date().toISOString()});
+}
+</script>
+</body>
+</html>

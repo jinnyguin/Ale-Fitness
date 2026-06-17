@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Protein & Macro Planner — ALEFIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--lime:#D4FF00;--dark:#0F0F0F;--card:#141414;--border:rgba(255,255,255,.08)}
+body{background:var(--dark);color:#fff;font-family:'Inter',sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2.5rem;border-bottom:1px solid var(--border)}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.18em}
+.logo span{color:var(--lime)}
+.back{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);transition:color .2s}
+.back:hover{color:var(--lime)}
+.page-wrap{max-width:860px;margin:0 auto;padding:4rem 2.5rem 6rem}
+.page-tag{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border:1px solid rgba(212,255,0,.3);color:var(--lime);font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;margin-bottom:1.5rem}
+h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3rem,6vw,5rem);text-transform:uppercase;line-height:.92;margin-bottom:1rem}
+h1 em{color:var(--lime);font-style:normal}
+.sub{color:rgba(255,255,255,.4);font-size:.9rem;line-height:1.6;max-width:500px;margin-bottom:3rem}
+.input-card{background:var(--card);border:1px solid var(--border);padding:2rem;margin-bottom:2rem}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-bottom:1.5rem}
+.field{display:flex;flex-direction:column;gap:.5rem}
+.field label{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600}
+.field input,.field select{background:#0a0a0a;border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;font-size:.9rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:rgba(212,255,0,.5)}
+.field select option{background:#111}
+.calc-btn{width:100%;background:var(--lime);color:#000;padding:1rem;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .2s}
+.calc-btn:hover{opacity:.88}
+.result{display:none}.result.show{display:block}
+.calorie-hero{background:var(--card);border:1px solid var(--border);border-top:3px solid var(--lime);padding:2.5rem;text-align:center;margin-bottom:1.5rem}
+.cal-label{font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:.5rem}
+.cal-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:5rem;color:var(--lime);line-height:1}
+.cal-sub{font-size:.85rem;color:rgba(255,255,255,.35);margin-top:.4rem}
+.macros-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem}
+.macro-card{background:var(--card);border:1px solid var(--border);padding:1.75rem;text-align:center}
+.macro-icon{font-size:1.5rem;margin-bottom:.5rem}
+.macro-name{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.4rem}
+.macro-g{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:3rem;color:#fff;line-height:1}
+.macro-cal{font-size:.75rem;color:rgba(255,255,255,.3);margin-top:.3rem}
+.macro-bar{height:5px;border-radius:3px;margin-top:1rem;transition:width 1s ease}
+.chart-wrap{background:var(--card);border:1px solid var(--border);padding:2rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:3rem}
+.pie-canvas{flex-shrink:0}
+.pie-legend{flex:1}
+.legend-item{display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem}
+.legend-color{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.legend-label{font-size:.82rem;color:rgba(255,255,255,.6)}
+.legend-pct{margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:#fff}
+.meal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.meal-card{background:var(--card);border:1px solid var(--border);padding:1.25rem}
+.meal-name{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--lime);font-weight:600;margin-bottom:.75rem}
+.meal-row{display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.3rem}
+.meal-row span:first-child{color:rgba(255,255,255,.45)}
+.meal-row span:last-child{font-weight:600;color:#fff}
+@media(max-width:640px){.grid-3,.macros-row,.meal-grid{grid-template-columns:1fr 1fr}.chart-wrap{flex-direction:column}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">ALE<span>FIT</span></a>
+  <a href="/#tools" class="back">← Back to Site</a>
+</nav>
+<div class="page-wrap">
+  <div class="page-tag">🥩 Nutrition Science</div>
+  <h1>Protein & Macro<br><em>Planner</em></h1>
+  <p class="sub">Your daily macro targets calculated from bodyweight, goal, and activity level. Protein, carbs, fat — precise and science-backed.</p>
+
+  <div class="input-card">
+    <div class="grid-3">
+      <div class="field">
+        <label>Bodyweight (lbs)</label>
+        <input type="number" id="weight" placeholder="e.g. 185" min="80" max="500">
+      </div>
+      <div class="field">
+        <label>Training Goal</label>
+        <select id="goal">
+          <option value="cut">Fat Loss (Cut)</option>
+          <option value="maintain">Maintain / Recomp</option>
+          <option value="bulk">Muscle Gain (Bulk)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Activity Level</label>
+        <select id="activity">
+          <option value="light">Light (1–2x/week)</option>
+          <option value="moderate" selected>Moderate (3–4x/week)</option>
+          <option value="active">Active (5–6x/week)</option>
+          <option value="elite">Elite (daily+)</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-3" style="margin-bottom:0">
+      <div class="field">
+        <label>Height (cm) — optional</label>
+        <input type="number" id="height" placeholder="e.g. 180" min="140" max="220">
+      </div>
+      <div class="field">
+        <label>Age — optional</label>
+        <input type="number" id="age" placeholder="e.g. 25" min="15" max="80">
+      </div>
+      <div class="field">
+        <label>Gender</label>
+        <select id="gender">
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:1.5rem">
+      <button class="calc-btn" onclick="calculate()">Calculate My Macros →</button>
+    </div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="calorie-hero">
+      <div class="cal-label">Daily Calorie Target</div>
+      <div class="cal-val" id="calVal">—</div>
+      <div class="cal-sub" id="calDesc">—</div>
+    </div>
+    <div class="macros-row">
+      <div class="macro-card">
+        <div class="macro-icon">🥩</div>
+        <div class="macro-name">Protein</div>
+        <div class="macro-g" id="proteinG">—</div>
+        <div class="macro-cal" id="proteinCal">—</div>
+        <div class="macro-bar" id="proteinBar" style="background:#D4FF00;width:0%"></div>
+      </div>
+      <div class="macro-card">
+        <div class="macro-icon">🌾</div>
+        <div class="macro-name">Carbohydrates</div>
+        <div class="macro-g" id="carbsG">—</div>
+        <div class="macro-cal" id="carbsCal">—</div>
+        <div class="macro-bar" id="carbsBar" style="background:#38BDF8;width:0%"></div>
+      </div>
+      <div class="macro-card">
+        <div class="macro-icon">🥑</div>
+        <div class="macro-name">Fat</div>
+        <div class="macro-g" id="fatG">—</div>
+        <div class="macro-cal" id="fatCal">—</div>
+        <div class="macro-bar" id="fatBar" style="background:#FB923C;width:0%"></div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="pieChart" width="160" height="160" class="pie-canvas"></canvas>
+      <div class="pie-legend" id="pieLegend"></div>
+    </div>
+    <div class="meal-grid" id="mealGrid"></div>
+  </div>
+</div>
+
+<script>
+var _AF_APP='6a1f3d189ebdbe71fa7d256c';
+(function(){
+  var p=new URLSearchParams(window.location.search),ut=p.get('access_token');
+  if(ut){localStorage.setItem('base44_access_token',ut);localStorage.setItem('token',ut);p.delete('access_token');window.history.replaceState({},'',window.location.pathname+(p.toString()?'?'+p.toString():''));}
+  var tok=localStorage.getItem('base44_access_token')||localStorage.getItem('token');
+  if(!tok){window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));return;}
+  window._aftok=tok;
+  fetch('/api/apps/'+_AF_APP+'/auth/me',{headers:{'Authorization':'Bearer '+tok}})
+    .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+    .then(function(u){window._afuser=u;loadSaved();})
+    .catch(function(){localStorage.removeItem('base44_access_token');localStorage.removeItem('token');window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));});
+})();
+function _afSave(t,d){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+t,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+window._aftok},body:JSON.stringify(d)}).catch(function(){});}
+function _afLoad(t,l,cb){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+t+'?limit='+l,{headers:{'Authorization':'Bearer '+window._aftok}}).then(function(r){return r.json();}).then(cb).catch(function(){});}
+function loadSaved(){
+  _afLoad('MacroPlanner',1,function(res){
+    if(!res||!res.length)return;
+    var r=res[0];
+    if(r.weight)document.getElementById('weight').value=r.weight;
+    if(r.goal)document.getElementById('goal').value=r.goal;
+    if(r.activity)document.getElementById('activity').value=r.activity;
+    if(r.height)document.getElementById('height').value=r.height;
+    if(r.age)document.getElementById('age').value=r.age;
+    if(r.gender)document.getElementById('gender').value=r.gender;
+    if(r.calories) renderResult(r);
+  });
+}
+function calculate(){
+  var wLbs=parseFloat(document.getElementById('weight').value);
+  var goal=document.getElementById('goal').value;
+  var activity=document.getElementById('activity').value;
+  var heightCm=parseFloat(document.getElementById('height').value)||175;
+  var age=parseInt(document.getElementById('age').value)||30;
+  var gender=document.getElementById('gender').value;
+  if(!wLbs){alert('Please enter your bodyweight.');return;}
+  var wKg=wLbs*0.453592;
+  var bmr=gender==='male'?88.362+(13.397*wKg)+(4.799*heightCm)-(5.677*age):447.593+(9.247*wKg)+(3.098*heightCm)-(4.330*age);
+  var actMult={light:1.375,moderate:1.55,active:1.725,elite:1.9}[activity]||1.55;
+  var tdee=Math.round(bmr*actMult);
+  var calories=goal==='cut'?Math.round(tdee*0.8):goal==='bulk'?Math.round(tdee*1.15):tdee;
+  var proteinG=Math.round(wKg*(goal==='cut'?2.4:goal==='bulk'?2.0:1.8));
+  var fatPct=goal==='cut'?0.25:goal==='bulk'?0.25:0.30;
+  var fatG=Math.round((calories*fatPct)/9);
+  var carbG=Math.round((calories-(proteinG*4)-(fatG*9))/4);
+  var data={weight:wLbs,goal:goal,activity:activity,height:heightCm,age:age,gender:gender,calories:calories,tdee:tdee,proteinG:proteinG,carbG:carbG,fatG:fatG,saved_at:new Date().toISOString()};
+  renderResult(data);
+  _afSave('MacroPlanner',data);
+}
+function renderResult(data){
+  var {calories,tdee,proteinG,carbG,fatG,goal}=data;
+  document.getElementById('calVal').textContent=calories;
+  var goalDesc={cut:'Caloric deficit for fat loss (−'+Math.round(tdee-calories)+' kcal below TDEE)',maintain:'Maintenance / Body Recomposition',bulk:'Caloric surplus for muscle gain (+'+Math.round(calories-tdee)+' kcal above TDEE)'}[goal]||'';
+  document.getElementById('calDesc').textContent=goalDesc;
+  document.getElementById('proteinG').textContent=proteinG+'g';document.getElementById('proteinCal').textContent=(proteinG*4)+' kcal · '+Math.round(proteinG*4/calories*100)+'%';
+  document.getElementById('carbsG').textContent=carbG+'g';document.getElementById('carbsCal').textContent=(carbG*4)+' kcal · '+Math.round(carbG*4/calories*100)+'%';
+  document.getElementById('fatG').textContent=fatG+'g';document.getElementById('fatCal').textContent=(fatG*9)+' kcal · '+Math.round(fatG*9/calories*100)+'%';
+  setTimeout(function(){
+    document.getElementById('proteinBar').style.width=Math.round(proteinG*4/calories*100)+'%';
+    document.getElementById('carbsBar').style.width=Math.round(carbG*4/calories*100)+'%';
+    document.getElementById('fatBar').style.width=Math.round(fatG*9/calories*100)+'%';
+  },100);
+  drawPie(Math.round(proteinG*4/calories*100),Math.round(carbG*4/calories*100),Math.round(fatG*9/calories*100));
+  var meals=goal==='cut'?3:goal==='bulk'?5:4;
+  var mealNames=meals===3?['Breakfast','Lunch','Dinner']:meals===4?['Breakfast','Lunch','Post-Workout','Dinner']:['Breakfast','Morning Snack','Lunch','Post-Workout','Dinner'];
+  var splits=meals===3?[0.3,0.4,0.3]:meals===4?[0.25,0.3,0.2,0.25]:[0.2,0.1,0.25,0.25,0.2];
+  var mg=document.getElementById('mealGrid');mg.innerHTML='';
+  mealNames.forEach(function(name,i){
+    var f=splits[i];
+    mg.innerHTML+='<div class="meal-card"><div class="meal-name">'+name+'</div>'
+      +'<div class="meal-row"><span>Calories</span><span>'+Math.round(calories*f)+'</span></div>'
+      +'<div class="meal-row"><span>Protein</span><span>'+Math.round(proteinG*f)+'g</span></div>'
+      +'<div class="meal-row"><span>Carbs</span><span>'+Math.round(carbG*f)+'g</span></div>'
+      +'<div class="meal-row"><span>Fat</span><span>'+Math.round(fatG*f)+'g</span></div></div>';
+  });
+  document.getElementById('result').classList.add('show');
+  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function drawPie(protPct,carbPct,fatPct){
+  var c=document.getElementById('pieChart'),ctx=c.getContext('2d');
+  var cx=80,cy=80,r=70,gap=0.03;
+  ctx.clearRect(0,0,160,160);
+  var slices=[{pct:protPct/100,color:'#D4FF00',label:'Protein'},{pct:carbPct/100,color:'#38BDF8',label:'Carbs'},{pct:fatPct/100,color:'#FB923C',label:'Fat'}];
+  var start=-Math.PI/2;
+  slices.forEach(function(s){
+    var end=start+s.pct*Math.PI*2-gap;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,end);ctx.closePath();ctx.fillStyle=s.color;ctx.fill();
+    start=end+gap;
+  });
+  var leg=document.getElementById('pieLegend');leg.innerHTML='';
+  slices.forEach(function(s){
+    leg.innerHTML+='<div class="legend-item"><div class="legend-color" style="background:'+s.color+'"></div><span class="legend-label">'+s.label+'</span><span class="legend-pct">'+Math.round(s.pct*100)+'%</span></div>';
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMI & Body Fat Estimator — ALEFIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--lime:#D4FF00;--dark:#0F0F0F;--card:#141414;--border:rgba(255,255,255,.08)}
+body{background:var(--dark);color:#fff;font-family:'Inter',sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2.5rem;border-bottom:1px solid var(--border)}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.18em}
+.logo span{color:var(--lime)}
+.back{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);transition:color .2s}
+.back:hover{color:var(--lime)}
+.page-wrap{max-width:800px;margin:0 auto;padding:4rem 2.5rem 6rem}
+.page-tag{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border:1px solid rgba(212,255,0,.3);color:var(--lime);font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;margin-bottom:1.5rem}
+h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3rem,6vw,5rem);text-transform:uppercase;line-height:.92;margin-bottom:1rem}
+h1 em{color:var(--lime);font-style:normal}
+.sub{color:rgba(255,255,255,.4);font-size:.9rem;line-height:1.6;max-width:480px;margin-bottom:3rem}
+.input-card{background:var(--card);border:1px solid var(--border);padding:2rem;margin-bottom:2rem}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-bottom:1.5rem}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem}
+.field{display:flex;flex-direction:column;gap:.5rem}
+.field label{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600}
+.field input,.field select{background:#0a0a0a;border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;font-size:.95rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus{border-color:rgba(212,255,0,.5)}
+.field select option{background:#111}
+.unit-row{display:flex;gap:1rem;margin-bottom:1.5rem}
+.unit-btn{flex:1;padding:.7rem;font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;transition:all .2s}
+.unit-btn.active{background:var(--lime);color:#000;border-color:var(--lime)}
+.calc-btn{width:100%;background:var(--lime);color:#000;padding:1rem;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .2s}
+.calc-btn:hover{opacity:.88}
+.result{display:none;margin-bottom:2rem}.result.show{display:block}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.stat-box{background:var(--card);border:1px solid var(--border);padding:1.75rem;text-align:center}
+.stat-label{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.5rem}
+.stat-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:3.5rem;color:var(--lime);line-height:1}
+.stat-sub{font-size:.75rem;color:rgba(255,255,255,.35);margin-top:.4rem}
+.bmi-scale{background:var(--card);border:1px solid var(--border);padding:2rem;margin-bottom:1rem}
+.scale-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:.9rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:1.25rem}
+.scale-bar{height:12px;border-radius:6px;background:linear-gradient(to right,#3B82F6,#22C55E,#FFB800,#FF4444);position:relative;margin-bottom:.75rem}
+.scale-pointer{position:absolute;top:-4px;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid #000;transform:translateX(-50%);transition:left .8s ease}
+.scale-labels{display:flex;justify-content:space-between;font-size:.65rem;color:rgba(255,255,255,.3);letter-spacing:.06em}
+.cat-badge{display:inline-block;padding:.4rem 1rem;font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:1.5rem}
+.insights{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.insight{background:var(--card);border:1px solid var(--border);padding:1.25rem;border-left:2px solid var(--lime)}
+.insight-title{font-weight:600;font-size:.78rem;margin-bottom:.35rem}
+.insight-text{font-size:.72rem;color:rgba(255,255,255,.35);line-height:1.5}
+@media(max-width:640px){.grid-3,.grid-2{grid-template-columns:1fr 1fr}.result-grid{grid-template-columns:1fr}.insights{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">ALE<span>FIT</span></a>
+  <a href="/#tools" class="back">← Back to Site</a>
+</nav>
+<div class="page-wrap">
+  <div class="page-tag">⚖️ Body Composition</div>
+  <h1>BMI & Body<br><em>Fat Estimator</em></h1>
+  <p class="sub">Enter your stats. Get your BMI, estimated body fat %, health category, and an ideal weight range — in seconds.</p>
+
+  <div class="input-card">
+    <div style="margin-bottom:1rem">
+      <div style="font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600;margin-bottom:.6rem">Units</div>
+      <div class="unit-row">
+        <button class="unit-btn active" id="imperialBtn" onclick="setUnit('imperial')">Imperial (lbs / ft)</button>
+        <button class="unit-btn" id="metricBtn" onclick="setUnit('metric')">Metric (kg / cm)</button>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="field">
+        <label>Age</label>
+        <input type="number" id="age" placeholder="e.g. 25" min="10" max="100">
+      </div>
+      <div class="field" id="weightField">
+        <label>Weight (lbs)</label>
+        <input type="number" id="weight" placeholder="e.g. 185" min="50" max="600">
+      </div>
+      <div class="field">
+        <label>Gender</label>
+        <select id="gender">
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2" id="heightFields">
+      <div class="field">
+        <label>Height — Feet</label>
+        <input type="number" id="heightFt" placeholder="e.g. 6" min="3" max="8">
+      </div>
+      <div class="field">
+        <label>Height — Inches</label>
+        <input type="number" id="heightIn" placeholder="e.g. 2" min="0" max="11">
+      </div>
+    </div>
+    <div class="field" id="heightCmField" style="display:none;margin-bottom:1.5rem">
+      <label>Height (cm)</label>
+      <input type="number" id="heightCm" placeholder="e.g. 188" min="100" max="250">
+    </div>
+    <button class="calc-btn" onclick="calculate()">Calculate →</button>
+  </div>
+
+  <div class="result" id="result">
+    <div class="result-grid">
+      <div class="stat-box">
+        <div class="stat-label">BMI</div>
+        <div class="stat-val" id="bmiVal">—</div>
+        <div class="stat-sub" id="bmiCat">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Est. Body Fat %</div>
+        <div class="stat-val" id="bfVal">—</div>
+        <div class="stat-sub" id="bfCat">—</div>
+      </div>
+    </div>
+    <div class="bmi-scale">
+      <div class="scale-title">— BMI Scale</div>
+      <div class="scale-bar"><div class="scale-pointer" id="scalePtr" style="left:0%"></div></div>
+      <div class="scale-labels"><span>Underweight</span><span>Normal</span><span>Overweight</span><span>Obese</span></div>
+    </div>
+    <div id="catBadgeWrap" style="margin-bottom:1.5rem"></div>
+    <div class="insights" id="insights"></div>
+  </div>
+</div>
+
+<script>
+var _AF_APP='6a1f3d189ebdbe71fa7d256c';
+(function(){
+  var p=new URLSearchParams(window.location.search),ut=p.get('access_token');
+  if(ut){localStorage.setItem('base44_access_token',ut);localStorage.setItem('token',ut);p.delete('access_token');window.history.replaceState({},'',window.location.pathname+(p.toString()?'?'+p.toString():''));}
+  var tok=localStorage.getItem('base44_access_token')||localStorage.getItem('token');
+  if(!tok){window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));return;}
+  window._aftok=tok;
+  fetch('/api/apps/'+_AF_APP+'/auth/me',{headers:{'Authorization':'Bearer '+tok}})
+    .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+    .then(function(u){window._afuser=u;loadSaved();})
+    .catch(function(){localStorage.removeItem('base44_access_token');localStorage.removeItem('token');window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));});
+})();
+function _afSave(type,data){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+window._aftok},body:JSON.stringify(data)}).catch(function(){});}
+function _afLoad(type,limit,cb){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type+'?limit='+limit,{headers:{'Authorization':'Bearer '+window._aftok}}).then(function(r){return r.json();}).then(cb).catch(function(){});}
+function loadSaved(){
+  _afLoad('BMICalculator',1,function(results){
+    if(!results||!results.length)return;
+    var r=results[0];
+    if(r.unit)setUnit(r.unit);
+    if(r.age)document.getElementById('age').value=r.age;
+    if(r.weight)document.getElementById('weight').value=r.weight;
+    if(r.gender)document.getElementById('gender').value=r.gender;
+    if(r.heightFt)document.getElementById('heightFt').value=r.heightFt;
+    if(r.heightIn)document.getElementById('heightIn').value=r.heightIn;
+    if(r.heightCm)document.getElementById('heightCm').value=r.heightCm;
+    if(r.bmi) renderResult(r);
+  });
+}
+
+var currentUnit='imperial';
+function setUnit(u){
+  currentUnit=u;
+  document.getElementById('imperialBtn').classList.toggle('active',u==='imperial');
+  document.getElementById('metricBtn').classList.toggle('active',u==='metric');
+  document.getElementById('heightFields').style.display=u==='imperial'?'grid':'none';
+  document.getElementById('heightCmField').style.display=u==='metric'?'block':'none';
+  document.querySelector('#weightField label').textContent='Weight ('+(u==='imperial'?'lbs':'kg')+')';
+  document.getElementById('weight').placeholder=u==='imperial'?'e.g. 185':'e.g. 84';
+}
+
+function calculate(){
+  var age=parseInt(document.getElementById('age').value);
+  var weightRaw=parseFloat(document.getElementById('weight').value);
+  var gender=document.getElementById('gender').value;
+  if(!age||!weightRaw){alert('Please fill in all fields.');return;}
+  var weightKg, heightM;
+  if(currentUnit==='imperial'){
+    var ft=parseFloat(document.getElementById('heightFt').value)||0;
+    var inch=parseFloat(document.getElementById('heightIn').value)||0;
+    if(!ft&&!inch){alert('Please enter your height.');return;}
+    heightM=(ft*12+inch)*0.0254;
+    weightKg=weightRaw*0.453592;
+  } else {
+    var cm=parseFloat(document.getElementById('heightCm').value);
+    if(!cm){alert('Please enter your height.');return;}
+    heightM=cm/100;
+    weightKg=weightRaw;
+  }
+  var bmi=weightKg/(heightM*heightM);
+  var bf;
+  if(gender==='male') bf=(1.20*bmi)+(0.23*age)-16.2;
+  else bf=(1.20*bmi)+(0.23*age)-5.4;
+  bf=Math.max(3,Math.min(60,bf));
+  var data={unit:currentUnit,age:age,weight:weightRaw,gender:gender,heightFt:document.getElementById('heightFt').value,heightIn:document.getElementById('heightIn').value,heightCm:document.getElementById('heightCm').value,bmi:Math.round(bmi*10)/10,bf:Math.round(bf*10)/10,saved_at:new Date().toISOString()};
+  renderResult(data);
+  _afSave('BMICalculator',data);
+}
+
+function renderResult(data){
+  var bmi=data.bmi, bf=data.bf, gender=data.gender||'male';
+  document.getElementById('bmiVal').textContent=bmi;
+  document.getElementById('bfVal').textContent=bf+'%';
+  var bmiCat,bmiColor,ptr;
+  if(bmi<18.5){bmiCat='Underweight';bmiColor='#3B82F6';ptr=Math.round((bmi/40)*100*0.25);}
+  else if(bmi<25){bmiCat='Normal Weight';bmiColor='#22C55E';ptr=Math.round(25+(((bmi-18.5)/6.5)*25));}
+  else if(bmi<30){bmiCat='Overweight';bmiColor='#FFB800';ptr=Math.round(50+(((bmi-25)/5)*25));}
+  else{bmiCat='Obese';bmiColor='#FF4444';ptr=Math.min(95,Math.round(75+(((bmi-30)/10)*20)));}
+  document.getElementById('bmiCat').textContent=bmiCat;
+  document.getElementById('scalePtr').style.left=ptr+'%';
+  var bfCat;
+  if(gender==='male'){bfCat=bf<6?'Essential Fat':bf<14?'Athlete':bf<18?'Fitness':bf<25?'Average':'Above Average';}
+  else{bfCat=bf<14?'Essential Fat':bf<21?'Athlete':bf<25?'Fitness':bf<32?'Average':'Above Average';}
+  document.getElementById('bfCat').textContent=bfCat;
+  document.getElementById('catBadgeWrap').innerHTML='<div class="cat-badge" style="background:'+bmiColor+'20;color:'+bmiColor+';border:1px solid '+bmiColor+'40">'+bmiCat+'</div>';
+  var ins=[
+    {title:'Ideal Weight Range',text:bmi<18.5?'Gaining lean mass would benefit your performance and health.':bmi<25?'You\'re within a healthy weight range. Keep it up.':bmi<30?'A 5–10% reduction in body weight would move you to a healthy range.':'Prioritise gradual fat loss — 0.5–1 lb/week is sustainable.'},
+    {title:'Body Fat Insight',text:bfCat==='Athlete'||bfCat==='Fitness'?'Your body fat level supports athletic performance well.':bfCat==='Average'?'Body recomposition (lose fat, gain muscle) is your best lever here.':'Consider a structured deficit with high protein to shift body composition.'},
+    {title:'Next Step',text:bmi<25&&(bfCat==='Athlete'||bfCat==='Fitness')?'Run the 1-Rep Max calculator to assess your strength relative to bodyweight.':'Check the Macro Planner to set your daily nutrition targets for your goal.'}
+  ];
+  document.getElementById('insights').innerHTML=ins.map(function(i){return '<div class="insight"><div class="insight-title">'+i.title+'</div><div class="insight-text">'+i.text+'</div></div>';}).join('');
+  document.getElementById('result').classList.add('show');
+  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>

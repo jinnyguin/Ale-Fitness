@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprint & Speed Test Estimator — ALEFIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--lime:#D4FF00;--dark:#0F0F0F;--card:#141414;--border:rgba(255,255,255,.08)}
+body{background:var(--dark);color:#fff;font-family:'Inter',sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2.5rem;border-bottom:1px solid var(--border)}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.18em}
+.logo span{color:var(--lime)}
+.back{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);transition:color .2s}
+.back:hover{color:var(--lime)}
+.page-wrap{max-width:860px;margin:0 auto;padding:4rem 2.5rem 6rem}
+.page-tag{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border:1px solid rgba(212,255,0,.3);color:var(--lime);font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;margin-bottom:1.5rem}
+h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3rem,6vw,5rem);text-transform:uppercase;line-height:.92;margin-bottom:1rem}
+h1 em{color:var(--lime);font-style:normal}
+.sub{color:rgba(255,255,255,.4);font-size:.9rem;line-height:1.6;max-width:500px;margin-bottom:3rem}
+.input-card{background:var(--card);border:1px solid var(--border);padding:2rem;margin-bottom:2rem}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-bottom:1.5rem}
+.tab-row{display:flex;gap:0;margin-bottom:1.5rem;border:1px solid var(--border)}
+.tab{flex:1;padding:.75rem;font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;border:none;background:transparent;color:rgba(255,255,255,.4);cursor:pointer;transition:all .2s;text-align:center}
+.tab.active{background:var(--lime);color:#000}
+.field{display:flex;flex-direction:column;gap:.5rem}
+.field label{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600}
+.field input,.field select{background:#0a0a0a;border:1px solid rgba(255,255,255,.12);color:#fff;padding:.8rem 1rem;font-size:.9rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:rgba(212,255,0,.5)}
+.field select option{background:#111}
+.calc-btn{width:100%;background:var(--lime);color:#000;padding:1rem;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .2s}
+.calc-btn:hover{opacity:.88}
+.result{display:none}.result.show{display:block}
+.speed-hero{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.stat-box{background:var(--card);border:1px solid var(--border);padding:1.75rem;text-align:center}
+.stat-label{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.5rem}
+.stat-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.8rem;color:var(--lime);line-height:1}
+.stat-sub{font-size:.75rem;color:rgba(255,255,255,.35);margin-top:.3rem}
+.gauge-wrap{background:var(--card);border:1px solid var(--border);padding:2rem;margin-bottom:1.5rem}
+.gauge-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:.9rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:1.5rem}
+.gauge-bar{height:14px;border-radius:7px;background:linear-gradient(to right,#FF4444,#FFB800,#22C55E,#D4FF00);position:relative;margin-bottom:.75rem}
+.gauge-ptr{position:absolute;top:-5px;width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #000;transform:translateX(-50%);transition:left 1s ease;box-shadow:0 0 8px rgba(212,255,0,.5)}
+.gauge-labels{display:flex;justify-content:space-between;font-size:.65rem;color:rgba(255,255,255,.3)}
+.level-badge{display:inline-block;padding:.5rem 1.25rem;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:1.5rem}
+.comps-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.comp-card{background:var(--card);border:1px solid var(--border);padding:1.5rem}
+.comp-sport{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.25rem}
+.comp-time{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;margin-bottom:.25rem}
+.comp-level{font-size:.78rem;color:rgba(255,255,255,.45)}
+.drills-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+.drill-card{background:var(--card);border:1px solid var(--border);border-left:2px solid var(--lime);padding:1.25rem}
+.drill-name{font-weight:600;font-size:.82rem;margin-bottom:.35rem}
+.drill-sets{font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--lime);margin-bottom:.35rem}
+.drill-desc{font-size:.72rem;color:rgba(255,255,255,.35);line-height:1.5}
+@media(max-width:640px){.grid-3,.speed-hero,.comps-grid,.drills-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" class="logo">ALE<span>FIT</span></a>
+  <a href="/#tools" class="back">← Back to Site</a>
+</nav>
+<div class="page-wrap">
+  <div class="page-tag">⚡ Speed Science</div>
+  <h1>Sprint & Speed<br><em>Estimator</em></h1>
+  <p class="sub">Enter your 40-yard or 100m time. Get your speed in mph/kph, an athlete percentile ranking, sport comparisons, and targeted speed drills.</p>
+
+  <div class="input-card">
+    <div class="tab-row">
+      <button class="tab active" id="tab40" onclick="setMode('40yd')">40-Yard Dash</button>
+      <button class="tab" id="tab100" onclick="setMode('100m')">100m Sprint</button>
+    </div>
+    <div class="grid-3">
+      <div class="field" id="time40Field">
+        <label>40-Yard Time (seconds)</label>
+        <input type="number" id="time40" placeholder="e.g. 4.6" step="0.01" min="3.5" max="7">
+      </div>
+      <div class="field" id="time100Field" style="display:none">
+        <label>100m Time (seconds)</label>
+        <input type="number" id="time100" placeholder="e.g. 11.2" step="0.01" min="9" max="20">
+      </div>
+      <div class="field">
+        <label>Sport / Context</label>
+        <select id="sport">
+          <option value="football">Football</option>
+          <option value="basketball">Basketball</option>
+          <option value="soccer">Soccer</option>
+          <option value="track">Track & Field</option>
+          <option value="rugby">Rugby</option>
+          <option value="baseball">Baseball</option>
+          <option value="general">General Fitness</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Age</label>
+        <select id="age">
+          <option value="teen">Under 18</option>
+          <option value="young" selected>18–30</option>
+          <option value="adult">31–45</option>
+          <option value="masters">45+</option>
+        </select>
+      </div>
+    </div>
+    <button class="calc-btn" onclick="calculate()">Analyse My Speed →</button>
+  </div>
+
+  <div class="result" id="result">
+    <div class="speed-hero">
+      <div class="stat-box"><div class="stat-label">Speed</div><div class="stat-val" id="mphVal">—</div><div class="stat-sub" id="kphVal">—</div></div>
+      <div class="stat-box"><div class="stat-label">Athlete Percentile</div><div class="stat-val" id="pctVal">—</div><div class="stat-sub" id="pctDesc">—</div></div>
+      <div class="stat-box"><div class="stat-label">40-Yard Equivalent</div><div class="stat-val" id="equivVal">—</div><div class="stat-sub">seconds</div></div>
+    </div>
+    <div class="gauge-wrap">
+      <div class="gauge-title">— Speed Percentile vs General Athletic Population</div>
+      <div class="gauge-bar"><div class="gauge-ptr" id="gaugePtr" style="left:0%"></div></div>
+      <div class="gauge-labels"><span>Bottom 10%</span><span>Average</span><span>Athletic</span><span>Elite</span></div>
+    </div>
+    <div id="levelBadgeWrap" style="margin-bottom:1.5rem"></div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:.85rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:1rem">— Sport Comparisons</div>
+    <div class="comps-grid" id="compsGrid"></div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:.85rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);margin:2rem 0 1rem">— Speed Development Drills</div>
+    <div class="drills-grid" id="drillsGrid"></div>
+  </div>
+</div>
+
+<script>
+var _AF_APP='6a1f3d189ebdbe71fa7d256c';
+(function(){
+  var p=new URLSearchParams(window.location.search),ut=p.get('access_token');
+  if(ut){localStorage.setItem('base44_access_token',ut);localStorage.setItem('token',ut);p.delete('access_token');window.history.replaceState({},'',window.location.pathname+(p.toString()?'?'+p.toString():''));}
+  var tok=localStorage.getItem('base44_access_token')||localStorage.getItem('token');
+  if(!tok){window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));return;}
+  window._aftok=tok;
+  fetch('/api/apps/'+_AF_APP+'/auth/me',{headers:{'Authorization':'Bearer '+tok}})
+    .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+    .then(function(u){window._afuser=u;loadSaved();})
+    .catch(function(){localStorage.removeItem('base44_access_token');localStorage.removeItem('token');window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));});
+})();
+function _afSave(t,d){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+t,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+window._aftok},body:JSON.stringify(d)}).catch(function(){});}
+function _afLoad(t,l,cb){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+t+'?limit='+l,{headers:{'Authorization':'Bearer '+window._aftok}}).then(function(r){return r.json();}).then(cb).catch(function(){});}
+function loadSaved(){
+  _afLoad('SpeedEstimator',1,function(res){
+    if(!res||!res.length)return;
+    var r=res[0];
+    if(r.mode)setMode(r.mode);
+    if(r.time40)document.getElementById('time40').value=r.time40;
+    if(r.time100)document.getElementById('time100').value=r.time100;
+    if(r.sport)document.getElementById('sport').value=r.sport;
+    if(r.age)document.getElementById('age').value=r.age;
+    if(r.mph) renderResult(r);
+  });
+}
+
+var mode='40yd';
+function setMode(m){
+  mode=m;
+  document.getElementById('tab40').classList.toggle('active',m==='40yd');
+  document.getElementById('tab100').classList.toggle('active',m==='100m');
+  document.getElementById('time40Field').style.display=m==='40yd'?'flex':'none';
+  document.getElementById('time100Field').style.display=m==='100m'?'flex':'none';
+}
+function calculate(){
+  var sport=document.getElementById('sport').value;
+  var age=document.getElementById('age').value;
+  var time40, time100, mph;
+  if(mode==='40yd'){
+    time40=parseFloat(document.getElementById('time40').value);
+    if(!time40||time40<3.5||time40>7){alert('Please enter a valid 40-yard time (3.5–7.0s).');return;}
+    var distM=36.576;
+    var mps=distM/time40;
+    mph=mps*2.23694;
+    time100=Math.round(time40*(100/36.576)*100)/100;
+  } else {
+    time100=parseFloat(document.getElementById('time100').value);
+    if(!time100||time100<9||time100>20){alert('Please enter a valid 100m time (9–20s).');return;}
+    mph=(100/time100)*2.23694;
+    time40=Math.round(time100*(36.576/100)*100)/100;
+  }
+  mph=Math.round(mph*10)/10;
+  var kph=Math.round(mph*1.60934*10)/10;
+  var pct;
+  if(time40<=4.3)pct=99;else if(time40<=4.4)pct=97;else if(time40<=4.5)pct=93;
+  else if(time40<=4.6)pct=85;else if(time40<=4.7)pct=75;else if(time40<=4.8)pct=60;
+  else if(time40<=5.0)pct=45;else if(time40<=5.2)pct=30;else if(time40<=5.5)pct=15;
+  else pct=5;
+  var data={mode:mode,time40:time40,time100:time100,sport:sport,age:age,mph:mph,kph:kph,pct:pct,saved_at:new Date().toISOString()};
+  renderResult(data);
+  _afSave('SpeedEstimator',data);
+}
+function renderResult(data){
+  var {mph,kph,pct,time40,sport}=data;
+  document.getElementById('mphVal').textContent=mph;
+  document.getElementById('kphVal').textContent=kph+' kph';
+  document.getElementById('pctVal').textContent=pct+'th';
+  document.getElementById('equivVal').textContent=time40||'—';
+  var pctDesc=pct>=95?'Elite Athlete':pct>=85?'High Performer':pct>=70?'Athletic':pct>=50?'Above Average':pct>=30?'Average':'Below Average';
+  document.getElementById('pctDesc').textContent=pctDesc;
+  setTimeout(function(){document.getElementById('gaugePtr').style.left=pct+'%';},100);
+  var levelColor=pct>=85?'#D4FF00':pct>=60?'#22C55E':pct>=35?'#FFB800':'#FF4444';
+  document.getElementById('levelBadgeWrap').innerHTML='<div class="level-badge" style="background:'+levelColor+'20;color:'+levelColor+';border:1px solid '+levelColor+'40">'+pctDesc+' — '+pct+'th Percentile</div>';
+  var COMPS={
+    football:[{level:'NFL Combine Average (RB)',time:'4.49s'},{level:'NFL Combine Average (OL)',time:'5.29s'},{level:'Average High School Athlete',time:'5.1s'},{level:'NFL Invite Threshold',time:'4.7s'}],
+    basketball:[{level:'NBA Pre-Draft Camp Average',time:'4.4s (3/4 court)'},{level:'Division 1 Guard',time:'4.4s'},{level:'Average NCAA Basketball',time:'4.7s'},{level:'Recreational Player',time:'5.2s'}],
+    soccer:[{level:'Premier League Player (avg)',time:'4.7s est.'},{level:'MLS Average',time:'4.9s est.'},{level:'College Soccer Average',time:'5.0s'},{level:'Recreational Adult',time:'5.5s'}],
+    track:[{level:'NCAA 100m Qualifier (M)',time:'~10.4s'},{level:'High School State Finalist',time:'~10.8s'},{level:'Decent Club Sprinter',time:'~11.5s'},{level:'Average Athletic Adult',time:'~12.5s'}],
+    general:[{level:'World Record (Bolt)',time:'4.22s equiv.'},{level:'Competitive Collegiate',time:'4.4s'},{level:'Recreational Fit Adult',time:'5.0s'},{level:'Average Adult',time:'5.5s'}]
+  };
+  var comps=COMPS[sport]||COMPS.general;
+  document.getElementById('compsGrid').innerHTML=comps.map(function(c){
+    var color=pct>=85?'#D4FF00':'rgba(255,255,255,.6)';
+    return '<div class="comp-card"><div class="comp-sport">'+c.level+'</div><div class="comp-time" style="color:rgba(255,255,255,.5)">'+c.time+'</div></div>';
+  }).join('');
+  var drills=[
+    {name:'A-Skip',sets:'4×20m',desc:'Foundational sprint mechanic. Focuses on high knee drive and dorsiflexion. Daily in warm-up.'},
+    {name:'B-Skip',sets:'4×20m',desc:'Extension of A-skip with full leg extension. Mimics sprint stride cycle and builds elasticity.'},
+    {name:'Bounding',sets:'5×30m',desc:'Maximal single-leg power bounds. Targets horizontal force production — the key to 40-yard speed.'},
+    {name:'Resisted Sprint (sled)',sets:'6×20m',desc:'Light sled (10–15% bodyweight). Overloads acceleration mechanics without disrupting technique.'},
+    {name:'Flying 10s',sets:'8×10m',desc:'Reach max velocity from 30m build-up and time 10m fly section. Trains top-end speed qualities.'},
+    {name:'Single Leg Bounds',sets:'4×5 each',desc:'Max distance single-leg jumps. Addresses asymmetries and builds the elastic strength crucial for sprinting.'}
+  ];
+  document.getElementById('drillsGrid').innerHTML=drills.map(function(d){
+    return '<div class="drill-card"><div class="drill-name">'+d.name+'</div><div class="drill-sets">'+d.sets+'</div><div class="drill-desc">'+d.desc+'</div></div>';
+  }).join('');
+  document.getElementById('result').classList.add('show');
+  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>
