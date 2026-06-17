@@ -4,79 +4,79 @@ SIMPLE_PROGRAMS = [
   {
     "id":"football","num":"01","sport":"Football","title":"FOOTBALL\nPERFORMANCE",
     "subtitle":"8-week strength and explosiveness program built for linemen, linebackers, and skill positions. Gym and at-home versions.",
-    "image":"https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/6514823/pexels-photo-6514823.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"8 Weeks","focus":"Power","sessions":"4"
   },
   {
     "id":"basketball","num":"02","sport":"Basketball","title":"BASKETBALL\nPERFORMANCE",
     "subtitle":"6-week program targeting vertical jump, lateral quickness, and explosive first step. Built for guards, forwards, and centers.",
-    "image":"https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/32619170/pexels-photo-32619170/free-photo-of-competitive-basketball-game-jump-shot-action.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"6 Weeks","focus":"Vertical","sessions":"3"
   },
   {
     "id":"strength","num":"03","sport":"Strength","title":"MAXIMUM\nSTRENGTH",
     "subtitle":"8-week linear progression strength program built around the squat, bench, deadlift, and overhead press. Pure strength, built systematically.",
-    "image":"https://images.unsplash.com/photo-1534367610401-9f5ed68180aa?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/1552242/pexels-photo-1552242.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"8 Weeks","focus":"Max Strength","sessions":"4"
   },
   {
     "id":"weightloss","num":"04","sport":"Weight Loss","title":"LEAN\nBODY",
     "subtitle":"8-week fat-loss program combining resistance training with high-intensity cardio. Build muscle, burn fat, transform your body composition.",
-    "image":"https://images.unsplash.com/photo-1571019613914-85f342c6a11e?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/4164513/pexels-photo-4164513.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"8 Weeks","focus":"Fat Loss","sessions":"4"
   },
   {
     "id":"weightgain","num":"05","sport":"Muscle Gain","title":"BUILD\nMASS",
     "subtitle":"8-week hypertrophy program for maximum muscle growth. High volume, progressive overload, and optimized rep ranges for size.",
-    "image":"https://images.unsplash.com/photo-1567013127542-490d757e6349?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/31849596/pexels-photo-31849596/free-photo-of-muscular-man-lifting-weights-in-dark-gym.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"8 Weeks","focus":"Hypertrophy","sessions":"4"
   },
   {
     "id":"hiit","num":"06","sport":"HIIT","title":"HIGH\nINTENSITY",
     "subtitle":"6-week progressive HIIT program for explosive conditioning, fat loss, and athletic performance. Maximum effort, minimum equipment.",
-    "image":"https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/7688862/pexels-photo-7688862.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"6 Weeks","focus":"Conditioning","sessions":"4"
   },
   {
     "id":"crossfit","num":"07","sport":"CrossFit","title":"CROSSFIT\nPERFORMANCE",
     "subtitle":"6-week CrossFit-style functional fitness program. Barbell, gymnastic movements, and conditioning for elite general preparedness.",
-    "image":"https://images.unsplash.com/photo-1517438322307-e67111335449?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/29859452/pexels-photo-29859452/free-photo-of-intense-crossfit-athlete-jumping-on-box.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"6 Weeks","focus":"General Fitness","sessions":"5"
   },
   {
     "id":"track","num":"08","sport":"Track & Field","title":"TRACK\nPOWER",
     "subtitle":"6-week sprint and power program for 100m-400m athletes. Speed development, force production, and race-specific conditioning.",
-    "image":"https://images.unsplash.com/photo-1596178065887-1198b6148b2b?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/3756042/pexels-photo-3756042.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"6 Weeks","focus":"Speed","sessions":"4"
   },
   {
     "id":"baseball","num":"09","sport":"Baseball","title":"BASEBALL\nATHLETE",
     "subtitle":"6-week rotational power and arm care program for pitchers, position players, and hitters. Speed, power, and injury prevention.",
-    "image":"https://images.unsplash.com/photo-1529768167801-9173d94c2a42?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/17724062/pexels-photo-17724062/free-photo-of-a-baseball-player-is-about-to-swing-the-bat.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"6 Weeks","focus":"Rotational Power","sessions":"3"
   },
   {
     "id":"tennis","num":"10","sport":"Tennis","title":"TENNIS\nATHLETE",
     "subtitle":"6-week athleticism program for explosive serves, lateral movement, and match-long endurance. Built for all court surfaces.",
-    "image":"https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/8542677/pexels-photo-8542677.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"6 Weeks","focus":"Agility & Power","sessions":"3"
   },
   {
     "id":"pilates","num":"11","sport":"Pilates","title":"PILATES\nSTRENGTH",
     "subtitle":"6-week progressive Pilates program for core strength, postural control, and total-body flexibility. No equipment required.",
-    "image":"https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/3822622/pexels-photo-3822622.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"6 Weeks","focus":"Core & Flexibility","sessions":"3"
   },
   {
     "id":"golf","num":"12","sport":"Golf","title":"GOLF\nPERFORMANCE",
     "subtitle":"6-week golf fitness program targeting rotational power, hip mobility, and club head speed. Built by performance coaches.",
-    "image":"https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/1325681/pexels-photo-1325681.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"6 Weeks","focus":"Rotation & Power","sessions":"3"
   },
   {
     "id":"crosscountry","num":"13","sport":"Cross Country","title":"CROSS\nCOUNTRY",
     "subtitle":"8-week cross-country performance program for 5k-10k runners. Aerobic base, threshold work, and race-specific strength.",
-    "image":"https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=1200&q=80",
+    "image":"https://images.pexels.com/photos/7226772/pexels-photo-7226772.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"8 Weeks","focus":"Endurance","sessions":"5"
   },
 ]
