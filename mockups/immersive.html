@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALEFIT — Immersive Sports</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--lime:#D4FF00;--dark:#0F0F0F;--card:#131313;--border:rgba(255,255,255,.07)}
+body{background:var(--dark);color:#fff;font-family:'Inter',sans-serif;overflow-x:hidden}
+
+/* NAV */
+nav{position:fixed;top:0;inset-inline:0;z-index:100;height:60px;display:flex;align-items:center;padding:0 2.5rem;gap:3rem;background:rgba(15,15,15,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(6px)}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.18em;flex-shrink:0}
+.logo span{color:var(--lime)}
+.nav-links{display:flex;gap:2rem;list-style:none;flex:1}
+.nav-links a{color:rgba(255,255,255,.45);text-decoration:none;font-size:.72rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;transition:color .2s}
+.nav-links a:hover{color:#fff}
+.nav-right{display:flex;align-items:center;gap:1rem;margin-left:auto}
+.sign-in{color:rgba(255,255,255,.5);font-size:.72rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:color .2s}
+.sign-in:hover{color:#fff}
+.join-btn{background:var(--lime);color:#000;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.3rem;border:none;cursor:pointer;transition:opacity .2s}
+.join-btn:hover{opacity:.85}
+
+/* HERO — MOSAIC */
+.hero{padding-top:60px;display:grid;grid-template-columns:1.4fr 1fr;grid-template-rows:70vh;overflow:hidden}
+.hero-main{position:relative;overflow:hidden}
+.hero-main img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 8s ease}
+.hero-main:hover img{transform:scale(1.03)}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(15,15,15,.95) 0%,rgba(15,15,15,.4) 60%,transparent 100%)}
+.hero-content{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:3rem}
+.hero-pill{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border:1px solid rgba(212,255,0,.35);background:rgba(212,255,0,.08);color:var(--lime);font-size:.65rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;margin-bottom:1.5rem;width:fit-content}
+.hero-pill span{width:5px;height:5px;background:var(--lime);border-radius:50%;animation:blink 1.5s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(4rem,7vw,7.5rem);line-height:.88;text-transform:uppercase;margin-bottom:1rem}
+.h1-acc{color:var(--lime)}
+.hero-desc{font-size:.9rem;color:rgba(255,255,255,.5);line-height:1.6;font-weight:300;max-width:380px;margin-bottom:2rem}
+.hero-btns{display:flex;gap:1rem;align-items:center}
+.cta-primary{display:inline-flex;align-items:center;gap:.6rem;background:var(--lime);color:#000;padding:.8rem 1.8rem;font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .15s}
+.cta-primary:hover{opacity:.88}
+.cta-secondary{display:inline-flex;align-items:center;gap:.6rem;color:rgba(255,255,255,.5);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:color .2s}
+.cta-secondary:hover{color:var(--lime)}
+.hero-right{display:grid;grid-template-rows:1fr 1fr;border-left:1px solid var(--border)}
+.hero-sub-img{position:relative;overflow:hidden;cursor:pointer}
+.hero-sub-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s;filter:brightness(.7)}
+.hero-sub-img:hover img{transform:scale(1.06);filter:brightness(.85)}
+.sub-label{position:absolute;bottom:1rem;left:1rem;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.1rem;text-transform:uppercase;letter-spacing:.06em}
+.sub-tag{font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--lime)}
+.hero-sub-img:first-child{border-bottom:1px solid var(--border)}
+
+/* LIVE COUNTER */
+.live-bar{background:var(--card);border-bottom:1px solid var(--border);padding:.9rem 2.5rem;display:flex;align-items:center;justify-content:space-between}
+.live-item{display:flex;align-items:baseline;gap:.5rem}
+.live-num{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.6rem;color:var(--lime)}
+.live-label{font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3)}
+.live-divider{width:1px;height:24px;background:var(--border)}
+.live-pulse{display:flex;align-items:center;gap:.5rem;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3)}
+.live-pulse::before{content:'';width:6px;height:6px;border-radius:50%;background:#ff4444;animation:livePulse 1s infinite}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+
+/* SPORT GRID */
+.sports{padding:4rem 2.5rem}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2.5rem}
+.section-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(2rem,4vw,3.5rem);text-transform:uppercase;line-height:1}
+.section-title .accent{color:var(--lime)}
+.view-all-btn{display:flex;align-items:center;gap:.5rem;color:rgba(255,255,255,.4);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;padding:.5rem 1rem;border:1px solid var(--border);transition:all .2s}
+.view-all-btn:hover{color:var(--lime);border-color:rgba(212,255,0,.3)}
+.sport-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:var(--border)}
+.sport-card{position:relative;background:var(--card);overflow:hidden;cursor:pointer;group:true}
+.sport-card:nth-child(1){grid-column:span 2;grid-row:span 1}
+.sport-img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;transition:transform .6s ease,filter .4s}
+.sport-card:nth-child(1) .sport-img{aspect-ratio:2.5/1}
+.sport-card:hover .sport-img{transform:scale(1.05);filter:brightness(1.1)}
+.sport-card-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(15,15,15,.92) 0%,rgba(15,15,15,.1) 60%);transition:opacity .3s}
+.sport-card:hover .sport-card-overlay{opacity:.75}
+.sport-card-body{position:absolute;bottom:0;left:0;right:0;padding:1.2rem 1.5rem;display:flex;align-items:flex-end;justify-content:space-between}
+.sport-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.6rem;text-transform:uppercase;letter-spacing:.04em}
+.sport-card:nth-child(1) .sport-name{font-size:2.5rem}
+.sport-meta{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-top:.2rem}
+.sport-badge{display:flex;align-items:center;gap:.3rem;background:rgba(212,255,0,.12);border:1px solid rgba(212,255,0,.25);padding:.3rem .7rem;color:var(--lime);font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:0;transition:opacity .3s,transform .3s;transform:translateY(4px)}
+.sport-card:hover .sport-badge{opacity:1;transform:translateY(0)}
+
+/* WHY ROW */
+.why{padding:4rem 2.5rem;border-top:1px solid var(--border)}
+.why-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem}
+.why-card{background:var(--card);border:1px solid var(--border);padding:2rem;transition:border-color .3s}
+.why-card:hover{border-color:rgba(212,255,0,.25)}
+.why-icon{width:40px;height:40px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin-bottom:1.5rem;font-size:1.2rem}
+.why-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.1rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.6rem}
+.why-desc{font-size:.78rem;color:rgba(255,255,255,.35);line-height:1.6;font-weight:300}
+
+/* JOIN BAND */
+.join-band{margin:4rem 2.5rem 0;padding:4rem;background:var(--lime);display:flex;align-items:center;justify-content:space-between;gap:2rem}
+.join-text h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(2.5rem,4vw,4rem);text-transform:uppercase;color:#000;line-height:.95;margin-bottom:.5rem}
+.join-text p{font-size:.85rem;color:rgba(0,0,0,.5);font-weight:400}
+.join-form{display:flex;gap:.5rem;flex-shrink:0}
+.join-input{background:rgba(0,0,0,.12);border:1px solid rgba(0,0,0,.2);color:#000;padding:.75rem 1.2rem;font-size:.85rem;width:240px;outline:none;font-family:'Inter',sans-serif}
+.join-input::placeholder{color:rgba(0,0,0,.4)}
+.join-submit{background:#000;color:var(--lime);padding:.75rem 1.5rem;font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .2s}
+.join-submit:hover{opacity:.85}
+
+/* FOOTER */
+footer{padding:2rem 2.5rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;margin-top:3rem}
+.foot-logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:.18em}
+.foot-logo span{color:var(--lime)}
+footer p{font-size:.65rem;color:rgba(255,255,255,.2);letter-spacing:.1em;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">ALE<span>FIT</span></div>
+  <ul class="nav-links">
+    <li><a href="#">Programs</a></li>
+    <li><a href="#">Nutrition</a></li>
+    <li><a href="#">Tracking</a></li>
+    <li><a href="#">Community</a></li>
+  </ul>
+  <div class="nav-right">
+    <a href="#" class="sign-in">Sign In</a>
+    <button class="join-btn">Join Free</button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-main">
+    <img src="https://images.pexels.com/photos/1552242/pexels-photo-1552242.jpeg?auto=compress&cs=tinysrgb&w=1400" alt="Athlete training">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-pill"><span></span>Now Live — 2026 Programs</div>
+      <h1>Your Sport.<br>Your <span class="h1-acc">Edge.</span><br>No Limits.</h1>
+      <p class="hero-desc">16 sport-specific training programs built on science and intensity. For athletes who demand more.</p>
+      <div class="hero-btns">
+        <button class="cta-primary">
+          Find Your Program
+          <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 5h12M7 1l6 4-6 4"/></svg>
+        </button>
+        <a href="#" class="cta-secondary">Watch How It Works ▶</a>
+      </div>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="hero-sub-img">
+      <img src="https://images.pexels.com/photos/6514823/pexels-photo-6514823.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Football">
+      <div style="position:absolute;bottom:1rem;left:1rem">
+        <div class="sub-tag">Sport Program</div>
+        <div class="sub-label">Football</div>
+      </div>
+    </div>
+    <div class="hero-sub-img">
+      <img src="https://images.pexels.com/photos/32619170/pexels-photo-32619170.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Basketball">
+      <div style="position:absolute;bottom:1rem;left:1rem">
+        <div class="sub-tag">Sport Program</div>
+        <div class="sub-label">Basketball</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="live-bar">
+  <div class="live-item">
+    <div class="live-num">12,847</div>
+    <div class="live-label">Active Athletes</div>
+  </div>
+  <div class="live-divider"></div>
+  <div class="live-item">
+    <div class="live-num">16</div>
+    <div class="live-label">Sport Programs</div>
+  </div>
+  <div class="live-divider"></div>
+  <div class="live-item">
+    <div class="live-num">98%</div>
+    <div class="live-label">Reach Their Goal</div>
+  </div>
+  <div class="live-divider"></div>
+  <div class="live-item">
+    <div class="live-num">3</div>
+    <div class="live-label">Training Styles</div>
+  </div>
+  <div class="live-pulse" style="margin-left:auto">Live</div>
+</div>
+
+<section class="sports">
+  <div class="section-head">
+    <div class="section-title">Choose <span class="accent">Your</span><br>Sport</div>
+    <a href="#" class="view-all-btn">All 16 Programs <span>→</span></a>
+  </div>
+  <div class="sport-grid">
+    <div class="sport-card">
+      <img class="sport-img" src="https://images.pexels.com/photos/29859452/pexels-photo-29859452.jpeg?auto=compress&cs=tinysrgb&w=900" alt="CrossFit">
+      <div class="sport-card-overlay"></div>
+      <div class="sport-card-body">
+        <div>
+          <div class="sport-name">CrossFit</div>
+          <div class="sport-meta">Strength · Gymnastics · Conditioning</div>
+        </div>
+        <div class="sport-badge">Start →</div>
+      </div>
+    </div>
+    <div class="sport-card">
+      <img class="sport-img" src="https://images.pexels.com/photos/4164513/pexels-photo-4164513.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Weight Loss">
+      <div class="sport-card-overlay"></div>
+      <div class="sport-card-body">
+        <div>
+          <div class="sport-name">Weight Loss</div>
+          <div class="sport-meta">Burn · Tone · Transform</div>
+        </div>
+        <div class="sport-badge">Start →</div>
+      </div>
+    </div>
+    <div class="sport-card">
+      <img class="sport-img" src="https://images.pexels.com/photos/6514823/pexels-photo-6514823.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Football">
+      <div class="sport-card-overlay"></div>
+      <div class="sport-card-body">
+        <div>
+          <div class="sport-name">Football</div>
+          <div class="sport-meta">Power · Speed · Collision</div>
+        </div>
+        <div class="sport-badge">Start →</div>
+      </div>
+    </div>
+    <div class="sport-card">
+      <img class="sport-img" src="https://images.pexels.com/photos/7688862/pexels-photo-7688862.jpeg?auto=compress&cs=tinysrgb&w=600" alt="HIIT">
+      <div class="sport-card-overlay"></div>
+      <div class="sport-card-body">
+        <div>
+          <div class="sport-name">HIIT</div>
+          <div class="sport-meta">Cardio · Endurance · Burn</div>
+        </div>
+        <div class="sport-badge">Start →</div>
+      </div>
+    </div>
+    <div class="sport-card">
+      <img class="sport-img" src="https://images.pexels.com/photos/32619170/pexels-photo-32619170.jpeg?auto=compress&cs=tinysrgb&w=600" alt="Basketball">
+      <div class="sport-card-overlay"></div>
+      <div class="sport-card-body">
+        <div>
+          <div class="sport-name">Basketball</div>
+          <div class="sport-meta">Vertical · Court · Agility</div>
+        </div>
+        <div class="sport-badge">Start →</div>
+      </div>
+    </div>
+    <div class="sport-card" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1rem;padding:2rem;min-height:200px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.8rem;text-transform:uppercase;color:rgba(255,255,255,.2)">+11 More</div>
+      <a href="#" style="color:var(--lime);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;border:1px solid rgba(212,255,0,.3);padding:.5rem 1.2rem;transition:background .2s">View All →</a>
+    </div>
+  </div>
+</section>
+
+<section class="why">
+  <div class="why-grid">
+    <div class="why-card">
+      <div class="why-icon">🏋️</div>
+      <div class="why-title">Sport-Specific</div>
+      <div class="why-desc">Built around your sport's exact demands — not generic gym workouts adapted for athletes.</div>
+    </div>
+    <div class="why-card">
+      <div class="why-icon">🧬</div>
+      <div class="why-title">Science-Backed</div>
+      <div class="why-desc">Periodization, progressive overload, and recovery protocols from elite sports science.</div>
+    </div>
+    <div class="why-card">
+      <div class="why-icon">🥗</div>
+      <div class="why-title">Nutrition Plans</div>
+      <div class="why-desc">AI-powered meal planning calibrated to your training volume and performance goals.</div>
+    </div>
+    <div class="why-card">
+      <div class="why-icon">📊</div>
+      <div class="why-title">Progress Tracking</div>
+      <div class="why-desc">Log workouts, track performance metrics, and watch your athletic level climb week by week.</div>
+    </div>
+  </div>
+</section>
+
+<div class="join-band">
+  <div class="join-text">
+    <h2>Start Training.<br>No Excuses.</h2>
+    <p>Free access to your first program — no credit card needed.</p>
+  </div>
+  <div class="join-form">
+    <input class="join-input" type="email" placeholder="Enter your email">
+    <button class="join-submit">Start Free →</button>
+  </div>
+</div>
+
+<footer>
+  <div class="foot-logo">ALE<span>FIT</span></div>
+  <p>© 2026 ALEFIT. Elite Performance Training.</p>
+</footer>
+
+</body>
+</html>

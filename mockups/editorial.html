@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALEFIT — Elite Editorial</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--lime:#D4FF00;--dark:#0A0A0A;--off:#F5F4F0;--mid:#1C1C1C;--grey:#888}
+body{background:var(--dark);color:#fff;font-family:'Inter',sans-serif;overflow-x:hidden}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 3rem;height:64px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(10,10,10,.92);backdrop-filter:blur(8px)}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;letter-spacing:.2em}
+.logo span{color:var(--lime)}
+nav ul{display:flex;list-style:none;gap:2.5rem}
+nav ul a{color:rgba(255,255,255,.5);text-decoration:none;font-size:.72rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;transition:color .2s}
+nav ul a:hover{color:#fff}
+.nav-btns{display:flex;gap:.75rem}
+.btn-sm{padding:.45rem 1.2rem;font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:none}
+.btn-sm-ghost{background:transparent;color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.2);transition:all .2s}
+.btn-sm-ghost:hover{color:#fff;border-color:rgba(255,255,255,.5)}
+.btn-sm-solid{background:var(--lime);color:#000;transition:opacity .2s}
+.btn-sm-solid:hover{opacity:.85}
+
+/* HERO — SPLIT */
+.hero{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;padding-top:64px}
+.hero-left{display:flex;flex-direction:column;justify-content:center;padding:6rem 4rem 6rem 3rem;border-right:1px solid rgba(255,255,255,.06)}
+.edition-tag{font-size:.65rem;letter-spacing:.25em;text-transform:uppercase;color:var(--lime);font-weight:600;margin-bottom:2rem;display:flex;align-items:center;gap:.75rem}
+.edition-tag::before{content:'';flex:0 0 30px;height:1px;background:var(--lime)}
+h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(5rem,8vw,8.5rem);line-height:.88;text-transform:uppercase;margin-bottom:1rem}
+.h1-serif{display:block;font-family:'Playfair Display',serif;font-size:clamp(2.5rem,4vw,4.5rem);font-weight:700;font-style:italic;color:rgba(255,255,255,.35);text-transform:none;letter-spacing:.02em;line-height:1.2}
+.hero-left p{font-size:1rem;color:rgba(255,255,255,.45);line-height:1.7;font-weight:300;max-width:380px;margin:1.5rem 0 3rem}
+.hero-actions{display:flex;align-items:center;gap:2rem}
+.btn-main{display:inline-flex;align-items:center;gap:.75rem;background:var(--lime);color:#000;padding:.9rem 2rem;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.95rem;letter-spacing:.1em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .2s}
+.btn-main:hover{opacity:.88}
+.text-link{color:rgba(255,255,255,.4);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:color .2s}
+.text-link:hover{color:#fff}
+.hero-stats{margin-top:5rem;display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;padding-top:2rem;border-top:1px solid rgba(255,255,255,.08)}
+.stat-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.5rem;color:#fff;line-height:1}
+.stat-unit{color:var(--lime);font-size:1.5rem}
+.stat-desc{font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-top:.3rem}
+
+/* HERO RIGHT — IMAGE STACK */
+.hero-right{position:relative;overflow:hidden;background:#111}
+.hero-img-main{width:100%;height:100%;object-fit:cover;display:block;filter:contrast(1.05) saturate(.85)}
+.hero-tag{position:absolute;top:2rem;right:2rem;background:var(--lime);color:#000;padding:.35rem .8rem;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase}
+.hero-caption{position:absolute;bottom:2rem;left:2rem;right:2rem;display:flex;justify-content:space-between;align-items:flex-end}
+.caption-text{font-size:.7rem;color:rgba(255,255,255,.4);letter-spacing:.08em;text-transform:uppercase}
+.caption-num{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:4rem;color:rgba(255,255,255,.06);line-height:1}
+
+/* PROGRAMS STRIP */
+.strip{padding:5rem 3rem}
+.strip-label{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:.8rem;letter-spacing:.25em;text-transform:uppercase;color:var(--lime);margin-bottom:2.5rem}
+.programs-row{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:rgba(255,255,255,.06)}
+.prog-card{background:var(--dark);padding:1.5rem 1rem;cursor:pointer;transition:background .2s;position:relative;overflow:hidden}
+.prog-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--lime);transform:scaleX(0);transition:transform .3s;transform-origin:left}
+.prog-card:hover{background:#111}
+.prog-card:hover::after{transform:scaleX(1)}
+.prog-img{width:100%;aspect-ratio:1;object-fit:cover;margin-bottom:1rem;filter:grayscale(60%);transition:filter .3s}
+.prog-card:hover .prog-img{filter:grayscale(0%)}
+.prog-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
+.prog-weeks{font-size:.65rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase}
+.prog-arrow{color:var(--lime);font-size:.8rem;margin-top:.5rem;opacity:0;transition:opacity .2s}
+.prog-card:hover .prog-arrow{opacity:1}
+
+/* FEATURE SPLIT */
+.feature-split{display:grid;grid-template-columns:1fr 1fr;min-height:60vh;border-top:1px solid rgba(255,255,255,.06)}
+.feat-img-side{position:relative;overflow:hidden}
+.feat-img-side img{width:100%;height:100%;object-fit:cover;filter:contrast(1.1) saturate(.7);display:block}
+.feat-img-side::after{content:'';position:absolute;inset:0;background:rgba(10,10,10,.3)}
+.feat-text-side{padding:5rem 4rem;display:flex;flex-direction:column;justify-content:center;border-left:1px solid rgba(255,255,255,.06)}
+.feat-eyebrow{font-size:.65rem;letter-spacing:.25em;text-transform:uppercase;color:var(--lime);font-weight:600;margin-bottom:1.5rem}
+.feat-text-side h2{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3rem,5vw,5rem);text-transform:uppercase;line-height:.95;margin-bottom:1.5rem}
+.feat-text-side p{font-size:.9rem;color:rgba(255,255,255,.4);line-height:1.7;font-weight:300;max-width:380px;margin-bottom:2rem}
+.feat-list{list-style:none;display:flex;flex-direction:column;gap:.75rem;margin-bottom:2.5rem}
+.feat-list li{display:flex;align-items:center;gap:.75rem;font-size:.8rem;color:rgba(255,255,255,.6);letter-spacing:.04em}
+.feat-list li::before{content:'';width:20px;height:1px;background:var(--lime);flex-shrink:0}
+.feat-cta{display:inline-flex;align-items:center;gap:.6rem;color:#fff;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:.3rem;transition:border-color .2s}
+.feat-cta:hover{border-color:var(--lime);color:var(--lime)}
+
+/* QUOTE */
+.quote-band{padding:6rem 3rem;text-align:center;border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06)}
+.quote-band blockquote{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(2.5rem,5vw,5rem);text-transform:uppercase;line-height:.95;max-width:900px;margin:0 auto 1.5rem}
+.quote-band blockquote em{color:var(--lime);font-style:normal}
+.quote-attr{font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3)}
+
+/* FOOTER */
+footer{padding:3rem;display:flex;justify-content:space-between;align-items:center}
+.foot-logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;letter-spacing:.2em}
+.foot-logo span{color:var(--lime)}
+footer p{font-size:.65rem;color:rgba(255,255,255,.25);letter-spacing:.1em;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">ALE<span>FIT</span></div>
+  <ul>
+    <li><a href="#">Programs</a></li>
+    <li><a href="#">Nutrition</a></li>
+    <li><a href="#">Athletes</a></li>
+    <li><a href="#">About</a></li>
+  </ul>
+  <div class="nav-btns">
+    <button class="btn-sm btn-sm-ghost">Log In</button>
+    <button class="btn-sm btn-sm-solid">Start Free</button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-left">
+    <div class="edition-tag">Elite Performance</div>
+    <h1>
+      Train<br>
+      Like an<br>
+      Athlete
+      <span class="h1-serif">— or become one.</span>
+    </h1>
+    <p>Every program precision-engineered for your sport. Science-backed training, built for people who refuse to settle for average.</p>
+    <div class="hero-actions">
+      <button class="btn-main">
+        Start Training
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 7h12M7 1l6 6-6 6"/></svg>
+      </button>
+      <a href="#" class="text-link">View All Programs →</a>
+    </div>
+    <div class="hero-stats">
+      <div>
+        <div class="stat-val">16<span class="stat-unit">+</span></div>
+        <div class="stat-desc">Sport Programs</div>
+      </div>
+      <div>
+        <div class="stat-val">12<span class="stat-unit">K</span></div>
+        <div class="stat-desc">Active Athletes</div>
+      </div>
+      <div>
+        <div class="stat-val">98<span class="stat-unit">%</span></div>
+        <div class="stat-desc">Reach Goals</div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-right">
+    <img class="hero-img-main" src="https://images.pexels.com/photos/31849596/pexels-photo-31849596.jpeg?auto=compress&cs=tinysrgb&w=1000" alt="Athlete">
+    <div class="hero-tag">Season 2026</div>
+    <div class="hero-caption">
+      <span class="caption-text">Elite Performance Training</span>
+      <span class="caption-num">01</span>
+    </div>
+  </div>
+</section>
+
+<section class="strip">
+  <div class="strip-label">— Choose Your Program</div>
+  <div class="programs-row">
+    <div class="prog-card">
+      <img class="prog-img" src="https://images.pexels.com/photos/6514823/pexels-photo-6514823.jpeg?auto=compress&cs=tinysrgb&w=300" alt="Football">
+      <div class="prog-name">Football</div>
+      <div class="prog-weeks">12 Weeks</div>
+      <div class="prog-arrow">→</div>
+    </div>
+    <div class="prog-card">
+      <img class="prog-img" src="https://images.pexels.com/photos/32619170/pexels-photo-32619170.jpeg?auto=compress&cs=tinysrgb&w=300" alt="Basketball">
+      <div class="prog-name">Basketball</div>
+      <div class="prog-weeks">10 Weeks</div>
+      <div class="prog-arrow">→</div>
+    </div>
+    <div class="prog-card">
+      <img class="prog-img" src="https://images.pexels.com/photos/1552242/pexels-photo-1552242.jpeg?auto=compress&cs=tinysrgb&w=300" alt="Strength">
+      <div class="prog-name">Strength</div>
+      <div class="prog-weeks">8 Weeks</div>
+      <div class="prog-arrow">→</div>
+    </div>
+    <div class="prog-card">
+      <img class="prog-img" src="https://images.pexels.com/photos/29859452/pexels-photo-29859452.jpeg?auto=compress&cs=tinysrgb&w=300" alt="CrossFit">
+      <div class="prog-name">CrossFit</div>
+      <div class="prog-weeks">8 Weeks</div>
+      <div class="prog-arrow">→</div>
+    </div>
+    <div class="prog-card">
+      <img class="prog-img" src="https://images.pexels.com/photos/4164513/pexels-photo-4164513.jpeg?auto=compress&cs=tinysrgb&w=300" alt="Weight Loss">
+      <div class="prog-name">Weight Loss</div>
+      <div class="prog-weeks">12 Weeks</div>
+      <div class="prog-arrow">→</div>
+    </div>
+    <div class="prog-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;min-height:200px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.2rem;text-transform:uppercase;letter-spacing:.06em">+11 More</div>
+      <div style="color:var(--lime);font-size:1.5rem">→</div>
+    </div>
+  </div>
+</section>
+
+<div class="feature-split">
+  <div class="feat-img-side">
+    <img src="https://images.pexels.com/photos/7688862/pexels-photo-7688862.jpeg?auto=compress&cs=tinysrgb&w=800" alt="Training">
+  </div>
+  <div class="feat-text-side">
+    <div class="feat-eyebrow">— Why ALEFIT</div>
+    <h2>Training That<br>Produces<br>Results</h2>
+    <p>Not a generic workout app. Every ALEFIT program is built around the biomechanics, energy systems, and demands of your specific sport.</p>
+    <ul class="feat-list">
+      <li>Sport-specific periodization</li>
+      <li>Progressive overload built-in</li>
+      <li>Gym & dumbbell-only variants</li>
+      <li>AI-powered nutrition plans</li>
+    </ul>
+    <a href="#" class="feat-cta">See How It Works →</a>
+  </div>
+</div>
+
+<div class="quote-band">
+  <blockquote>"The only program that trains you<br>like a <em>real athlete</em> — not a gym-goer."</blockquote>
+  <div class="quote-attr">— ALEFIT Athletes</div>
+</div>
+
+<footer>
+  <div class="foot-logo">ALE<span>FIT</span></div>
+  <p>© 2026 ALEFIT. Elite Performance Training.</p>
+</footer>
+
+</body>
+</html>
