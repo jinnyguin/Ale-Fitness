@@ -9,8 +9,25 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime, timezone
 from flask import Flask, request, jsonify, send_from_directory, send_file, abort, redirect, make_response
+from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__, static_folder=".")
+CORS(app, resources={r"/api/*": {"origins": "*", "allow_headers": ["Authorization", "Content-Type"], "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]}}, supports_credentials=True)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+# Helper: returns the correct public URL behind Vercel's reverse proxy
+# Uses X-Forwarded-Proto and X-Forwarded-Host headers when available
+@app.before_request
+def before_request():
+    if request.headers.get("X-Forwarded-Proto") == "https" and request.url.startswith("http://"):
+        request.url = request.url.replace("http://", "https://", 1)
+
+def get_host_url():
+    """Return the public base URL (respects reverse-proxy headers from Vercel, Cloudflare, etc)."""
+    scheme = request.headers.get("X-Forwarded-Proto") or request.scheme
+    host = request.headers.get("X-Forwarded-Host") or request.host
+    return f"{scheme}://{host}/"
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_KEY"]
@@ -297,7 +314,7 @@ def oauth_authorize():
     provider = (request.args.get("provider") or "").lower()
     if provider not in SUPPORTED_OAUTH_PROVIDERS:
         return jsonify({"error": f"Unsupported provider: {provider}"}), 400
-    redirect_to = request.args.get("redirect_to") or (request.host_url + "auth/callback")
+    redirect_to = request.args.get("redirect_to") or get_host_url() + "auth/callback"
     url = f"{SUPABASE_URL}/auth/v1/authorize?provider={provider}&redirect_to={urllib.parse.quote(redirect_to, safe='')}"
     # Pre-check whether the provider is actually enabled in Supabase
     try:
@@ -513,7 +530,7 @@ def auth_reset_request(app_id):
     body = request.get_json(force=True) or {}
     email = (body.get("email") or "").strip()
     # Build redirect URL from the incoming request so it works on any domain
-    origin = request.headers.get("Origin") or request.host_url.rstrip("/")
+    origin = request.headers.get("Origin") or get_host_url().rstrip("/")
     redirect_to = f"{origin}/ResetPassword.html"
     supabase_auth("POST", "/auth/v1/recover", {"email": email, "redirectTo": redirect_to})
     return jsonify({"message": "If this email exists, a reset link has been sent."})
