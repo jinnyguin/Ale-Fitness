@@ -12,11 +12,12 @@ from flask import Flask, request, jsonify, send_from_directory, send_file, abort
 
 app = Flask(__name__, static_folder=".")
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_KEY"]
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-DATABASE_URL = os.environ["DATABASE_URL"]
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+# Service role key — stored in "Database" env var (set during project setup)
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("Database", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
 
 # ---------------------------------------------------------------------------
