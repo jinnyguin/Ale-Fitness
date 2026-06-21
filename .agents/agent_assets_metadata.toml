@@ -227,3 +227,27 @@ id = "czIrpaqqz51UzEq160US9"
 uri = "file://gifs/alefit-supplement-stack.gif"
 type = "image"
 title = "6. Supplement Stack - Supplements"
+
+[[outputs]]
+id = "qvJZYi57NZ7y0yi-rxbpC"
+uri = "file://gifs/alefit-ad-hook.gif"
+type = "image"
+title = "Scene 1: HOOK - Stop Guessing"
+
+[[outputs]]
+id = "yRfjrddq3f8lDewvhe3fb"
+uri = "file://gifs/alefit-ad-tools.gif"
+type = "image"
+title = "Scene 2: 11 FREE TOOLS"
+
+[[outputs]]
+id = "KVZYbuX_2mcLqfZcynhhS"
+uri = "file://gifs/alefit-ad-community.gif"
+type = "image"
+title = "Scene 3: 500+ Athletes"
+
+[[outputs]]
+id = "JxIRFRqIs81Uqj7a7Pa7P"
+uri = "file://gifs/alefit-ad-cta.gif"
+type = "image"
+title = "Scene 4: SIGN UP FREE"
