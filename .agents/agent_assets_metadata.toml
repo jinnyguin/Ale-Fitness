@@ -1,0 +1,43 @@
+uploads = []
+
+[[generated]]
+id = "DqlYD6TixXUQmmQYYM-By"
+uri = "file://ads/alefit-ad-instagram.png"
+type = "image"
+title = "instagram feed ad"
+
+[[generated]]
+id = "y9dwSmZ9fJoj6FgxPma9J"
+uri = "file://ads/alefit-ad-story.png"
+type = "image"
+title = "instagram story ad"
+
+[[generated]]
+id = "mDCBJ2OK70IG9Yyox78Z3"
+uri = "file://ads/alefit-ad-banner.png"
+type = "image"
+title = "wide banner ad"
+
+[[outputs]]
+id = "nB9CY2lyBRIePmSwWh4aH"
+uri = "file://ads/alefit-ad-instagram.png"
+type = "image"
+title = "Instagram Feed Ad (1:1)"
+
+[[outputs]]
+id = "SDLJf3HDlqpg5fnUX_ak-"
+uri = "file://ads/alefit-ad-story.png"
+type = "image"
+title = "Instagram Story Ad (9:16)"
+
+[[outputs]]
+id = "-DTxscSf0aEDQ3fGe_AV3"
+uri = "file://ads/alefit-ad-banner.png"
+type = "image"
+title = "Wide Banner Ad (16:9)"
+
+[[outputs]]
+id = "vqRxAsi9xjo6Bv_65xEQn"
+uri = "file://ads/social-media-ads.md"
+type = "text"
+title = "Ad Copy & Text"
