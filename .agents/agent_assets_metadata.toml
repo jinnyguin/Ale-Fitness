@@ -76,58 +76,58 @@ title = "Complete Ad Copy & Video Scripts"
 id = "-D4TCXA6LJyZMOJHNOMwf"
 uri = "file://attached_assets/generated_videos/alefit-bmi-scanner.mp4"
 type = "video"
-title = "BMI Calculator (8s) - Body scan scene"
+title = "BMI Calculator - 8s vertical video"
 
 [[outputs]]
 id = "THBi64ObqI-6KXXAeuqek"
 uri = "file://attached_assets/generated_videos/alefit-macro-planning.mp4"
 type = "video"
-title = "Macro Planner (8s) - Meal prep scene"
+title = "Macro Planner - 8s vertical video"
 
 [[outputs]]
 id = "BRX4EFav7AurEu9oxJd-E"
 uri = "file://attached_assets/generated_videos/alefit-recovery-tracker.mp4"
 type = "video"
-title = "Recovery Tracker (8s) - Foam rolling scene"
+title = "Recovery Tracker - 8s vertical video"
 
 [[outputs]]
 id = "_-Vt7AKva3Q1MUOZnzePd"
 uri = "file://attached_assets/generated_videos/alefit-hydration.mp4"
 type = "video"
-title = "Hydration Calculator (8s) - Drinking scene"
+title = "Hydration Calculator - 8s vertical video"
 
 [[outputs]]
 id = "8GkgELJkf6yt52VBl5gic"
 uri = "file://attached_assets/generated_videos/alefit-one-rep-max.mp4"
 type = "video"
-title = "One Rep Max (8s) - Deadlift scene"
+title = "One Rep Max - 8s vertical video"
 
 [[outputs]]
 id = "OgTCOKRixYWk0WNOkZ-T5"
 uri = "file://attached_assets/generated_videos/alefit-speed.mp4"
 type = "video"
-title = "Speed Estimator (8s) - Sprint scene"
+title = "Speed Estimator - 8s vertical video"
 
 [[outputs]]
 id = "mfuPUBujYb7y-1Tigk-o_"
 uri = "file://attached_assets/generated_videos/alefit-workout-split.mp4"
 type = "video"
-title = "Workout Split (8s) - Schedule scene"
+title = "Workout Split - 8s vertical video"
 
 [[outputs]]
 id = "z3xb6x2AymuU8hfzn5PAp"
 uri = "file://attached_assets/generated_videos/alefit-supplement-stack.mp4"
 type = "video"
-title = "Supplement Stack (8s) - Supplements scene"
+title = "Supplement Stack - 8s vertical video"
 
 [[outputs]]
 id = "1Usyz6YfNqrElGZAyLCAd"
 uri = "file://attached_assets/generated_videos/alefit-injury-scanner.mp4"
 type = "video"
-title = "Injury Scanner (8s) - Body scan scene"
+title = "Injury Scanner - 8s vertical video"
 
 [[outputs]]
 id = "w1iPZCzssp0jfh2WWDcPX"
 uri = "file://attached_assets/generated_videos/alefit-meal-plan.mp4"
 type = "video"
-title = "Meal Plan (8s) - Healthy meal scene"
+title = "Meal Plan - 8s vertical video"
