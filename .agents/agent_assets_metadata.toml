@@ -46,25 +46,25 @@ title = "Ad Copy & Text"
 id = "tznljdtaqM1VcDKbxpLNu"
 uri = "file://attached_assets/generated_videos/alefit-brand-ad-landscape.mp4"
 type = "video"
-title = "Brand Ad (16:9 Landscape) - YouTube/Facebook"
+title = "Brand Ad (Landscape) - YouTube/Facebook"
 
 [[outputs]]
 id = "wKiZ6H3ADpjGfQDagsHYJ"
 uri = "file://attached_assets/generated_videos/alefit-social-ad-vertical.mp4"
 type = "video"
-title = "Social Ad (9:16 Vertical) - Instagram/TikTok/Reels"
+title = "Social Ad (Vertical) - Instagram/TikTok/Reels"
 
 [[outputs]]
 id = "9GjJNJ5k5myll6hkUbp06"
 uri = "file://attached_assets/generated_videos/alefit-tools-ad.mp4"
 type = "video"
-title = "Tools Ad (16:9 Landscape) - YouTube/Facebook"
+title = "Tools Ad (Landscape) - YouTube/Facebook"
 
 [[outputs]]
 id = "FOS4SMsH041UHOJZ_KLqs"
 uri = "file://attached_assets/generated_videos/alefit-athletes-ad.mp4"
 type = "video"
-title = "Athletes Ad (9:16 Vertical) - Instagram/TikTok/Reels"
+title = "Athletes Ad (Vertical) - Instagram/TikTok/Reels"
 
 [[outputs]]
 id = "eQ9b4p2H2nN0jO_AxDYoc"
