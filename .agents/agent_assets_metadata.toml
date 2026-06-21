@@ -22,22 +22,52 @@ title = "wide banner ad"
 id = "nB9CY2lyBRIePmSwWh4aH"
 uri = "file://ads/alefit-ad-instagram.png"
 type = "image"
-title = "Instagram Feed Ad (1:1)"
+title = "Instagram Feed Image (1:1)"
 
 [[outputs]]
 id = "SDLJf3HDlqpg5fnUX_ak-"
 uri = "file://ads/alefit-ad-story.png"
 type = "image"
-title = "Instagram Story Ad (9:16)"
+title = "Instagram Story Image (9:16)"
 
 [[outputs]]
 id = "-DTxscSf0aEDQ3fGe_AV3"
 uri = "file://ads/alefit-ad-banner.png"
 type = "image"
-title = "Wide Banner Ad (16:9)"
+title = "Website Banner Image (16:9)"
 
 [[outputs]]
 id = "vqRxAsi9xjo6Bv_65xEQn"
 uri = "file://ads/social-media-ads.md"
 type = "text"
 title = "Ad Copy & Text"
+
+[[outputs]]
+id = "tznljdtaqM1VcDKbxpLNu"
+uri = "file://attached_assets/generated_videos/alefit-brand-ad-landscape.mp4"
+type = "video"
+title = "Brand Ad (16:9 Landscape) - YouTube/Facebook"
+
+[[outputs]]
+id = "wKiZ6H3ADpjGfQDagsHYJ"
+uri = "file://attached_assets/generated_videos/alefit-social-ad-vertical.mp4"
+type = "video"
+title = "Social Ad (9:16 Vertical) - Instagram/TikTok/Reels"
+
+[[outputs]]
+id = "9GjJNJ5k5myll6hkUbp06"
+uri = "file://attached_assets/generated_videos/alefit-tools-ad.mp4"
+type = "video"
+title = "Tools Ad (16:9 Landscape) - YouTube/Facebook"
+
+[[outputs]]
+id = "FOS4SMsH041UHOJZ_KLqs"
+uri = "file://attached_assets/generated_videos/alefit-athletes-ad.mp4"
+type = "video"
+title = "Athletes Ad (9:16 Vertical) - Instagram/TikTok/Reels"
+
+[[outputs]]
+id = "eQ9b4p2H2nN0jO_AxDYoc"
+uri = "file://ads/ads-with-video.md"
+type = "text"
+title = "Complete Ad Copy & Video Scripts"
