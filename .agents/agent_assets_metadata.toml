@@ -131,3 +131,63 @@ id = "w1iPZCzssp0jfh2WWDcPX"
 uri = "file://attached_assets/generated_videos/alefit-meal-plan.mp4"
 type = "video"
 title = "Meal Plan - 8s vertical video"
+
+[[outputs]]
+id = "dl_COmIXQPgdbeOIURaLl"
+uri = "file://video_thumbnails/alefit-bmi-scanner.jpg"
+type = "image"
+title = "BMI Calculator Video"
+
+[[outputs]]
+id = "Ubr670_yze2TsTzEx2ODF"
+uri = "file://video_thumbnails/alefit-macro-planning.jpg"
+type = "image"
+title = "Macro Planner Video"
+
+[[outputs]]
+id = "XnX2PgwK5w1y1f36v7yq8"
+uri = "file://video_thumbnails/alefit-recovery-tracker.jpg"
+type = "image"
+title = "Recovery Tracker Video"
+
+[[outputs]]
+id = "xfDPt8PZpdW0SDVg9fvrk"
+uri = "file://video_thumbnails/alefit-hydration.jpg"
+type = "image"
+title = "Hydration Calculator Video"
+
+[[outputs]]
+id = "0Hun5LefTqiGlyeh4aBYw"
+uri = "file://video_thumbnails/alefit-one-rep-max.jpg"
+type = "image"
+title = "One Rep Max Video"
+
+[[outputs]]
+id = "Hwd5CqYRfN4qUXtQT5rf7"
+uri = "file://video_thumbnails/alefit-speed.jpg"
+type = "image"
+title = "Speed Estimator Video"
+
+[[outputs]]
+id = "trdPTZrjskFSmnIH26v3k"
+uri = "file://video_thumbnails/alefit-workout-split.jpg"
+type = "image"
+title = "Workout Split Video"
+
+[[outputs]]
+id = "KhySyWiEINs0DyBGO0g_p"
+uri = "file://video_thumbnails/alefit-supplement-stack.jpg"
+type = "image"
+title = "Supplement Stack Video"
+
+[[outputs]]
+id = "F2aqifRR1tB1p1jj5dluk"
+uri = "file://video_thumbnails/alefit-injury-scanner.jpg"
+type = "image"
+title = "Injury Scanner Video"
+
+[[outputs]]
+id = "o86QIp3Ax7nvlgL-X5r6t"
+uri = "file://video_thumbnails/alefit-meal-plan.jpg"
+type = "image"
+title = "Meal Plan Video"

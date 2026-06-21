@@ -6,142 +6,200 @@
 <title>ALEFIT Video Ads</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #0F0F0F; color: #fff; font-family: 'Inter', sans-serif; padding: 40px; }
-h1 { font-family: 'Barlow Condensed', sans-serif; font-size: 48px; color: #D4FF00; margin-bottom: 8px; }
-p.subtitle { color: #888; font-size: 16px; margin-bottom: 8px; }
-p.hint { color: #555; font-size: 13px; margin-bottom: 40px; }
-.section-title { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; color: #fff; margin: 40px 0 16px 0; border-bottom: 1px solid #222; padding-bottom: 8px; }
-.video-card { background: #141414; border-radius: 16px; padding: 20px; margin-bottom: 24px; border: 1px solid #222; }
-.video-card h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; margin-bottom: 6px; color: #fff; }
-.video-card .tag { display: inline-block; background: #D4FF00; color: #0F0F0F; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-bottom: 12px; }
-.video-card .desc { color: #888; font-size: 13px; margin-bottom: 12px; }
-video { width: 100%; border-radius: 12px; background: #000; max-height: 70vh; }
-.download-link { display: inline-block; margin-top: 10px; color: #D4FF00; text-decoration: none; font-size: 13px; font-weight: 500; }
-.download-link:hover { text-decoration: underline; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+body { background: #0F0F0F; color: #fff; font-family: 'Inter', sans-serif; padding: 30px; }
+h1 { font-family: 'Barlow Condensed', sans-serif; font-size: 42px; color: #D4FF00; margin-bottom: 8px; }
+p.subtitle { color: #888; font-size: 15px; margin-bottom: 6px; }
+p.hint { color: #555; font-size: 13px; margin-bottom: 30px; }
+.section-title { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; color: #fff; margin: 30px 0 14px 0; border-bottom: 1px solid #222; padding-bottom: 8px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.card { background: #141414; border-radius: 14px; overflow: hidden; border: 1px solid #222; transition: border-color 0.2s; }
+.card:hover { border-color: #D4FF00; }
+.card img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; }
+.card .info { padding: 14px 16px; }
+.card h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; margin-bottom: 4px; color: #fff; }
+.card .tag { display: inline-block; background: #D4FF00; color: #0F0F0F; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; margin-bottom: 8px; }
+.card .desc { color: #888; font-size: 12px; margin-bottom: 10px; }
+.card .dl { display: inline-flex; align-items: center; gap: 6px; color: #D4FF00; text-decoration: none; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 1px solid #D4FF00; border-radius: 8px; }
+.card .dl:hover { background: #D4FF00; color: #0F0F0F; }
+.card .dl svg { width: 14px; height: 14px; }
 </style>
 </head>
 <body>
 <h1>ALEFIT Video Ads</h1>
-<p class="subtitle">10 new 8-second videos, each themed around a real ALEFIT tool from your website</p>
-<p class="hint">Click any video to play. Click the download link to save the MP4 file.</p>
+<p class="subtitle">10 tool-themed 8-second videos + 4 brand videos</p>
+<p class="hint">Click the yellow button to download any MP4 file to your device and watch it locally.</p>
 
-<div class="section-title">Tool-Specific Videos (8s each)</div>
+<div class="section-title">Tool-Specific Videos (8 seconds each)</div>
 <div class="grid">
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-bmi-scanner.jpg" alt="BMI Calculator">
+<div class="info">
 <h2>BMI Calculator</h2>
 <span class="tag">9:16 Vertical</span>
-<p class="desc">Body composition scan with holographic overlay</p>
-<video controls src="videos/alefit-bmi-scanner.mp4"></video>
-<a class="download-link" href="videos/alefit-bmi-scanner.mp4" download>Download MP4</a>
+<p class="desc">Body scan with holographic overlay</p>
+<a class="dl" href="videos/alefit-bmi-scanner.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-macro-planning.jpg" alt="Macro Planner">
+<div class="info">
 <h2>Macro Planner</h2>
 <span class="tag">9:16 Vertical</span>
 <p class="desc">Meal prep with floating macro numbers</p>
-<video controls src="videos/alefit-macro-planning.mp4"></video>
-<a class="download-link" href="videos/alefit-macro-planning.mp4" download>Download MP4</a>
+<a class="dl" href="videos/alefit-macro-planning.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-recovery-tracker.jpg" alt="Recovery Tracker">
+<div class="info">
 <h2>Recovery Tracker</h2>
 <span class="tag">9:16 Vertical</span>
 <p class="desc">Foam rolling with recovery ring chart</p>
-<video controls src="videos/alefit-recovery-tracker.mp4"></video>
-<a class="download-link" href="videos/alefit-recovery-tracker.mp4" download>Download MP4</a>
+<a class="dl" href="videos/alefit-recovery-tracker.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-hydration.jpg" alt="Hydration Calculator">
+<div class="info">
 <h2>Hydration Calculator</h2>
 <span class="tag">9:16 Vertical</span>
-<p class="desc">Athlete drinking with water tracker animation</p>
-<video controls src="videos/alefit-hydration.mp4"></video>
-<a class="download-link" href="videos/alefit-hydration.mp4" download>Download MP4</a>
+<p class="desc">Water bottle with tracker animation</p>
+<a class="dl" href="videos/alefit-hydration.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-one-rep-max.jpg" alt="One Rep Max">
+<div class="info">
 <h2>One Rep Max</h2>
 <span class="tag">9:16 Vertical</span>
-<p class="desc">Heavy deadlift with 1RM calculator overlay</p>
-<video controls src="videos/alefit-one-rep-max.mp4"></video>
-<a class="download-link" href="videos/alefit-one-rep-max.mp4" download>Download MP4</a>
+<p class="desc">Heavy deadlift with 1RM calculator</p>
+<a class="dl" href="videos/alefit-one-rep-max.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-speed.jpg" alt="Speed Estimator">
+<div class="info">
 <h2>Speed Estimator</h2>
 <span class="tag">9:16 Vertical</span>
-<p class="desc">Sprint start with speedometer overlay</p>
-<video controls src="videos/alefit-speed.mp4"></video>
-<a class="download-link" href="videos/alefit-speed.mp4" download>Download MP4</a>
+<p class="desc">Sprint with speedometer overlay</p>
+<a class="dl" href="videos/alefit-speed.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-workout-split.jpg" alt="Workout Split">
+<div class="info">
 <h2>Workout Split</h2>
 <span class="tag">9:16 Vertical</span>
-<p class="desc">Gym schedule with glowing calendar</p>
-<video controls src="videos/alefit-workout-split.mp4"></video>
-<a class="download-link" href="videos/alefit-workout-split.mp4" download>Download MP4</a>
+<p class="desc">Weekly schedule with glowing calendar</p>
+<a class="dl" href="videos/alefit-workout-split.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-supplement-stack.jpg" alt="Supplement Stack">
+<div class="info">
 <h2>Supplement Stack</h2>
 <span class="tag">9:16 Vertical</span>
-<p class="desc">Supplement bottles with stack builder</p>
-<video controls src="videos/alefit-supplement-stack.mp4"></video>
-<a class="download-link" href="videos/alefit-supplement-stack.mp4" download>Download MP4</a>
+<p class="desc">Supplement bottles with builder UI</p>
+<a class="dl" href="videos/alefit-supplement-stack.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-injury-scanner.jpg" alt="Injury Scanner">
+<div class="info">
 <h2>Injury Scanner</h2>
 <span class="tag">9:16 Vertical</span>
 <p class="desc">Body scan with joint pain analysis</p>
-<video controls src="videos/alefit-injury-scanner.mp4"></video>
-<a class="download-link" href="videos/alefit-injury-scanner.mp4" download>Download MP4</a>
+<a class="dl" href="videos/alefit-injury-scanner.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-meal-plan.jpg" alt="Meal Plan">
+<div class="info">
 <h2>Meal Plan</h2>
 <span class="tag">9:16 Vertical</span>
 <p class="desc">Healthy meal with digital plan interface</p>
-<video controls src="videos/alefit-meal-plan.mp4"></video>
-<a class="download-link" href="videos/alefit-meal-plan.mp4" download>Download MP4</a>
+<a class="dl" href="videos/alefit-meal-plan.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 </div>
 
-<div class="section-title">General Brand Videos (6s each)</div>
+<div class="section-title">Brand Awareness Videos (6 seconds each)</div>
 <div class="grid">
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-brand-ad-landscape.jpg" alt="Brand Ad">
+<div class="info">
 <h2>Brand Ad</h2>
 <span class="tag">16:9 Landscape</span>
-<p class="desc">Generic brand awareness</p>
-<video controls src="videos/alefit-brand-ad-landscape.mp4"></video>
-<a class="download-link" href="videos/alefit-brand-ad-landscape.mp4" download>Download MP4</a>
+<p class="desc">YouTube / Facebook feed</p>
+<a class="dl" href="videos/alefit-brand-ad-landscape.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-social-ad-vertical.jpg" alt="Social Ad">
+<div class="info">
 <h2>Social Ad</h2>
 <span class="tag">9:16 Vertical</span>
-<p class="desc">Generic social media ad</p>
-<video controls src="videos/alefit-social-ad-vertical.mp4"></video>
-<a class="download-link" href="videos/alefit-social-ad-vertical.mp4" download>Download MP4</a>
+<p class="desc">Instagram Reels / TikTok</p>
+<a class="dl" href="videos/alefit-social-ad-vertical.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-tools-ad.jpg" alt="Tools Ad">
+<div class="info">
 <h2>Tools Ad</h2>
 <span class="tag">16:9 Landscape</span>
-<p class="desc">Generic 11 tools promo</p>
-<video controls src="videos/alefit-tools-ad.mp4"></video>
-<a class="download-link" href="videos/alefit-tools-ad.mp4" download>Download MP4</a>
+<p class="desc">11 tools promo</p>
+<a class="dl" href="videos/alefit-tools-ad.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 
-<div class="video-card">
+<div class="card">
+<img src="video_thumbnails/alefit-athletes-ad.jpg" alt="Athletes Ad">
+<div class="info">
 <h2>Athletes Ad</h2>
 <span class="tag">9:16 Vertical</span>
-<p class="desc">Generic athletes promo</p>
-<video controls src="videos/alefit-athletes-ad.mp4"></video>
-<a class="download-link" href="videos/alefit-athletes-ad.mp4" download>Download MP4</a>
+<p class="desc">Athletes promo</p>
+<a class="dl" href="videos/alefit-athletes-ad.mp4" download>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+Download MP4</a>
+</div>
 </div>
 </div>
 
