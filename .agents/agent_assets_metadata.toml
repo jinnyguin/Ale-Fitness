@@ -71,3 +71,63 @@ id = "eQ9b4p2H2nN0jO_AxDYoc"
 uri = "file://ads/ads-with-video.md"
 type = "text"
 title = "Complete Ad Copy & Video Scripts"
+
+[[outputs]]
+id = "-D4TCXA6LJyZMOJHNOMwf"
+uri = "file://attached_assets/generated_videos/alefit-bmi-scanner.mp4"
+type = "video"
+title = "BMI Calculator (8s) - Body scan scene"
+
+[[outputs]]
+id = "THBi64ObqI-6KXXAeuqek"
+uri = "file://attached_assets/generated_videos/alefit-macro-planning.mp4"
+type = "video"
+title = "Macro Planner (8s) - Meal prep scene"
+
+[[outputs]]
+id = "BRX4EFav7AurEu9oxJd-E"
+uri = "file://attached_assets/generated_videos/alefit-recovery-tracker.mp4"
+type = "video"
+title = "Recovery Tracker (8s) - Foam rolling scene"
+
+[[outputs]]
+id = "_-Vt7AKva3Q1MUOZnzePd"
+uri = "file://attached_assets/generated_videos/alefit-hydration.mp4"
+type = "video"
+title = "Hydration Calculator (8s) - Drinking scene"
+
+[[outputs]]
+id = "8GkgELJkf6yt52VBl5gic"
+uri = "file://attached_assets/generated_videos/alefit-one-rep-max.mp4"
+type = "video"
+title = "One Rep Max (8s) - Deadlift scene"
+
+[[outputs]]
+id = "OgTCOKRixYWk0WNOkZ-T5"
+uri = "file://attached_assets/generated_videos/alefit-speed.mp4"
+type = "video"
+title = "Speed Estimator (8s) - Sprint scene"
+
+[[outputs]]
+id = "mfuPUBujYb7y-1Tigk-o_"
+uri = "file://attached_assets/generated_videos/alefit-workout-split.mp4"
+type = "video"
+title = "Workout Split (8s) - Schedule scene"
+
+[[outputs]]
+id = "z3xb6x2AymuU8hfzn5PAp"
+uri = "file://attached_assets/generated_videos/alefit-supplement-stack.mp4"
+type = "video"
+title = "Supplement Stack (8s) - Supplements scene"
+
+[[outputs]]
+id = "1Usyz6YfNqrElGZAyLCAd"
+uri = "file://attached_assets/generated_videos/alefit-injury-scanner.mp4"
+type = "video"
+title = "Injury Scanner (8s) - Body scan scene"
+
+[[outputs]]
+id = "w1iPZCzssp0jfh2WWDcPX"
+uri = "file://attached_assets/generated_videos/alefit-meal-plan.mp4"
+type = "video"
+title = "Meal Plan (8s) - Healthy meal scene"
