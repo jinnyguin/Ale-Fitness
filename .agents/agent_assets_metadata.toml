@@ -46,25 +46,25 @@ title = "Ad Copy & Text"
 id = "tznljdtaqM1VcDKbxpLNu"
 uri = "file://attached_assets/generated_videos/alefit-brand-ad-landscape.mp4"
 type = "video"
-title = "Brand Ad (Landscape) - YouTube/Facebook"
+title = "11. Brand Ad - Landscape (6s)"
 
 [[outputs]]
 id = "wKiZ6H3ADpjGfQDagsHYJ"
 uri = "file://attached_assets/generated_videos/alefit-social-ad-vertical.mp4"
 type = "video"
-title = "Social Ad (Vertical) - Instagram/TikTok/Reels"
+title = "12. Social Ad - Vertical (6s)"
 
 [[outputs]]
 id = "9GjJNJ5k5myll6hkUbp06"
 uri = "file://attached_assets/generated_videos/alefit-tools-ad.mp4"
 type = "video"
-title = "Tools Ad (Landscape) - YouTube/Facebook"
+title = "13. Tools Ad - Landscape (6s)"
 
 [[outputs]]
 id = "FOS4SMsH041UHOJZ_KLqs"
 uri = "file://attached_assets/generated_videos/alefit-athletes-ad.mp4"
 type = "video"
-title = "Athletes Ad (Vertical) - Instagram/TikTok/Reels"
+title = "14. Athletes Ad - Vertical (6s)"
 
 [[outputs]]
 id = "eQ9b4p2H2nN0jO_AxDYoc"
@@ -76,61 +76,61 @@ title = "Complete Ad Copy & Video Scripts"
 id = "-D4TCXA6LJyZMOJHNOMwf"
 uri = "file://attached_assets/generated_videos/alefit-bmi-scanner.mp4"
 type = "video"
-title = "BMI Calculator - 8s vertical video"
+title = "1. BMI Calculator - Body Scan (8s)"
 
 [[outputs]]
 id = "THBi64ObqI-6KXXAeuqek"
 uri = "file://attached_assets/generated_videos/alefit-macro-planning.mp4"
 type = "video"
-title = "Macro Planner - 8s vertical video"
+title = "2. Macro Planner - Meal Prep (8s)"
 
 [[outputs]]
 id = "BRX4EFav7AurEu9oxJd-E"
 uri = "file://attached_assets/generated_videos/alefit-recovery-tracker.mp4"
 type = "video"
-title = "Recovery Tracker - 8s vertical video"
+title = "3. Recovery Tracker - Foam Rolling (8s)"
 
 [[outputs]]
 id = "_-Vt7AKva3Q1MUOZnzePd"
 uri = "file://attached_assets/generated_videos/alefit-hydration.mp4"
 type = "video"
-title = "Hydration Calculator - 8s vertical video"
+title = "4. Hydration Calculator - Drinking (8s)"
 
 [[outputs]]
 id = "8GkgELJkf6yt52VBl5gic"
 uri = "file://attached_assets/generated_videos/alefit-one-rep-max.mp4"
 type = "video"
-title = "One Rep Max - 8s vertical video"
+title = "5. One Rep Max - Deadlift (8s)"
 
 [[outputs]]
 id = "OgTCOKRixYWk0WNOkZ-T5"
 uri = "file://attached_assets/generated_videos/alefit-speed.mp4"
 type = "video"
-title = "Speed Estimator - 8s vertical video"
+title = "6. Speed Estimator - Sprint (8s)"
 
 [[outputs]]
 id = "mfuPUBujYb7y-1Tigk-o_"
 uri = "file://attached_assets/generated_videos/alefit-workout-split.mp4"
 type = "video"
-title = "Workout Split - 8s vertical video"
+title = "7. Workout Split - Schedule (8s)"
 
 [[outputs]]
 id = "z3xb6x2AymuU8hfzn5PAp"
 uri = "file://attached_assets/generated_videos/alefit-supplement-stack.mp4"
 type = "video"
-title = "Supplement Stack - 8s vertical video"
+title = "8. Supplement Stack - Supplements (8s)"
 
 [[outputs]]
 id = "1Usyz6YfNqrElGZAyLCAd"
 uri = "file://attached_assets/generated_videos/alefit-injury-scanner.mp4"
 type = "video"
-title = "Injury Scanner - 8s vertical video"
+title = "9. Injury Scanner - Body Scan (8s)"
 
 [[outputs]]
 id = "w1iPZCzssp0jfh2WWDcPX"
 uri = "file://attached_assets/generated_videos/alefit-meal-plan.mp4"
 type = "video"
-title = "Meal Plan - 8s vertical video"
+title = "10. Meal Plan - Healthy Meal (8s)"
 
 [[outputs]]
 id = "dl_COmIXQPgdbeOIURaLl"
