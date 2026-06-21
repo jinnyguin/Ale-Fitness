@@ -191,3 +191,39 @@ id = "o86QIp3Ax7nvlgL-X5r6t"
 uri = "file://video_thumbnails/alefit-meal-plan.jpg"
 type = "image"
 title = "10. Meal Plan - Healthy meal"
+
+[[outputs]]
+id = "lyfoXKTtwG2LlpJveOHXj"
+uri = "file://gifs/alefit-bmi-scanner.gif"
+type = "image"
+title = "1. BMI Calculator - Body Composition Scan"
+
+[[outputs]]
+id = "UvtO_PlOZPMQYzZhsIti_"
+uri = "file://gifs/alefit-hydration.gif"
+type = "image"
+title = "2. Hydration Calculator - Water Bottle"
+
+[[outputs]]
+id = "YWJYmAC7stCKzHBjF6Nac"
+uri = "file://gifs/alefit-one-rep-max.gif"
+type = "image"
+title = "3. One Rep Max - Deadlift"
+
+[[outputs]]
+id = "S8rQo4PbmRfbXZ9NdO1L9"
+uri = "file://gifs/alefit-recovery-tracker.gif"
+type = "image"
+title = "4. Recovery Tracker - Foam Rolling"
+
+[[outputs]]
+id = "UHPRls1I12oJJRF4JDRpZ"
+uri = "file://gifs/alefit-speed.gif"
+type = "image"
+title = "5. Speed Estimator - Sprint"
+
+[[outputs]]
+id = "czIrpaqqz51UzEq160US9"
+uri = "file://gifs/alefit-supplement-stack.gif"
+type = "image"
+title = "6. Supplement Stack - Supplements"
