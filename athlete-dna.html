@@ -235,12 +235,13 @@ var _AF_APP='6a1f3d189ebdbe71fa7d256c';
   var p=new URLSearchParams(window.location.search),ut=p.get('access_token');
   if(ut){localStorage.setItem('base44_access_token',ut);localStorage.setItem('token',ut);p.delete('access_token');window.history.replaceState({},'',window.location.pathname+(p.toString()?'?'+p.toString():''));}
   var tok=localStorage.getItem('base44_access_token')||localStorage.getItem('token');
-  if(!tok){window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));return;}
-  window._aftok=tok;
-  fetch('/api/apps/'+_AF_APP+'/auth/me',{headers:{'Authorization':'Bearer '+tok}})
-    .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
-    .then(function(u){window._afuser=u;loadSaved();})
-    .catch(function(){localStorage.removeItem('base44_access_token');localStorage.removeItem('token');window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));});
+  window._aftok=tok||null;
+  if(tok){
+    fetch('/api/apps/'+_AF_APP+'/auth/me',{headers:{'Authorization':'Bearer '+tok}})
+      .then(function(r){return r.ok?r.json():Promise.reject(r.status);})
+      .then(function(u){window._afuser=u;loadSaved();})
+      .catch(function(){localStorage.removeItem('base44_access_token');localStorage.removeItem('token');window._aftok=null;});
+  }
 })();
 function _afSave(type,data){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+window._aftok},body:JSON.stringify(data)}).catch(function(){});}
 function _afLoad(type,limit,cb){if(!window._aftok)return;fetch('/api/apps/'+_AF_APP+'/entities/'+type+'?limit='+limit,{headers:{'Authorization':'Bearer '+window._aftok}}).then(function(r){return r.json();}).then(cb).catch(function(){});}

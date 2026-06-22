@@ -173,6 +173,45 @@
       padding: 0.3rem 0.75rem; border-radius: 9999px;
     }
 
+    /* 11 TOOLS GRID */
+    .tools11-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem; margin-top: 2.5rem;
+    }
+    .tools11-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 0.75rem; padding: 1.5rem;
+      transition: border-color 0.2s, transform 0.2s;
+      cursor: pointer; text-align: center;
+    }
+    .tools11-card:hover { border-color: var(--green); transform: translateY(-3px); }
+    .tools11-card .icon {
+      font-size: 2rem; margin-bottom: 0.75rem;
+    }
+    .tools11-card h3 {
+      font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem;
+    }
+    .tools11-card p {
+      font-size: 0.8rem; color: #666; line-height: 1.5;
+      margin-bottom: 0.75rem;
+    }
+    .tools11-card .tool-link {
+      display: inline-block;
+      background: var(--green); color: #000;
+      font-size: 0.75rem; font-weight: 700;
+      padding: 0.4rem 1rem; border-radius: 0.375rem;
+      transition: opacity 0.15s;
+    }
+    .tools11-card .tool-link:hover { opacity: 0.85; }
+    .tools11-count {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.3);
+      color: var(--green); font-size: 0.85rem; font-weight: 700;
+      padding: 0.35rem 1rem; border-radius: 9999px;
+      margin-bottom: 1rem;
+    }
+
     /* CTA SECTION */
     .cta-section { background: var(--surface); }
     .cta-box {
@@ -302,8 +341,89 @@
   </div>
 </section>
 
-<!-- TOOLS -->
+<!-- 11 ATHLETE TOOLS -->
 <section class="features-bg" id="tools">
+  <div class="section-inner">
+    <div class="section-tag">Athlete Tools</div>
+    <h2 class="section-title">11 tools. Zero guesswork.</h2>
+    <p class="section-sub">Every tool you need to train, fuel, and recover like a pro — all free, all in one place.</p>
+    <div class="tools11-count">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/></svg>
+      11 FREE TOOLS — NO LOGIN REQUIRED
+    </div>
+    <div class="tools11-grid">
+      <div class="tools11-card" onclick="location.href='/bmi-calculator.html'">
+        <div class="icon">📊</div>
+        <h3>BMI Calculator</h3>
+        <p>Body composition, fat %, muscle mass analysis</p>
+        <a class="tool-link" href="/bmi-calculator.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/macro-planner.html'">
+        <div class="icon">🍽️</div>
+        <h3>Macro Planner</h3>
+        <p>Protein, carbs, fats tailored to your goals</p>
+        <a class="tool-link" href="/macro-planner.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/hydration-calculator.html'">
+        <div class="icon">💧</div>
+        <h3>Hydration Calculator</h3>
+        <p>Optimal water intake for your training day</p>
+        <a class="tool-link" href="/hydration-calculator.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/workout-split.html'">
+        <div class="icon">📅</div>
+        <h3>Workout Split</h3>
+        <p>Push / pull / legs or custom weekly schedule</p>
+        <a class="tool-link" href="/workout-split.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/recovery-tracker.html'">
+        <div class="icon">🛌</div>
+        <h3>Recovery Tracker</h3>
+        <p>Sleep, soreness, HRV — track your readiness</p>
+        <a class="tool-link" href="/recovery-tracker.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/one-rep-max.html'">
+        <div class="icon">🏋️</div>
+        <h3>One Rep Max</h3>
+        <p>Calculate your max without risking injury</p>
+        <a class="tool-link" href="/one-rep-max.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/speed-estimator.html'">
+        <div class="icon">⚡</div>
+        <h3>Speed Estimator</h3>
+        <p>Sprint velocity and acceleration metrics</p>
+        <a class="tool-link" href="/speed-estimator.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/supplement-stack.html'">
+        <div class="icon">💊</div>
+        <h3>Supplement Stack</h3>
+        <p>Build the perfect stack for your goals</p>
+        <a class="tool-link" href="/supplement-stack.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/injury-scanner.html'">
+        <div class="icon">🩻</div>
+        <h3>Injury Scanner</h3>
+        <p>Identify risk areas before they become problems</p>
+        <a class="tool-link" href="/injury-scanner.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/meal-plan.html'">
+        <div class="icon">🥗</div>
+        <h3>Meal Plan</h3>
+        <p>AI-generated weekly meals with macros</p>
+        <a class="tool-link" href="/meal-plan.html">Try It</a>
+      </div>
+      <div class="tools11-card" onclick="location.href='/athlete-dna.html'">
+        <div class="icon">🧬</div>
+        <h3>Athlete DNA</h3>
+        <p>Your complete athlete profile and archetype</p>
+        <a class="tool-link" href="/athlete-dna.html">Try It</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI TOOLS -->
+<section class="features-bg" id="ai-tools">
   <div class="section-inner">
     <div class="section-tag">AI Tools</div>
     <h2 class="section-title">Your personal AI fitness coach</h2>
