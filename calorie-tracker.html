@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet"/>
-  <script src="https://puter.com/v2/puter.js"></script>
+  <script src="https://js.puter.com/v2/"></script>
   <script>
   (function(){
     var t = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
@@ -457,9 +457,11 @@ function buildQuick(){
 
 /* ── PHOTO SCANNER ── */
 var _scannedData = null;
+var _scannedFile = null;
 function handlePhotoSelect(input){
   var file = input.files[0];
   if(!file) return;
+  _scannedFile = file;
   var reader = new FileReader();
   reader.onload = function(e){
     document.getElementById('photo-preview').src = e.target.result;
@@ -476,6 +478,7 @@ function clearPhoto(){
   document.getElementById('photo-preview-wrap').classList.add('hidden');
   document.getElementById('photo-result').classList.add('hidden');
   _scannedData = null;
+  _scannedFile = null;
 }
 function showOverlay(msg){
   document.getElementById('scan-text').textContent = msg || 'Analysing your meal...';
@@ -484,22 +487,26 @@ function showOverlay(msg){
 function hideOverlay(){ document.getElementById('scan-overlay').classList.add('hidden'); }
 
 async function scanPhoto(){
-  var img = document.getElementById('photo-preview');
-  if(!img.src || img.src.length < 100) return;
-  if(!getToken()){ document.getElementById('photo-status').className='status-msg err'; document.getElementById('photo-status').textContent='Log in to use AI photo scan.'; return; }
+  if(!_scannedFile) return;
+  if(!window.puter || !window.puter.ai){ document.getElementById('photo-status').className='status-msg err'; document.getElementById('photo-status').textContent='AI library not loaded. Refresh the page.'; return; }
   var btn = document.getElementById('scan-btn');
   btn.disabled = true;
   showOverlay('Identifying food...');
   try {
     var resp = await puter.ai.chat(
-      "Look at this food photo and identify the food item(s). Then return ONLY a JSON object with these exact fields: name (string describing the food), calories (number), protein (number in grams), carbs (number in grams), fat (number in grams). No markdown, no extra text. Just the raw JSON.",
-      img.src
+      'Look at this food photo and identify the food item(s). Estimate the portion size. Then return ONLY a JSON object with these exact fields: name (string describing the food and estimated portion), calories (number), protein (number in grams), carbs (number in grams), fat (number in grams). No markdown, no extra text, no code blocks. Just the raw JSON object.',
+      _scannedFile,
+      { model: 'google/gemini-2.5-flash' }
     );
-    var text = resp?.message?.content || resp?.text || String(resp || '');
-    var jsonMatch = text.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) throw new Error('Could not parse AI response');
+    var text = '';
+    if(typeof resp === 'string') text = resp;
+    else if(resp && resp.message && resp.message.content) text = String(resp.message.content);
+    else if(resp && resp.text) text = String(resp.text);
+    else text = String(resp || '');
+    var jsonMatch = text.match(/\{[\s\S]*?\}/);
+    if(!jsonMatch) throw new Error('Could not parse AI response: ' + text.slice(0,100));
     var data = JSON.parse(jsonMatch[0]);
-    if(!data.name) throw new Error('Could not identify food');
+    if(!data.name) throw new Error('Could not identify food in photo');
     _scannedData = data;
     document.getElementById('photo-result-name').textContent = data.name;
     document.getElementById('photo-result-nutrition').innerHTML =
