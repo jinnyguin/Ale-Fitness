@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <script src="https://puter.com/v2/puter.js"></script>
   <script>
   (function(){
     var t = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
@@ -91,6 +92,28 @@
     .quick-chip{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);font-size:0.75rem;padding:0.3rem 0.625rem;cursor:pointer;transition:all 0.15s;font-family:inherit}
     .quick-chip:hover{border-color:var(--lime);color:var(--lime)}
 
+    /* PHOTO SCANNER */
+    .photo-zone{position:relative}
+    .photo-drop{background:var(--surface);border:2px dashed rgba(255,255,255,0.12);border-radius:4px;padding:2.5rem 1.5rem;text-align:center;cursor:pointer;transition:all 0.2s}
+    .photo-drop:hover{border-color:var(--lime);background:rgba(212,255,0,0.03)}
+    .photo-icon{font-size:2.5rem;margin-bottom:0.75rem;opacity:0.6}
+    .photo-text{font-size:0.85rem;font-weight:600;color:#fff;margin-bottom:0.35rem}
+    .photo-sub{font-size:0.7rem;color:var(--muted)}
+    .photo-preview-wrap{text-align:center;margin-top:1rem}
+    .photo-preview-wrap img{max-width:100%;max-height:280px;border-radius:4px;border:1px solid var(--border);object-fit:cover}
+    .photo-actions{display:flex;gap:0.75rem;justify-content:center;margin-top:1rem}
+    .photo-result{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--lime);padding:1.5rem;margin-top:1rem}
+    .photo-result-title{font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--lime);font-weight:700;margin-bottom:0.5rem}
+    .photo-result-name{font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:900;margin-bottom:1rem}
+    .photo-result-nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;text-align:center}
+    .photo-nut-item{background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:0.75rem;border-radius:2px}
+    .photo-nut-val{font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:900;color:var(--lime);line-height:1}
+    .photo-nut-lbl{font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-top:0.25rem}
+    .scanning-overlay{position:fixed;inset:0;background:rgba(15,15,15,0.85);backdrop-filter:blur(6px);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem}
+    .scanning-spinner{width:48px;height:48px;border:3px solid rgba(212,255,0,0.2);border-top-color:var(--lime);border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .scanning-text{font-size:0.8rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase}
+
     /* LOG */
     .log-empty{text-align:center;padding:2.5rem;color:var(--muted);font-size:0.875rem}
     .log-entry{display:flex;align-items:center;gap:0.75rem;padding:0.75rem 0;border-bottom:1px solid var(--border)}
@@ -117,6 +140,12 @@
     <a href="/Register.html" class="btn-signup">Sign Up</a>
   </div>
 </nav>
+
+<!-- Scanning Overlay -->
+<div id="scan-overlay" class="scanning-overlay hidden">
+  <div class="scanning-spinner"></div>
+  <div class="scanning-text" id="scan-text">Analysing your meal...</div>
+</div>
 
 <!-- Setup -->
 <div id="setup-view">
@@ -188,6 +217,7 @@
       <div class="card-title">Add Food</div>
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('ai',this)">AI Lookup</button>
+        <button class="tab-btn" onclick="switchTab('photo',this)">Photo Scan</button>
         <button class="tab-btn" onclick="switchTab('manual',this)">Manual</button>
         <button class="tab-btn" onclick="switchTab('quick',this)">Quick Add</button>
       </div>
@@ -198,6 +228,31 @@
           <button class="btn-action" id="ai-btn" onclick="aiLookup()">Look Up</button>
         </div>
         <div class="status-msg" id="ai-status"></div>
+      </div>
+
+      <div id="tab-photo" class="tab-panel">
+        <div class="photo-zone" id="photo-zone">
+          <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelect(this)">
+          <div class="photo-drop" onclick="document.getElementById('photo-input').click()">
+            <div class="photo-icon">📷</div>
+            <div class="photo-text">Tap to take a photo or upload</div>
+            <div class="photo-sub">Snap your meal — AI will identify it and calculate nutrition</div>
+          </div>
+          <div class="photo-preview-wrap hidden" id="photo-preview-wrap">
+            <img id="photo-preview" alt="Food preview">
+            <div class="photo-actions">
+              <button class="btn-outline" onclick="clearPhoto()">Retake</button>
+              <button class="btn-action" id="scan-btn" onclick="scanPhoto()">Scan Nutrition</button>
+            </div>
+          </div>
+        </div>
+        <div class="status-msg" id="photo-status"></div>
+        <div class="photo-result hidden" id="photo-result">
+          <div class="photo-result-title">Detected Food</div>
+          <div class="photo-result-name" id="photo-result-name">—</div>
+          <div class="photo-result-nutrition" id="photo-result-nutrition"></div>
+          <button class="btn-action" style="width:100%;margin-top:1rem" onclick="addScannedFood()">+ Add to Log</button>
+        </div>
       </div>
 
       <div id="tab-manual" class="tab-panel">
@@ -398,6 +453,85 @@ function buildQuick(){
     };
     grid.appendChild(b);
   });
+}
+
+/* ── PHOTO SCANNER ── */
+var _scannedData = null;
+function handlePhotoSelect(input){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    document.getElementById('photo-preview').src = e.target.result;
+    document.getElementById('photo-drop').classList.add('hidden');
+    document.getElementById('photo-preview-wrap').classList.remove('hidden');
+    document.getElementById('photo-result').classList.add('hidden');
+    _scannedData = null;
+  };
+  reader.readAsDataURL(file);
+}
+function clearPhoto(){
+  document.getElementById('photo-input').value = '';
+  document.getElementById('photo-drop').classList.remove('hidden');
+  document.getElementById('photo-preview-wrap').classList.add('hidden');
+  document.getElementById('photo-result').classList.add('hidden');
+  _scannedData = null;
+}
+function showOverlay(msg){
+  document.getElementById('scan-text').textContent = msg || 'Analysing your meal...';
+  document.getElementById('scan-overlay').classList.remove('hidden');
+}
+function hideOverlay(){ document.getElementById('scan-overlay').classList.add('hidden'); }
+
+async function scanPhoto(){
+  var img = document.getElementById('photo-preview');
+  if(!img.src || img.src.length < 100) return;
+  if(!getToken()){ document.getElementById('photo-status').className='status-msg err'; document.getElementById('photo-status').textContent='Log in to use AI photo scan.'; return; }
+  var btn = document.getElementById('scan-btn');
+  btn.disabled = true;
+  showOverlay('Identifying food...');
+  try {
+    var resp = await puter.ai.chat(
+      "Look at this food photo and identify the food item(s). Then return ONLY a JSON object with these exact fields: name (string describing the food), calories (number), protein (number in grams), carbs (number in grams), fat (number in grams). No markdown, no extra text. Just the raw JSON.",
+      img.src
+    );
+    var text = resp?.message?.content || resp?.text || String(resp || '');
+    var jsonMatch = text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('Could not parse AI response');
+    var data = JSON.parse(jsonMatch[0]);
+    if(!data.name) throw new Error('Could not identify food');
+    _scannedData = data;
+    document.getElementById('photo-result-name').textContent = data.name;
+    document.getElementById('photo-result-nutrition').innerHTML =
+      '<div class="photo-nut-item"><div class="photo-nut-val">'+Math.round(data.calories||0)+'</div><div class="photo-nut-lbl">Calories</div></div>' +
+      '<div class="photo-nut-item"><div class="photo-nut-val">'+Math.round(data.protein||0)+'g</div><div class="photo-nut-lbl">Protein</div></div>' +
+      '<div class="photo-nut-item"><div class="photo-nut-val">'+Math.round(data.carbs||0)+'g</div><div class="photo-nut-lbl">Carbs</div></div>' +
+      '<div class="photo-nut-item"><div class="photo-nut-val">'+Math.round(data.fat||0)+'g</div><div class="photo-nut-lbl">Fat</div></div>';
+    document.getElementById('photo-result').classList.remove('hidden');
+    document.getElementById('photo-status').className='status-msg ok';
+    document.getElementById('photo-status').textContent = 'Detected: '+data.name;
+    setTimeout(function(){document.getElementById('photo-status').textContent='';},4000);
+  } catch(e) {
+    document.getElementById('photo-status').className='status-msg err';
+    document.getElementById('photo-status').textContent = 'Error: '+(e.message||'Scan failed. Try a clearer photo.');
+  }
+  hideOverlay();
+  btn.disabled = false;
+}
+function addScannedFood(){
+  if(!_scannedData) return;
+  addEntry({
+    name: _scannedData.name,
+    calories: _scannedData.calories || 0,
+    protein: _scannedData.protein || 0,
+    carbs: _scannedData.carbs || 0,
+    fat: _scannedData.fat || 0
+  });
+  document.getElementById('photo-status').className='status-msg ok';
+  document.getElementById('photo-status').textContent = 'Added to log!';
+  document.getElementById('photo-result').classList.add('hidden');
+  clearPhoto();
+  setTimeout(function(){document.getElementById('photo-status').textContent='';},3000);
 }
 </script>
 </body>
