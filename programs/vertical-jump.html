@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <link href="/images/alefit-logo.png" rel="icon" type="image/png"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>VERTICAL JUMP +8 INCHES | ALEFIT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <script>(function(){var t=localStorage.getItem('base44_access_token')||localStorage.getItem('token');if(!t){window.location.replace('/Login.html?from_url='+encodeURIComponent(window.location.href));}})()</script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--lime:#D4FF00;--bg:#0F0F0F;--surface:rgba(255,255,255,0.04);--border:rgba(255,255,255,0.06);--text:#fff;--muted:rgba(255,255,255,0.4)}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+    a{color:inherit;text-decoration:none}
+    .hero{position:relative;height:50vh;min-height:320px;display:flex;align-items:flex-end;padding:0 4rem 4rem;background:linear-gradient(to bottom,rgba(15,15,15,0.3),rgba(15,15,15,0.95)),url('https://images.pexels.com/photos/3755440/pexels-photo-3755440.jpeg?auto=compress&cs=tinysrgb&w=1200') center/cover no-repeat}
+    @media(max-width:600px){.hero{padding:0 1.5rem 3rem}}
+    .back{position:absolute;top:2rem;left:2rem;display:flex;align-items:center;gap:0.5rem;font-size:0.75rem;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.5);transition:color 0.2s}
+    .back:hover{color:var(--lime)}
+    @media(max-width:600px){.back{left:1.5rem}}
+    .hero-tag span{color:var(--lime);font-size:0.7rem;font-weight:700;letter-spacing:0.3em;text-transform:uppercase}
+    h1{font-family:'Barlow Condensed',sans-serif;font-size:clamp(3rem,8vw,5rem);font-weight:900;letter-spacing:-0.02em;line-height:1}
+    .hero-sub{color:rgba(255,255,255,0.5);font-size:1rem;margin-top:0.75rem;max-width:36rem}
+    .stats-bar{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid rgba(255,255,255,0.1);border-bottom:1px solid rgba(255,255,255,0.1)}
+    .stat{display:flex;flex-direction:column;align-items:center;padding:1.5rem;gap:0.25rem;border-right:1px solid rgba(255,255,255,0.1)}
+    .stat:last-child{border-right:none}
+    .stat-val{font-family:'Barlow Condensed',sans-serif;font-size:1.25rem;font-weight:700}
+    .stat-lbl{font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted)}
+    .tabs-row{padding:2.5rem 4rem 0}
+    @media(max-width:600px){.tabs-row{padding:2rem 1.5rem 0}}
+    .tabs{display:flex;gap:0.75rem}
+    .tab-btn{padding:0.625rem 1.25rem;font-size:0.75rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);background:transparent;cursor:pointer;font-family:inherit;transition:all 0.2s}
+    .tab-btn.active{background:var(--lime);color:#0F0F0F;border-color:var(--lime)}
+    .body{padding:3rem 4rem 5rem;max-width:1400px}
+    @media(max-width:600px){.body{padding:2rem 1.5rem 4rem}}
+    .section-title{font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:900;letter-spacing:-0.01em;margin-bottom:3rem}
+    .section-title span{color:var(--lime)}
+    .weeks{display:flex;flex-direction:column;gap:5rem}
+    .week-head{display:flex;align-items:center;gap:1rem;margin-bottom:2rem}
+    .week-label{color:var(--lime);font-size:0.75rem;font-weight:700;letter-spacing:0.25em;text-transform:uppercase}
+    .week-divider{flex:1;height:1px;background:rgba(255,255,255,0.1)}
+    .week-sub{font-size:0.7rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted)}
+    .sessions{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+    .session-card{background:var(--surface);border:1px solid var(--border);overflow:hidden}
+    .session-head{padding:1.25rem 1.25rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
+    .session-day{font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem}
+    .session-name{font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;line-height:1.2}
+    .session-dur{color:var(--lime);font-size:0.75rem;font-weight:700;white-space:nowrap;margin-left:0.5rem}
+    .exercises{display:flex;flex-direction:column}
+    .ex{padding:1rem 1.25rem;border-bottom:1px solid var(--border)}
+    .ex:last-child{border-bottom:none}
+    .ex-name{font-size:0.875rem;font-weight:600;margin-bottom:0.4rem}
+    .ex-desc{font-size:0.775rem;color:rgba(255,255,255,0.5);line-height:1.55;margin-bottom:0.6rem}
+    .ex-meta{display:flex;flex-wrap:wrap;gap:0.375rem}
+    .badge{font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem}
+    .badge-lime{background:rgba(212,255,0,0.12);color:var(--lime)}
+    .badge-grey{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55)}
+    .progress-note{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--lime);padding:1.25rem 1.5rem;margin-bottom:2rem;font-size:0.85rem;color:rgba(255,255,255,0.6);line-height:1.6}
+    .progress-note strong{color:#fff}
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <a href="/" class="back">Back to Home</a>
+  <div>
+    <div class="hero-tag"><span>Program 14 &mdash; Vertical Jump</span></div>
+    <h1>VERTICAL JUMP<br/>+8 INCHES</h1>
+    <p class="hero-sub">6-week home-based plyometric and strength program designed to add serious inches to your vertical. No gym, no equipment. Just bodyweight and gravity.</p>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><span class="stat-val">6 Weeks</span><span class="stat-lbl">Duration</span></div>
+  <div class="stat"><span class="stat-val">+8 Inches</span><span class="stat-lbl">Target</span></div>
+  <div class="stat"><span class="stat-val">Home</span><span class="stat-lbl">No Equipment</span></div>
+  <div class="stat"><span class="stat-val">3</span><span class="stat-lbl">Sessions/wk</span></div>
+</div>
+
+<div class="tabs-row">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('phase1',this)">Phase 1: Build</button>
+    <button class="tab-btn" onclick="switchTab('phase2',this)">Phase 2: Explode</button>
+    <button class="tab-btn" onclick="switchTab('phase3',this)">Phase 3: Peak</button>
+  </div>
+</div>
+
+<div class="body">
+  <div class="progress-note">
+    <strong>How to measure your vertical:</strong> Stand next to a wall, chalk your fingertips, reach as high as possible flat-footed, then jump and touch. Measure the difference. Retest every 2 weeks.
+  </div>
+  <h2 class="section-title">6-WEEK <span>BREAKDOWN</span></h2>
+  <div class="weeks" id="weeks"></div>
+</div>
+
+<script>
+var PHASE1 = [
+  {"week":"Week 1-2","label":"Foundation & Strength","sessions":[
+    {"day":"Monday","workout":"Lower Strength Base","duration":"55 min","exercises":[
+      {"name":"Bodyweight Squat","sets":4,"reps":"15 reps","rest":"60s","desc":"Feet shoulder-width, chest up, hips below parallel. The squat is the foundation of every jump. Master this before adding speed. Controlled down, 1s pause at bottom."},
+      {"name":"Bulgarian Split Squat","sets":4,"reps":"10 each leg","rest":"90s","desc":"Rear foot on a chair or bed, front foot forward. Lower until back knee touches ground, drive through heel. Single-leg strength is the hidden driver of vertical jump."},
+      {"name":"Glute Bridge","sets":4,"reps":"15 reps","rest":"60s","desc":"Shoulders on floor, feet planted, drive hips to full extension and squeeze. The glutes generate the majority of jumping power. Feel them working on every rep."},
+      {"name":"Calf Raise","sets":4,"reps":"20 reps","rest":"45s","desc":"Slow descent, pause at bottom, explosive up. Calf and Achilles stiffness are major contributors to reactive jump height. Full range matters more than speed here."},
+      {"name":"Wall Sit","sets":3,"reps":"45 sec","rest":"60s","desc":"Back against wall, thighs parallel to floor. Isometric quad endurance holds the key to sustained jumping power. Push through the burn."}
+    ]},
+    {"day":"Wednesday","workout":"Plyometric Introduction","duration":"45 min","exercises":[
+      {"name":"Jump Squat","sets":4,"reps":"8 reps","rest":"90s","desc":"Bodyweight squat, explode up, land softly. These bridge the gap between strength and speed. 10-20% of your squat strength is useless until you can apply it fast."},
+      {"name":"Broad Jump","sets":4,"reps":"5 reps","rest":"90s","desc":"Two-foot takeoff, jump forward for maximum distance, stick the landing. Horizontal power predicts vertical power. Measure your best distance."},
+      {"name":"Single-Leg Hop","sets":3,"reps":"6 each leg","rest":"90s","desc":"Stand on one leg, jump forward and stick the landing. Balance and stability under load is what separates athletes who can jump in games from those who can only jump in testing."},
+      {"name":"Tuck Jump","sets":4,"reps":"5 reps","rest":"2 min","desc":"Jump and pull knees to chest. Minimum ground contact time. This trains the elastic recoil of your Achilles and quads - the bounce that adds free inches."},
+      {"name":"Pogo Jump","sets":3,"reps":"20 reps","rest":"60s","desc":"Continuous low jumps, minimal knee bend, spring off the balls of your feet. Pure ankle stiffness. Your Achilles is a spring - pogo jumps are how you make it stiffer."}
+    ]},
+    {"day":"Friday","workout":"Core & Recovery","duration":"40 min","exercises":[
+      {"name":"Plank","sets":3,"reps":"60 sec","rest":"60s","desc":"Elbows under shoulders, body straight, brace abs. Core stiffness transfers power from legs to the bar or rim. Without it, energy leaks out."},
+      {"name":"Dead Bug","sets":3,"reps":"10 each side","rest":"45s","desc":"On back, opposite arm and leg extend while keeping lower back flat. Anti-extension core strength prevents energy leakage during the jump."},
+      {"name":"Nordic Curl (Negative)","sets":3,"reps":"5 reps","rest":"2 min","desc":"Kneel, lower body forward as slowly as possible, catch yourself with hands. Eccentric hamstring strength prevents knee injuries and supports the knee drive of every jump."},
+      {"name":"90-90 Hip Stretch","sets":3,"reps":"60 sec each","rest":"30s","desc":"Sit with both legs at 90 degrees, lean forward gently. Hip mobility is the range of motion your glutes use to generate power. Tight hips = lower jumps."},
+      {"name":"Deep Squat Hold","sets":3,"reps":"45 sec","rest":"45s","desc":"Sit in deepest squat, chest up, hold. Ankle and hip mobility allow you to get lower before exploding up - the deeper the squat, the more stretch reflex you create."}
+    ]}
+  ]},
+  {"week":"Week 3","label":"Progressive Overload","sessions":[
+    {"day":"Monday","workout":"Lower Strength Base","duration":"55 min","exercises":[
+      {"name":"Bodyweight Squat","sets":4,"reps":"20 reps","rest":"60s","desc":"Add 5 reps from Week 1. More volume = more motor unit recruitment. The same squat, now harder. Maintain perfect form."},
+      {"name":"Bulgarian Split Squat","sets":4,"reps":"12 each leg","rest":"90s","desc":"Add 2 reps per leg. Single-leg work is the most specific strength exercise for jumping. Track which leg is stronger - the gap should be closing."},
+      {"name":"Glute Bridge","sets":4,"reps":"20 reps","rest":"60s","desc":"Add 5 reps. At this point you should feel the glutes working before anything else. If your hamstrings take over, reset your foot position."},
+      {"name":"Calf Raise","sets":4,"reps":"25 reps","rest":"45s","desc":"Add 5 reps. The Achilles tendon adapts slowly to high reps. By now you should feel the elastic bounce at the top of each rep."},
+      {"name":"Wall Sit","sets":3,"reps":"60 sec","rest":"60s","desc":"Add 15 seconds. Isometric endurance builds the type of strength that supports repeated jumps without fatigue."}
+    ]},
+    {"day":"Wednesday","workout":"Plyometric Introduction","duration":"45 min","exercises":[
+      {"name":"Jump Squat","sets":4,"reps":"10 reps","rest":"90s","desc":"Add 2 reps. Still landing softly and absorbing. The landing is as important as the takeoff - it prevents injury and builds the eccentric strength for a bigger next jump."},
+      {"name":"Broad Jump","sets":4,"reps":"6 reps","rest":"90s","desc":"Add 1 rep. Measure your distance again. You should see a 2-4 inch improvement in your broad jump by now. If not, your strength work needs more focus."},
+      {"name":"Single-Leg Hop","sets":4,"reps":"6 each leg","rest":"90s","desc":"Add 1 set. The single-leg hop is the most specific plyometric for basketball and volleyball. Every jump in a game is off one foot."},
+      {"name":"Tuck Jump","sets":4,"reps":"6 reps","rest":"2 min","desc":"Add 1 rep. Minimum ground contact. The shorter your foot is on the ground, the more energy is stored in your tendons."},
+      {"name":"Pogo Jump","sets":3,"reps":"25 reps","rest":"60s","desc":"Add 5 reps. Pure ankle stiffness. By now the ground should feel bouncy. If not, your calves need more work."}
+    ]},
+    {"day":"Friday","workout":"Core & Recovery","duration":"40 min","exercises":[
+      {"name":"Plank","sets":3,"reps":"75 sec","rest":"60s","desc":"Add 15 seconds. Core endurance should be improving. If your hips sag, your core is the limiting factor in your jump."},
+      {"name":"Dead Bug","sets":3,"reps":"12 each side","rest":"45s","desc":"Add 2 reps. Control the movement. Every rep should be slow and deliberate."},
+      {"name":"Nordic Curl (Negative)","sets":3,"reps":"6 reps","rest":"2 min","desc":"Add 1 rep. Lower yourself even slower. 4-5 seconds down. The eccentric phase is where hamstring strength grows."},
+      {"name":"90-90 Hip Stretch","sets":3,"reps":"60 sec each","rest":"30s","desc":"Same hold time, but go deeper. You should feel looser than Week 1."},
+      {"name":"Deep Squat Hold","sets":3,"reps":"60 sec","rest":"45s","desc":"Add 15 seconds. Hold the deepest position with chest up."}
+    ]}
+  ]}
+];
+
+var PHASE2 = [
+  {"week":"Week 4","label":"Reactive Power","sessions":[
+    {"day":"Monday","workout":"Maximal Strength","duration":"50 min","exercises":[
+      {"name":"Jump Squat with Pause","sets":4,"reps":"6 reps","rest":"2 min","desc":"3-second pause at bottom of squat, then explode. The pause eliminates the stretch reflex and forces pure concentric power. When you remove the pause later, you'll fly."},
+      {"name":"Bulgarian Split Squat","sets":4,"reps":"8 each leg","rest":"90s","desc":"Explosive up, 3s down. Add tempo. Slow eccentric + fast concentric = maximum power development."},
+      {"name":"Stair Calf Raise","sets":4,"reps":"15 each leg","rest":"60s","desc":"Single-leg on a stair, full stretch at bottom, explosive up. The extra range of motion from the stair adds stretch to the Achilles. This is where reactive strength is built."},
+      {"name":"Glute Bridge March","sets":3,"reps":"10 each leg","rest":"60s","desc":"Hold bridge, lift one foot, alternate. Single-leg glute strength with no momentum. The hardest variation of the glute bridge."},
+      {"name":"Lateral Lunge","sets":3,"reps":"10 each side","rest":"60s","desc":"Wide step to the side, keep chest up, push back to center. Lateral hip strength supports the lateral stability needed for cutting and jumping off either foot."}
+    ]},
+    {"day":"Wednesday","workout":"High-Impact Plyometrics","duration":"50 min","exercises":[
+      {"name":"Depth Jump (from stairs)","sets":4,"reps":"4 reps","rest":"2 min","desc":"Step off bottom step, land, immediately jump as high as possible. The reactive strength of your Achilles is tested here. The shorter the ground contact, the better."},
+      {"name":"Continuous Broad Jump","sets":4,"reps":"5 reps","rest":"2 min","desc":"Broad jump, land, immediately broad jump again. No pause. This is the plyometric skill that converts gym strength into on-field power."},
+      {"name":"Single-Leg Box Jump","sets":3,"reps":"4 each leg","rest":"2 min","desc":"Jump onto bottom step from one leg. Stick the landing. Single-leg reactive power is the holy grail for basketball and volleyball players."},
+      {"name":"180-Degree Jump","sets":4,"reps":"5 reps","rest":"90s","desc":"Jump and rotate 180 degrees mid-air, land softly, immediately jump back. Coordination + reactive power. Every jump in a game is unpredictable."},
+      {"name":"Bounding","sets":3,"reps":"20m","rest":"90s","desc":"Exaggerated sprint stride, focus on hang time. Horizontal bounding builds the same hip extension power as vertical jumping."}
+    ]},
+    {"day":"Friday","workout":"Core & Stability","duration":"45 min","exercises":[
+      {"name":"Plank with Leg Lift","sets":3,"reps":"10 each leg","rest":"60s","desc":"Lift one leg 6 inches, hold 3s, alternate. Anti-rotation core strength. The core's job in jumping is to stop rotation, not create it."},
+      {"name":"Hollow Body Hold","sets":3,"reps":"45 sec","rest":"60s","desc":"Back flat, legs and arms extended. Total core tension. The hollow body is the position of maximum power transfer."},
+      {"name":"Nordic Curl (Full)","sets":3,"reps":"3 reps","rest":"2 min","desc":"Try to lower and pull back up without hands. If you can't, use a partner or band. The concentric hamstring curl is the missing link for knee drive in jumping."},
+      {"name":"Copenhagen Plank","sets":3,"reps":"30 sec each","rest":"60s","desc":"Side plank, top foot on a chair. Adductor strength prevents groin injuries and stabilizes the knee during single-leg jumps."},
+      {"name":"Ankle Circles + Dorsiflexion","sets":3,"reps":"20 each direction","rest":"30s","desc":"Full range ankle mobility. Ankle dorsiflexion is the range your tibia travels over your foot. More range = deeper squat = more stretch reflex = higher jump."}
+    ]}
+  ]},
+  {"week":"Week 5","label":"Contrast & Speed","sessions":[
+    {"day":"Monday","workout":"Contrast Training","duration":"50 min","exercises":[
+      {"name":"Bodyweight Squat + Immediate Jump Squat","sets":4,"reps":"5 + 5","rest":"2 min","desc":"5 slow squats, then immediately 5 jump squats. The slow squats potentiate the nervous system. The jump squats feel explosive after the slow ones. This is contrast training."},
+      {"name":"Bulgarian Split Squat + Single-Leg Hop","sets":3,"reps":"6 each + 5 hops","rest":"2 min","desc":"6 slow split squats, then 5 single-leg hops immediately. Same contrast principle. The strength exercise wakes up the fast-twitch fibers. The plyometric uses them."},
+      {"name":"Stair Calf Raise + Pogo Jump","sets":4,"reps":"12 each + 15 jumps","rest":"90s","desc":"12 single-leg calf raises, then 15 pogo jumps. The calf raise pre-fatigues the slow-twitch fibers. The pogo jumps force the fast-twitch fibers to take over."},
+      {"name":"Glute Bridge + Broad Jump","sets":3,"reps":"10 + 3 jumps","rest":"2 min","desc":"10 glute bridges, then 3 broad jumps. The glute bridge pre-activates the posterior chain. The jumps use that activation."},
+      {"name":"Lateral Lunge + Lateral Bound","sets":3,"reps":"8 each + 5 bounds","rest":"90s","desc":"8 lateral lunges, then 5 lateral bounds. Same-side contrast for lateral power."}
+    ]},
+    {"day":"Wednesday","workout":"Maximal Plyometrics","duration":"45 min","exercises":[
+      {"name":"Maximal Vertical Jump","sets":5,"reps":"3 reps","rest":"3 min","desc":"Jump as high as you can. Swing arms, dip, explode. Every rep is 100% effort. Record your best height. This is the test. Treat it like one."},
+      {"name":"Depth Jump to Max Jump","sets":4,"reps":"3 reps","rest":"3 min","desc":"Step off second step, land, immediately jump for maximum height. The depth drop creates a bigger stretch reflex. The jump converts it into height."},
+      {"name":"Single-Leg Depth Jump","sets":3,"reps":"3 each leg","rest":"3 min","desc":"Step off bottom step on one leg, land, jump. The most specific single-leg plyometric. Only do this if your single-leg strength is balanced."},
+      {"name":"Continuous Tuck Jump","sets":3,"reps":"5 reps","rest":"2 min","desc":"5 tuck jumps in a row, minimal ground contact. Reactive elastic power. The ground is lava. Touch it as briefly as possible."},
+      {"name":"Sprint to Jump","sets":3,"reps":"1 rep","rest":"3 min","desc":"10m sprint, immediately jump for height. The running approach creates horizontal momentum. The jump converts it to vertical."}
+    ]},
+    {"day":"Friday","workout":"Active Recovery & Mobility","duration":"35 min","exercises":[
+      {"name":"Plank with Shoulder Tap","sets":3,"reps":"10 each side","rest":"60s","desc":"Tap opposite shoulder while maintaining plank. Anti-rotation + stability."},
+      {"name":"Hollow Body Rock","sets":3,"reps":"15 reps","rest":"60s","desc":"Rock back and forth while holding hollow body. The rocking motion teaches the core to stay tight while the body moves."},
+      {"name":"Foam Roll / Self-Massage","sets":3,"reps":"2 min each","rest":"30s","desc":"Quads, hamstrings, calves, IT band. Use a tennis ball or your hands. Recovery is training. Tissue quality determines how much power you can express."},
+      {"name":"Deep Squat with Reach","sets":3,"reps":"10 reps","rest":"45s","desc":"Deep squat, reach arms overhead. Full-body mobility. The overhead reach adds thoracic spine extension."},
+      {"name":"Ankle Rocks","sets":3,"reps":"15 each","rest":"30s","desc":"Knee over toe, rock forward. Ankle dorsiflexion. This is the most important mobility for jumping. Do it daily."}
+    ]}
+  ]}
+];
+
+var PHASE3 = [
+  {"week":"Week 6","label":"Peak & Test","sessions":[
+    {"day":"Monday","workout":"Peak Power","duration":"45 min","exercises":[
+      {"name":"Maximal Vertical Jump","sets":6,"reps":"3 reps","rest":"3 min","desc":"Final week. Maximum effort. Every jump is a test. Record your best. You should be hitting new heights."},
+      {"name":"Depth Jump to Max","sets":4,"reps":"3 reps","rest":"3 min","desc":"From second step, land and jump max. The reactive strength you built in Weeks 4-5 should be showing here."},
+      {"name":"Single-Leg Box Jump","sets":4,"reps":"4 each leg","rest":"2 min","desc":"Jump onto a higher step than Week 4. You've earned more height."},
+      {"name":"Bounding","sets":3,"reps":"25m","rest":"90s","desc":"Maximum distance per bound. Power endurance."},
+      {"name":"Broad Jump for Distance","sets":3,"reps":"5 reps","rest":"90s","desc":"Measure your best. Compare to Week 1. You should have added 6-10 inches to your broad jump."}
+    ]},
+    {"day":"Wednesday","workout":"Speed & Reactivity","duration":"40 min","exercises":[
+      {"name":"Continuous Tuck Jump","sets":4,"reps":"5 reps","rest":"2 min","desc":"Minimum ground contact. Bounce like a spring."},
+      {"name":"Pogo Jump to Max Jump","sets":4,"reps":"5 pogo + 1 max","rest":"2 min","desc":"5 pogo jumps, then 1 maximal vertical. The pogo jumps prime the nervous system. The max jump uses the prime."},
+      {"name":"180 Jump to Max Jump","sets":3,"reps":"3 reps","rest":"2 min","desc":"180-degree jump, land, immediately max vertical. Unpredictable loading."},
+      {"name":"Sprint to Jump","sets":3,"reps":"1 rep","rest":"3 min","desc":"15m sprint, jump max. Full approach power."},
+      {"name":"Reactive Drop Jump","sets":3,"reps":"5 reps","rest":"2 min","desc":"Stand on tiptoes, drop to flat feet, immediately jump. Pure Achilles reactivity."}
+    ]},
+    {"day":"Friday","workout":"Test Day","duration":"30 min","exercises":[
+      {"name":"Warm-Up: Jump Rope","sets":3,"reps":"2 min","rest":"60s","desc":"Light jumping. Wake up the nervous system."},
+      {"name":"Warm-Up: Dynamic Stretch","sets":1,"reps":"5 min","rest":"0","desc":"Leg swings, hip circles, ankle mobilization. Full range."},
+      {"name":"Vertical Jump Test","sets":3,"reps":"3 reps","rest":"3 min","desc":"3 all-out jumps. Record your best. Measure against your Week 1 baseline. The target is +8 inches. If you're close, the program worked. If you exceeded it, you're an athlete."},
+      {"name":"Broad Jump Test","sets":3,"reps":"3 reps","rest":"2 min","desc":"3 all-out broad jumps. Record your best."},
+      {"name":"Single-Leg Hop Test","sets":2,"reps":"3 each leg","rest":"2 min","desc":"3 hops each leg. Record average. Check for symmetry."}
+    ]}
+  ]}
+];
+
+var currentTab = 'phase1';
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  currentTab = tab;
+  renderWeeks();
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function renderWeeks() {
+  var data = currentTab === 'phase1' ? PHASE1 : currentTab === 'phase2' ? PHASE2 : PHASE3;
+  var container = document.getElementById('weeks');
+  container.innerHTML = '';
+  data.forEach(function(wk) {
+    var wkDiv = document.createElement('div');
+    var sessHtml = wk.sessions.map(function(s) {
+      var exHtml = s.exercises.map(function(ex) {
+        return '<div class="ex"><div class="ex-name">'+esc(ex.name)+'</div><div class="ex-desc">'+esc(ex.desc)+'</div><div class="ex-meta"><span class="badge badge-lime">'+esc(ex.sets)+' sets x '+esc(ex.reps)+'</span><span class="badge badge-grey">Rest: '+esc(ex.rest)+'</span></div></div>';
+      }).join('');
+      return '<div class="session-card"><div class="session-head"><div><div class="session-day">'+esc(s.day)+'</div><div class="session-name">'+esc(s.workout)+'</div></div><div class="session-dur">'+esc(s.duration)+'</div></div><div class="exercises">'+exHtml+'</div></div>';
+    }).join('');
+    wkDiv.innerHTML = '<div class="week-head"><span class="week-label">'+esc(wk.week)+'</span><div class="week-divider"></div><span class="week-sub">'+esc(wk.label)+'</span></div><div class="sessions">'+sessHtml+'</div>';
+    container.appendChild(wkDiv);
+  });
+}
+renderWeeks();
+</script>
+</body>
+</html>

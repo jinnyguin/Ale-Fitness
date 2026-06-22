@@ -79,6 +79,12 @@ SIMPLE_PROGRAMS = [
     "image":"https://images.pexels.com/photos/7226772/pexels-photo-7226772.jpeg?auto=compress&cs=tinysrgb&w=1200",
     "duration":"8 Weeks","focus":"Endurance","sessions":"5"
   },
+  {
+    "id":"vertical-jump","num":"14","sport":"Vertical Jump","title":"VERTICAL\nJUMP",
+    "subtitle":"6-week home-based plyometric program to add +8 inches to your vertical. No equipment required. Bodyweight and gravity.",
+    "image":"https://images.pexels.com/photos/3755440/pexels-photo-3755440.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    "duration":"6 Weeks","focus":"+8 Inches","sessions":"3"
+  },
 ]
 
 SPORT_GYM = {
