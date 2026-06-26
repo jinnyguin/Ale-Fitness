@@ -421,6 +421,10 @@ def alias_invite_user(app_id):
 def alias_invoke_llm(app_id):
     return invoke_llm(app_id)
 
+@app.route("/apps/<app_id>/scan-food", methods=["POST"])
+def alias_scan_food(app_id):
+    return scan_food(app_id)
+
 
 # ---------------------------------------------------------------------------
 # Auth endpoints (proxy to Supabase)
@@ -1619,6 +1623,239 @@ def _generate_meal_plan(goal, diet, meals_per_day, allergies):
     return plan
 
 
+# ---------------------------------------------------------------------------
+# Food nutrition lookup (works without external API)
+# ---------------------------------------------------------------------------
+
+# Values are per 100g unless the entry is marked countable, in which case
+# cal/p/c/f are per single item and item_g is the typical weight of one item.
+_FOOD_DB = {
+    # Proteins
+    "chicken breast": {"cal": 165, "p": 31, "c": 0, "f": 3.6},
+    "chicken thigh": {"cal": 209, "p": 26, "c": 0, "f": 11},
+    "chicken": {"cal": 165, "p": 31, "c": 0, "f": 3.6},
+    "turkey": {"cal": 135, "p": 30, "c": 0, "f": 1},
+    "beef": {"cal": 250, "p": 26, "c": 0, "f": 15},
+    "steak": {"cal": 271, "p": 25, "c": 0, "f": 19},
+    "ground beef": {"cal": 254, "p": 26, "c": 0, "f": 17},
+    "pork": {"cal": 242, "p": 27, "c": 0, "f": 14},
+    "bacon": {"cal": 541, "p": 37, "c": 1.4, "f": 42},
+    "salmon": {"cal": 208, "p": 20, "c": 0, "f": 13},
+    "tuna": {"cal": 132, "p": 28, "c": 0, "f": 1.3},
+    "cod": {"cal": 82, "p": 18, "c": 0, "f": 0.7},
+    "shrimp": {"cal": 99, "p": 24, "c": 0.2, "f": 0.3},
+    "tofu": {"cal": 76, "p": 8, "c": 1.9, "f": 4.8},
+    "egg": {"cal": 78, "p": 6.3, "c": 0.6, "f": 5.3, "countable": True, "item_g": 50},
+    "eggs": {"cal": 78, "p": 6.3, "c": 0.6, "f": 5.3, "countable": True, "item_g": 50},
+    "egg white": {"cal": 17, "p": 3.6, "c": 0.2, "f": 0.1, "countable": True, "item_g": 33},
+    # Dairy
+    "milk": {"cal": 42, "p": 3.4, "c": 5, "f": 1},
+    "whole milk": {"cal": 61, "p": 3.2, "c": 4.8, "f": 3.3},
+    "greek yogurt": {"cal": 59, "p": 10, "c": 3.6, "f": 0.4},
+    "yogurt": {"cal": 59, "p": 10, "c": 3.6, "f": 0.4},
+    "cheese": {"cal": 402, "p": 25, "c": 1.3, "f": 33},
+    "cheddar": {"cal": 402, "p": 25, "c": 1.3, "f": 33},
+    "mozzarella": {"cal": 280, "p": 28, "c": 3.1, "f": 17},
+    "cottage cheese": {"cal": 98, "p": 11, "c": 3.4, "f": 4.3},
+    "butter": {"cal": 717, "p": 0.9, "c": 0.1, "f": 81},
+    # Grains / carbs
+    "rice": {"cal": 130, "p": 2.7, "c": 28, "f": 0.3},
+    "white rice": {"cal": 130, "p": 2.7, "c": 28, "f": 0.3},
+    "brown rice": {"cal": 112, "p": 2.6, "c": 24, "f": 0.9},
+    "pasta": {"cal": 131, "p": 5, "c": 25, "f": 1.1},
+    "spaghetti": {"cal": 131, "p": 5, "c": 25, "f": 1.1},
+    "bread": {"cal": 79, "p": 2.7, "c": 14, "f": 1, "countable": True, "item_g": 30},
+    "white bread": {"cal": 79, "p": 2.7, "c": 14, "f": 1, "countable": True, "item_g": 30},
+    "whole wheat bread": {"cal": 82, "p": 4, "c": 14, "f": 1.1, "countable": True, "item_g": 32},
+    "bagel": {"cal": 245, "p": 10, "c": 48, "f": 1.5, "countable": True, "item_g": 95},
+    "oats": {"cal": 389, "p": 17, "c": 66, "f": 7},
+    "oatmeal": {"cal": 71, "p": 2.5, "c": 12, "f": 1.5},
+    "potato": {"cal": 77, "p": 2, "c": 17, "f": 0.1},
+    "sweet potato": {"cal": 86, "p": 1.6, "c": 20, "f": 0.1},
+    "quinoa": {"cal": 120, "p": 4.4, "c": 21, "f": 1.9},
+    "cereal": {"cal": 379, "p": 8, "c": 84, "f": 4},
+    "tortilla": {"cal": 218, "p": 6, "c": 36, "f": 5, "countable": True, "item_g": 49},
+    # Fruits
+    "banana": {"cal": 105, "p": 1.3, "c": 27, "f": 0.4, "countable": True, "item_g": 118},
+    "apple": {"cal": 95, "p": 0.5, "c": 25, "f": 0.3, "countable": True, "item_g": 182},
+    "orange": {"cal": 62, "p": 1.2, "c": 15, "f": 0.2, "countable": True, "item_g": 131},
+    "strawberry": {"cal": 32, "p": 0.7, "c": 7.7, "f": 0.3},
+    "strawberries": {"cal": 32, "p": 0.7, "c": 7.7, "f": 0.3},
+    "blueberries": {"cal": 57, "p": 0.7, "c": 14, "f": 0.3},
+    "grapes": {"cal": 69, "p": 0.7, "c": 18, "f": 0.2},
+    "mango": {"cal": 60, "p": 0.8, "c": 15, "f": 0.4},
+    "avocado": {"cal": 160, "p": 2, "c": 9, "f": 15},
+    # Vegetables
+    "broccoli": {"cal": 34, "p": 2.8, "c": 7, "f": 0.4},
+    "spinach": {"cal": 23, "p": 2.9, "c": 3.6, "f": 0.4},
+    "carrot": {"cal": 41, "p": 0.9, "c": 10, "f": 0.2},
+    "tomato": {"cal": 18, "p": 0.9, "c": 3.9, "f": 0.2},
+    "lettuce": {"cal": 15, "p": 1.4, "c": 2.9, "f": 0.2},
+    "cucumber": {"cal": 15, "p": 0.7, "c": 3.6, "f": 0.1},
+    "onion": {"cal": 40, "p": 1.1, "c": 9.3, "f": 0.1},
+    "corn": {"cal": 86, "p": 3.2, "c": 19, "f": 1.2},
+    "peas": {"cal": 81, "p": 5.4, "c": 14, "f": 0.4},
+    "beans": {"cal": 127, "p": 8.7, "c": 23, "f": 0.5},
+    "black beans": {"cal": 132, "p": 8.9, "c": 24, "f": 0.5},
+    "chickpeas": {"cal": 164, "p": 8.9, "c": 27, "f": 2.6},
+    "lentils": {"cal": 116, "p": 9, "c": 20, "f": 0.4},
+    # Nuts / fats
+    "almonds": {"cal": 579, "p": 21, "c": 22, "f": 50},
+    "peanuts": {"cal": 567, "p": 26, "c": 16, "f": 49},
+    "peanut butter": {"cal": 588, "p": 25, "c": 20, "f": 50},
+    "walnuts": {"cal": 654, "p": 15, "c": 14, "f": 65},
+    "cashews": {"cal": 553, "p": 18, "c": 30, "f": 44},
+    "olive oil": {"cal": 884, "p": 0, "c": 0, "f": 100},
+    # Common meals / fast food
+    "pizza": {"cal": 266, "p": 11, "c": 33, "f": 10},
+    "burger": {"cal": 295, "p": 17, "c": 24, "f": 14, "countable": True, "item_g": 110},
+    "hamburger": {"cal": 295, "p": 17, "c": 24, "f": 14, "countable": True, "item_g": 110},
+    "cheeseburger": {"cal": 303, "p": 15, "c": 26, "f": 15, "countable": True, "item_g": 115},
+    "fries": {"cal": 312, "p": 3.4, "c": 41, "f": 15},
+    "french fries": {"cal": 312, "p": 3.4, "c": 41, "f": 15},
+    "hot dog": {"cal": 290, "p": 10, "c": 23, "f": 18, "countable": True, "item_g": 98},
+    "sandwich": {"cal": 250, "p": 12, "c": 30, "f": 9},
+    "salad": {"cal": 33, "p": 1.5, "c": 6, "f": 0.5},
+    "sushi": {"cal": 145, "p": 5, "c": 30, "f": 0.5},
+    "chocolate": {"cal": 546, "p": 4.9, "c": 61, "f": 31},
+    "ice cream": {"cal": 207, "p": 3.5, "c": 24, "f": 11},
+    "cookie": {"cal": 502, "p": 5.9, "c": 64, "f": 25, "countable": True, "item_g": 16},
+    "donut": {"cal": 452, "p": 4.9, "c": 51, "f": 25, "countable": True, "item_g": 60},
+    "protein shake": {"cal": 120, "p": 24, "c": 3, "f": 1.5},
+    "protein bar": {"cal": 350, "p": 20, "c": 40, "f": 12, "countable": True, "item_g": 60},
+}
+
+# rough grams for common volumetric / imperial units
+_UNIT_GRAMS = {
+    "g": 1, "gram": 1, "grams": 1, "gm": 1,
+    "kg": 1000, "kilogram": 1000,
+    "oz": 28.35, "ounce": 28.35, "ounces": 28.35,
+    "lb": 453.6, "lbs": 453.6, "pound": 453.6,
+    "ml": 1, "milliliter": 1,
+    "l": 1000, "liter": 1000, "litre": 1000,
+    "cup": 240, "cups": 240,
+    "tbsp": 15, "tablespoon": 15, "tablespoons": 15,
+    "tsp": 5, "teaspoon": 5, "teaspoons": 5,
+    "slice": None, "slices": None, "piece": None, "pieces": None,
+}
+
+_NUM_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
+              "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+              "half": 0.5, "dozen": 12}
+
+
+def _lookup_food(query):
+    """Estimate nutrition for a free-text food description. Returns dict or None."""
+    if not query:
+        return None
+    q = query.strip().lower()
+    q = re.sub(r"[^\w\s\./]", " ", q)
+    q = re.sub(r"\s+", " ", q).strip()
+
+    # parse quantity
+    qty = None
+    unit = None
+    tokens = q.split()
+    # number word at start
+    if tokens and tokens[0] in _NUM_WORDS:
+        qty = _NUM_WORDS[tokens[0]]
+        tokens = tokens[1:]
+    else:
+        m = re.match(r"^(\d+(?:\.\d+)?)\s*([a-z]*)", q)
+        if m:
+            qty = float(m.group(1))
+            if m.group(2):
+                unit = m.group(2)
+            tokens = q[m.end():].split()
+    # detect a unit token if not already found
+    if unit is None and tokens and tokens[0] in _UNIT_GRAMS:
+        unit = tokens[0]
+        tokens = tokens[1:]
+    # strip filler words
+    tokens = [t for t in tokens if t not in ("of", "a", "an")]
+    name_part = " ".join(tokens).strip()
+    if not name_part:
+        name_part = q
+
+    # find best matching food (longest key contained in the name)
+    match_key = None
+    for key in sorted(_FOOD_DB.keys(), key=len, reverse=True):
+        if key in name_part:
+            match_key = key
+            break
+    if not match_key:
+        # try matching individual words
+        for key in sorted(_FOOD_DB.keys(), key=len, reverse=True):
+            if any(w == key or key.startswith(w) for w in name_part.split()):
+                match_key = key
+                break
+    if not match_key:
+        return None
+
+    food = _FOOD_DB[match_key]
+    countable = food.get("countable", False)
+    item_g = food.get("item_g", 100)
+
+    # determine grams or item count
+    grams = None
+    items = None
+    if unit and unit in _UNIT_GRAMS:
+        ug = _UNIT_GRAMS[unit]
+        if ug is None:  # slice/piece -> treat as items
+            items = qty or 1
+        else:
+            grams = (qty or 1) * ug
+    elif qty is not None:
+        # bare number -> items for countable foods, else servings
+        if countable:
+            items = qty
+        else:
+            grams = qty * 100 if qty <= 10 else qty  # 1 => one 100g serving
+    else:
+        items = 1 if countable else None
+        grams = None if countable else 100
+
+    if countable:
+        if grams is not None:
+            factor = grams / item_g
+        else:
+            factor = items if items is not None else 1
+        cal = food["cal"] * factor
+        p = food["p"] * factor
+        c = food["c"] * factor
+        f = food["f"] * factor
+        display_qty = items if items is not None else round(factor, 1)
+        nice_name = "%s %s" % (
+            int(display_qty) if float(display_qty).is_integer() else display_qty,
+            match_key,
+        )
+    else:
+        g = grams if grams is not None else 100
+        factor = g / 100.0
+        cal = food["cal"] * factor
+        p = food["p"] * factor
+        c = food["c"] * factor
+        f = food["f"] * factor
+        nice_name = "%s (%dg)" % (match_key, int(round(g)))
+
+    return {
+        "name": nice_name.title(),
+        "calories": round(cal),
+        "protein": round(p, 1),
+        "carbs": round(c, 1),
+        "fat": round(f, 1),
+    }
+
+
+def _is_food_lookup_schema(schema):
+    """True when the JSON schema describes a single food's nutrition."""
+    if not isinstance(schema, dict):
+        return False
+    props = schema.get("properties") or {}
+    keys = set(props.keys())
+    return {"calories", "protein"}.issubset(keys) and "name" in keys
+
+
 def _try_openai(prompt, want_json):
     """Try OpenAI API if key is configured."""
     if not OPENAI_API_KEY:
@@ -1652,6 +1889,7 @@ def invoke_llm(app_id):
     response_json_schema = data.get("response_json_schema")
     # Treat meal-plan prompts as JSON requests even when schema not sent
     want_json = bool(response_json_schema) or "meal plan" in prompt.lower() or "7-day" in prompt.lower()
+    is_food_lookup = _is_food_lookup_schema(response_json_schema)
 
     # Try OpenAI first if key exists
     if OPENAI_API_KEY:
@@ -1663,9 +1901,20 @@ def invoke_llm(app_id):
                 except Exception:
                     cleaned = re.sub(r"```(?:json)?|```", "", text).strip()
                     result = json.loads(cleaned)
-                _save_meal_plan(user["id"], result, prompt)
+                if not is_food_lookup:
+                    _save_meal_plan(user["id"], result, prompt)
                 return jsonify(result)
             return jsonify({"result": text})
+
+    # --- Food nutrition lookup (single item) ---
+    if is_food_lookup:
+        # extract the food description from the prompt (text inside quotes if present)
+        m = re.search(r'["\u201c]([^"\u201d]+)["\u201d]', prompt)
+        food_query = m.group(1) if m else prompt
+        result = _lookup_food(food_query)
+        if not result:
+            return jsonify({"error": "Could not find nutrition info for that food. Try being more specific (e.g. \"100g chicken breast\") or add it manually."}), 422
+        return jsonify(result)
 
     # --- Server-side meal plan generation (always works, no external API needed) ---
     if want_json:
@@ -1676,6 +1925,63 @@ def invoke_llm(app_id):
 
     # Non-JSON prompt (general advice) — return a useful text response
     return jsonify({"result": _generate_advice(prompt)})
+
+
+def _scan_food_openai(image_data_url):
+    """Identify food from an image using OpenAI vision. Returns (dict, error)."""
+    if not OPENAI_API_KEY:
+        return None, "no_key"
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role": "system", "content": "You are a nutrition expert. Identify the food in the image and estimate its nutrition for the portion shown. Respond with valid JSON only: {\"name\": string, \"calories\": number, \"protein\": number, \"carbs\": number, \"fat\": number}. Protein, carbs and fat are in grams. If no food is visible, set name to an empty string."},
+            {"role": "user", "content": [
+                {"type": "text", "text": "What food is this and what is its nutrition?"},
+                {"type": "image_url", "image_url": {"url": image_data_url}},
+            ]},
+        ],
+        "response_format": {"type": "json_object"},
+    }
+    try:
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=json.dumps(payload).encode(),
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            result = json.loads(resp.read())
+        content = result["choices"][0]["message"]["content"]
+        cleaned = re.sub(r"```(?:json)?|```", "", content).strip()
+        return json.loads(cleaned), None
+    except Exception as e:
+        return None, str(e)
+
+
+@app.route("/api/apps/<app_id>/scan-food", methods=["POST"])
+def scan_food(app_id):
+    user, token, err = require_auth()
+    if err:
+        return err
+
+    data = request.get_json(force=True) or {}
+    image = data.get("image", "")
+    if not image or not image.startswith("data:image"):
+        return jsonify({"error": "No valid image provided."}), 400
+
+    if not OPENAI_API_KEY:
+        return jsonify({"error": "Photo scanning needs the AI vision service to be configured. In the meantime, use the AI Lookup or manual entry below."}), 503
+
+    result, scan_err = _scan_food_openai(image)
+    if scan_err or not result or not result.get("name"):
+        return jsonify({"error": "Could not identify food in the photo. Try a clearer, well-lit photo or use AI Lookup instead."}), 422
+
+    return jsonify({
+        "name": result.get("name", ""),
+        "calories": round(float(result.get("calories") or 0)),
+        "protein": round(float(result.get("protein") or 0), 1),
+        "carbs": round(float(result.get("carbs") or 0), 1),
+        "fat": round(float(result.get("fat") or 0), 1),
+    })
 
 
 def _save_meal_plan(user_id, plan, prompt):
