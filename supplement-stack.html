@@ -48,6 +48,9 @@ h1 em{color:var(--lime);font-style:normal}
 .evidence-dot{width:7px;height:7px;border-radius:50%}
 .evidence-dot.filled{background:var(--lime)}
 .evidence-dot.empty{background:rgba(255,255,255,.12)}
+.supp-buy{display:inline-flex;align-items:center;gap:.4rem;margin-top:1rem;background:var(--lime);color:#000;padding:.55rem 1rem;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;border:none;cursor:pointer;transition:opacity .2s;width:100%;justify-content:center}
+.supp-buy:hover{opacity:.85}
+.affiliate-note{font-size:.62rem;color:rgba(255,255,255,.25);margin-top:.6rem;line-height:1.5}
 .disclaimer{background:rgba(255,255,255,.03);border:1px solid var(--border);padding:1.25rem 1.5rem;margin-top:2rem}
 .disclaimer p{font-size:.75rem;color:rgba(255,255,255,.3);line-height:1.6}
 @media(max-width:640px){.grid-3{grid-template-columns:1fr}.supp-grid{grid-template-columns:1fr}}
@@ -99,6 +102,20 @@ h1 em{color:var(--lime);font-style:normal}
 </div>
 
 <script>
+/* ============================================================
+   AFFILIATE CONFIG — paste your own affiliate tag/IDs here.
+   The "Buy" buttons send shoppers to Amazon with your tag so
+   you earn a commission on purchases. To use a different store
+   (MyProtein, Gymshark, iHerb, etc.), change buildAffiliateLink.
+   ------------------------------------------------------------
+   1. Sign up at https://affiliate-program.amazon.com
+   2. Replace YOUR_TAG-20 below with your Associates tracking ID
+   ============================================================ */
+var AFFILIATE_TAG='YOUR_TAG-20';
+function buildAffiliateLink(productName){
+  return 'https://www.amazon.com/s?k='+encodeURIComponent(productName)+'&tag='+encodeURIComponent(AFFILIATE_TAG);
+}
+
 var _AF_APP='6a1f3d189ebdbe71fa7d256c';
 (function(){
   var p=new URLSearchParams(window.location.search),ut=p.get('access_token');
@@ -240,10 +257,11 @@ function generate(){
           +'<div class="supp-dose">'+s.dose+'</div>'
           +'<div class="supp-timing">⏱ '+s.timing+'</div>'
           +'<div class="supp-why">'+s.why+'</div>'
-          +'<div class="evidence-bar"><span class="evidence-label">Evidence</span><div class="evidence-dots">'+dots+'</div></div></div>';
+          +'<div class="evidence-bar"><span class="evidence-label">Evidence</span><div class="evidence-dots">'+dots+'</div></div>'
+          +'<a class="supp-buy" href="'+buildAffiliateLink(s.name)+'" target="_blank" rel="noopener sponsored">🛒 Shop '+s.name+'</a></div>';
       }).join('')+'</div></div>';
   });
-  el.innerHTML+='<div class="disclaimer"><p>⚠️ This tool is for informational purposes only. Supplements are not FDA-evaluated as treatments. Consult a healthcare provider before starting any supplement regimen, especially if you have medical conditions or take medications.</p></div>';
+  el.innerHTML+='<div class="disclaimer"><p>⚠️ This tool is for informational purposes only. Supplements are not FDA-evaluated as treatments. Consult a healthcare provider before starting any supplement regimen, especially if you have medical conditions or take medications.</p><p style="margin-top:.75rem">🔗 ALEFIT may earn a commission from qualifying purchases made through the links above, at no extra cost to you.</p></div>';
   el.classList.add('show');
   el.scrollIntoView({behavior:'smooth',block:'start'});
   _afSave('SupplementStack',{goal:goal,freq:freq,budget:budget,saved_at:new Date().toISOString()});

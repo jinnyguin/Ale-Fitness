@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" href="/images/alefit-logo.png" type="image/png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gear & Shop — ALEFIT</title>
+<meta name="description" content="Hand-picked supplements, equipment, recovery tools and apparel for serious athletes — curated by ALEFIT."/>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--lime:#D4FF00;--dark:#0F0F0F;--card:#141414;--border:rgba(255,255,255,.08)}
+body{background:var(--dark);color:#fff;font-family:'Inter',sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2.5rem;border-bottom:1px solid var(--border)}
+.nav-links{display:flex;gap:2rem;align-items:center}
+.nav-link{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);transition:color .2s;font-weight:500}
+.nav-link:hover{color:#fff}
+.nav-link.active{color:var(--lime)}
+.nav-cta{background:var(--lime);color:#000;padding:.5rem 1.25rem;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;transition:opacity .2s}
+.nav-cta:hover{opacity:.85}
+.hero{padding:4.5rem 2.5rem 2rem;max-width:1100px;margin:0 auto}
+.page-tag{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border:1px solid rgba(212,255,0,.3);color:var(--lime);font-size:.65rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;margin-bottom:1.5rem}
+.hero h1{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3rem,6vw,5.5rem);text-transform:uppercase;line-height:.9;margin-bottom:1.25rem}
+.hero h1 em{color:var(--lime);font-style:normal}
+.hero p{color:rgba(255,255,255,.4);font-size:1rem;line-height:1.65;font-weight:300;max-width:560px}
+.shop-wrap{max-width:1100px;margin:0 auto;padding:1.5rem 2.5rem 5rem}
+.cat-tabs{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:2.5rem}
+.cat-tab{background:var(--card);border:1px solid var(--border);color:rgba(255,255,255,.55);padding:.6rem 1.2rem;font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif}
+.cat-tab:hover{border-color:rgba(212,255,0,.35);color:#fff}
+.cat-tab.active{background:var(--lime);color:#000;border-color:var(--lime)}
+.cat-section{margin-bottom:3rem}
+.cat-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.6rem;text-transform:uppercase;margin-bottom:1.25rem;display:flex;align-items:center;gap:.6rem;border-bottom:1px solid var(--border);padding-bottom:.75rem}
+.products{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem}
+.product{background:var(--card);border:1px solid var(--border);padding:1.5rem;display:flex;flex-direction:column;transition:border-color .2s,transform .2s}
+.product:hover{border-color:rgba(212,255,0,.35);transform:translateY(-3px)}
+.product-emoji{font-size:2.2rem;margin-bottom:1rem}
+.product-name{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.25rem;text-transform:uppercase;margin-bottom:.4rem;line-height:1.05}
+.product-desc{font-size:.78rem;color:rgba(255,255,255,.42);line-height:1.55;margin-bottom:1.25rem;flex:1}
+.product-buy{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;background:var(--lime);color:#000;padding:.6rem 1rem;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;transition:opacity .2s}
+.product-buy:hover{opacity:.85}
+.disclosure{background:rgba(255,255,255,.03);border:1px solid var(--border);padding:1.25rem 1.5rem;margin-top:1rem}
+.disclosure p{font-size:.75rem;color:rgba(255,255,255,.32);line-height:1.6}
+@media(max-width:860px){.products{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.products{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/"><img src="/images/alefit-logo.png" alt="AleFit" style="height:40px;width:auto"></a>
+  <div class="nav-links">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/tools.html" class="nav-link">Tools</a>
+    <a href="/shop.html" class="nav-link active">Shop</a>
+    <a href="/#programs" class="nav-link">Programs</a>
+    <a href="/Login.html" class="nav-cta">Log In</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="page-tag">🛒 Gear & Shop</div>
+  <h1>Athlete-Grade<br><em>Gear</em></h1>
+  <p>Hand-picked supplements, equipment, recovery tools and apparel — the exact gear we'd put in our own bag. Quality over hype.</p>
+</div>
+
+<div class="shop-wrap">
+  <div class="cat-tabs" id="cat-tabs"></div>
+  <div id="shop-content"></div>
+  <div class="disclosure">
+    <p>🔗 ALEFIT is reader-supported. When you buy through links on this page we may earn an affiliate commission, at no additional cost to you. We only feature gear we genuinely believe in.</p>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   AFFILIATE CONFIG — paste your own affiliate tag/IDs here.
+   Each "Shop" button sends buyers to the retailer with your
+   tracking tag so you earn a commission. Default store is
+   Amazon Associates. To use another store for a product,
+   set a full "url" on that product instead of "search".
+   ------------------------------------------------------------
+   1. Sign up at https://affiliate-program.amazon.com
+   2. Replace YOUR_TAG-20 below with your Associates tracking ID
+   ============================================================ */
+var AFFILIATE_TAG='YOUR_TAG-20';
+function buildAffiliateLink(p){
+  if(p.url) return p.url; // use a direct affiliate URL if provided
+  return 'https://www.amazon.com/s?k='+encodeURIComponent(p.search||p.name)+'&tag='+encodeURIComponent(AFFILIATE_TAG);
+}
+
+var CATEGORIES=[
+  {id:'supplements',label:'Supplements',icon:'💊',products:[
+    {emoji:'⚪',name:'Creatine Monohydrate',desc:'The most researched supplement in existence. 5g daily for strength, power and recovery.',search:'creatine monohydrate powder micronized'},
+    {emoji:'🥛',name:'Whey Protein Isolate',desc:'Fast-absorbing complete protein to drive muscle protein synthesis post-training.',search:'whey protein isolate'},
+    {emoji:'☀️',name:'Vitamin D3 + K2',desc:'Supports testosterone, immunity and bone density. Most athletes are deficient.',search:'vitamin d3 k2 supplement'},
+    {emoji:'🐟',name:'Omega-3 Fish Oil',desc:'High EPA/DHA for joint health, recovery and reduced training inflammation.',search:'omega 3 fish oil epa dha'},
+    {emoji:'⚡',name:'Pre-Workout (Caffeine + Citrulline)',desc:'Clean energy, blood flow and focus for harder, longer training sessions.',search:'pre workout citrulline caffeine'},
+    {emoji:'🌙',name:'Magnesium Glycinate',desc:'Better sleep, recovery and 300+ enzymatic functions. Take before bed.',search:'magnesium glycinate'}
+  ]},
+  {id:'equipment',label:'Equipment',icon:'🏋️',products:[
+    {emoji:'🔗',name:'Resistance Bands Set',desc:'Full-body training anywhere. Perfect for warm-ups, mobility and home workouts.',search:'resistance bands set'},
+    {emoji:'🤸',name:'Adjustable Dumbbells',desc:'A full rack of weights in one compact pair. The ultimate home-gym staple.',search:'adjustable dumbbells'},
+    {emoji:'🪢',name:'Speed Jump Rope',desc:'Conditioning, footwork and explosive power. Weighted handles for control.',search:'speed jump rope weighted'},
+    {emoji:'🧘',name:'Premium Yoga / Workout Mat',desc:'Non-slip, cushioned base for floor work, stretching and core training.',search:'workout exercise mat thick'},
+    {emoji:'💪',name:'Pull-Up Bar (Doorway)',desc:'Build a powerful back and grip at home. No drilling, fits standard frames.',search:'doorway pull up bar'},
+    {emoji:'🏐',name:'Kettlebell',desc:'Swings, cleans, carries — one tool for power, conditioning and strength.',search:'kettlebell'}
+  ]},
+  {id:'recovery',label:'Recovery',icon:'🧊',products:[
+    {emoji:'🔫',name:'Massage Gun',desc:'Percussive therapy to speed recovery, release tight muscles and reduce soreness.',search:'massage gun percussion'},
+    {emoji:'🧻',name:'Foam Roller',desc:'Daily self-myofascial release for mobility and injury prevention.',search:'foam roller high density'},
+    {emoji:'🦵',name:'Compression Boots',desc:'Pneumatic recovery for legs after hard sessions and long runs.',search:'compression recovery boots'},
+    {emoji:'🧦',name:'Compression Socks',desc:'Improve circulation and reduce fatigue during and after training.',search:'compression socks athletic'},
+    {emoji:'❄️',name:'Ice Bath Tub',desc:'Cold exposure for recovery, resilience and reduced inflammation.',search:'cold plunge ice bath tub'},
+    {emoji:'🎾',name:'Lacrosse / Massage Ball',desc:'Pinpoint trigger-point release for feet, glutes and shoulders.',search:'massage lacrosse ball set'}
+  ]},
+  {id:'apparel',label:'Apparel & Tech',icon:'👟',products:[
+    {emoji:'⌚',name:'Fitness Tracker / Smartwatch',desc:'Track heart rate, recovery, sleep and training load 24/7.',search:'fitness tracker smartwatch heart rate'},
+    {emoji:'👟',name:'Training Shoes',desc:'Stable, flat-soled shoes built for lifting and athletic movement.',search:'cross training shoes'},
+    {emoji:'🧤',name:'Lifting Straps & Gloves',desc:'Protect your grip and pull heavier on deadlifts and rows.',search:'lifting straps gloves'},
+    {emoji:'🎒',name:'Gym Duffel Bag',desc:'Durable, ventilated bag with a dedicated shoe compartment.',search:'gym duffel bag'},
+    {emoji:'🍶',name:'Insulated Water Bottle',desc:'Stay hydrated all day with a leak-proof, motivational bottle.',search:'insulated water bottle large'},
+    {emoji:'🎧',name:'Wireless Workout Earbuds',desc:'Sweat-proof, secure-fit earbuds that stay put through any session.',search:'wireless workout earbuds sweatproof'}
+  ]}
+];
+
+var tabsEl=document.getElementById('cat-tabs');
+var contentEl=document.getElementById('shop-content');
+var active='all';
+
+function renderTabs(){
+  var html='<button class="cat-tab '+(active==='all'?'active':'')+'" data-cat="all">All</button>';
+  CATEGORIES.forEach(function(c){
+    html+='<button class="cat-tab '+(active===c.id?'active':'')+'" data-cat="'+c.id+'">'+c.icon+' '+c.label+'</button>';
+  });
+  tabsEl.innerHTML=html;
+  Array.prototype.forEach.call(tabsEl.querySelectorAll('.cat-tab'),function(b){
+    b.onclick=function(){active=b.getAttribute('data-cat');renderTabs();renderContent();};
+  });
+}
+
+function productCard(p){
+  return '<div class="product">'
+    +'<div class="product-emoji">'+p.emoji+'</div>'
+    +'<div class="product-name">'+p.name+'</div>'
+    +'<div class="product-desc">'+p.desc+'</div>'
+    +'<a class="product-buy" href="'+buildAffiliateLink(p)+'" target="_blank" rel="noopener sponsored">🛒 Shop Now</a>'
+    +'</div>';
+}
+
+function renderContent(){
+  var cats=active==='all'?CATEGORIES:CATEGORIES.filter(function(c){return c.id===active;});
+  var html='';
+  cats.forEach(function(c){
+    html+='<div class="cat-section"><div class="cat-title">'+c.icon+' '+c.label+'</div>'
+      +'<div class="products">'+c.products.map(productCard).join('')+'</div></div>';
+  });
+  contentEl.innerHTML=html;
+}
+
+renderTabs();
+renderContent();
+</script>
+</body>
+</html>
