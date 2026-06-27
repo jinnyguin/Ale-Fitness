@@ -157,6 +157,8 @@
       if (this._isUserMe) {
         this.addEventListener('readystatechange', function() {
           if (self.readyState === 4 && self.status === 401) {
+            var currentPath = window.location.pathname;
+            if (currentPath === '/' || currentPath === '') return;
             var fromUrl = encodeURIComponent(window.location.href);
             console.log('[ALEFIT] User/me 401 — redirecting to Login.html');
             window.location.href = '/Login.html?from_url=' + fromUrl;

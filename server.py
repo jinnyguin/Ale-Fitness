@@ -192,14 +192,6 @@ def handle_exception(e):
 
 @app.route("/")
 def index():
-    resp = make_response(send_file("landing.html"))
-    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    resp.headers["Pragma"] = "no-cache"
-    resp.headers["Expires"] = "0"
-    return resp
-
-@app.route("/app")
-def app_dashboard():
     resp = make_response(send_file("index.html"))
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
