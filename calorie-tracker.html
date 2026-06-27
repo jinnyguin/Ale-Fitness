@@ -125,6 +125,7 @@
 
     .hidden{display:none!important}
   </style>
+  <script src="https://js.puter.com/v2/"></script>
 </head>
 <body>
 
@@ -487,14 +488,28 @@ async function scanPhoto(){
   if(!img.src || img.src.length < 100) return;
   var btn = document.getElementById('scan-btn');
   btn.disabled = true;
-  showOverlay('Uploading photo...');
+  showOverlay('Analysing your meal...');
   try {
-    var resp = await fetch('/api/apps/'+APP_ID+'/scan-food', {
-      method: 'POST', headers: authHdr(),
-      body: JSON.stringify({ image: img.src })
-    });
-    var d = await resp.json();
-    if(!resp.ok || d.error) throw new Error(d.error || 'Scan failed');
+    if(!window.puter || !window.puter.ai) throw new Error('AI not ready — please wait a moment and try again.');
+    var prompt = 'You are a nutrition expert. Look at this food image and identify what food or meal is shown. Respond ONLY with a valid JSON object — no markdown, no extra text — in this exact format: {"name":"food name","calories":000,"protein":0,"carbs":0,"fat":0}. Estimate values for a typical single serving. If you cannot identify food in the image, return {"error":"No food detected"}.';
+    var resp = await puter.ai.chat(
+      [{ role: 'user', content: [
+        { type: 'image_url', image_url: { url: img.src } },
+        { type: 'text', text: prompt }
+      ]}],
+      { model: 'gpt-4o-mini' }
+    );
+    var text = '';
+    if (typeof resp === 'string') text = resp;
+    else if (resp && resp.message) {
+      var c = resp.message.content;
+      if (typeof c === 'string') text = c;
+      else if (Array.isArray(c)) text = c.map(function(x){ return x.text||''; }).join('');
+      else text = String(c||'');
+    }
+    text = text.replace(/```(?:json)?|```/g,'').trim();
+    var d = JSON.parse(text);
+    if(d.error) throw new Error(d.error);
     if(!d.name) throw new Error('Could not identify food in photo');
     _scannedData = d;
     document.getElementById('photo-result-name').textContent = d.name;
