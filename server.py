@@ -425,6 +425,23 @@ def alias_invoke_llm(app_id):
 def alias_scan_food(app_id):
     return scan_food(app_id)
 
+@app.route("/api/apps/<app_id>/upload-scan-image", methods=["POST"])
+def upload_scan_image(app_id):
+    user = require_auth()
+    if isinstance(user, tuple):
+        return user
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "No file"}), 400
+    import uuid, os
+    ext = os.path.splitext(f.filename or "food.jpg")[1] or ".jpg"
+    fname = "scan_" + uuid.uuid4().hex[:12] + ext
+    save_path = os.path.join("uploads", fname)
+    os.makedirs("uploads", exist_ok=True)
+    f.save(save_path)
+    public_url = request.host_url.rstrip("/") + "/uploads/" + fname
+    return jsonify({"url": public_url})
+
 
 # ---------------------------------------------------------------------------
 # Auth endpoints (proxy to Supabase)
