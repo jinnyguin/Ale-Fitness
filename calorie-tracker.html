@@ -125,7 +125,6 @@
 
     .hidden{display:none!important}
   </style>
-  <script src="https://js.puter.com/v2/"></script>
 </head>
 <body>
 
@@ -491,56 +490,23 @@ async function scanPhoto(){
   if(!img.src || img.src.length < 100) return;
   var btn = document.getElementById('scan-btn');
   var statusEl = document.getElementById('photo-status');
+  if(!getToken()){
+    statusEl.className = 'status-msg err';
+    statusEl.textContent = 'Log in to use the photo scanner.';
+    return;
+  }
   btn.disabled = true;
   statusEl.className = '';
   statusEl.textContent = '';
-  showOverlay('Analysing your meal...');
+  showOverlay('AI is reading your meal...');
   try {
-    /* wait up to 8s for puter to be ready */
-    await new Promise(function(resolve, reject){
-      if(window.puter && window.puter.ai){ resolve(); return; }
-      var attempts = 0;
-      var iv = setInterval(function(){
-        attempts++;
-        if(window.puter && window.puter.ai){ clearInterval(iv); resolve(); return; }
-        if(attempts > 80){ clearInterval(iv); reject(new Error('puter.js failed to load')); }
-      }, 100);
-    });
-
-    /* upload image to our server to get a real URL puter can fetch */
-    var formData = new FormData();
-    if(_selectedFile){
-      formData.append('file', _selectedFile);
-    } else {
-      var blob = await fetch(img.src).then(function(r){ return r.blob(); });
-      formData.append('file', blob, 'food.jpg');
-    }
-    showOverlay('Uploading image...');
-    var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token') || '';
-    var uploadResp = await fetch('/api/apps/'+APP_ID+'/upload-scan-image', {
+    var resp = await fetch('/api/apps/'+APP_ID+'/scan-food', {
       method: 'POST',
-      headers: token ? { 'Authorization': 'Bearer '+token } : {},
-      body: formData
+      headers: authHdr(),
+      body: JSON.stringify({ image: img.src })
     });
-    var uploadData = await uploadResp.json();
-    if(!uploadResp.ok || !uploadData.url) throw new Error('Upload failed: '+(uploadData.error||uploadResp.status));
-
-    showOverlay('AI is reading your meal...');
-    var prompt = 'You are a nutrition expert. Look at this food image and identify what food or meal is shown. Respond ONLY with a valid JSON object — no markdown, no extra text — in this exact format: {"name":"food name","calories":000,"protein":0,"carbs":0,"fat":0}. Estimate values for a typical single serving. If you cannot identify food in the image, return {"error":"No food detected"}.';
-    var resp = await puter.ai.chat(prompt, uploadData.url, false, { model: 'gpt-4o' });
-
-    var text = '';
-    if (typeof resp === 'string') text = resp;
-    else if (resp && resp.message) {
-      var c = resp.message.content;
-      if (typeof c === 'string') text = c;
-      else if (Array.isArray(c)) text = c.map(function(x){ return x.text||x.content||''; }).join('');
-      else text = String(c||'');
-    } else if (resp && resp.text) { text = resp.text; }
-
-    text = text.replace(/```(?:json)?|```/g,'').trim();
-    var d = JSON.parse(text);
-    if(d.error) throw new Error(d.error);
+    var d = await resp.json();
+    if(!resp.ok || d.error) throw new Error(d.error || ('Scan failed ('+resp.status+')'));
     if(!d.name) throw new Error('Could not identify food in photo');
 
     _scannedData = d;
