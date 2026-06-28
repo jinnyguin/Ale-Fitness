@@ -457,9 +457,11 @@ function buildQuick(){
 
 /* ── PHOTO SCANNER ── */
 var _scannedData = null;
+var _selectedFile = null;
 function handlePhotoSelect(input){
   var file = input.files[0];
   if(!file) return;
+  _selectedFile = file;
   var reader = new FileReader();
   reader.onload = function(e){
     document.getElementById('photo-preview').src = e.target.result;
@@ -476,6 +478,7 @@ function clearPhoto(){
   document.getElementById('photo-preview-wrap').classList.add('hidden');
   document.getElementById('photo-result').classList.add('hidden');
   _scannedData = null;
+  _selectedFile = null;
 }
 function showOverlay(msg){
   document.getElementById('scan-text').textContent = msg || 'Analysing your meal...';
@@ -492,21 +495,16 @@ async function scanPhoto(){
   try {
     if(!window.puter || !window.puter.ai) throw new Error('AI not ready — please wait a moment and try again.');
     var prompt = 'You are a nutrition expert. Look at this food image and identify what food or meal is shown. Respond ONLY with a valid JSON object — no markdown, no extra text — in this exact format: {"name":"food name","calories":000,"protein":0,"carbs":0,"fat":0}. Estimate values for a typical single serving. If you cannot identify food in the image, return {"error":"No food detected"}.';
-    var resp = await puter.ai.chat(
-      [{ role: 'user', content: [
-        { type: 'image_url', image_url: { url: img.src } },
-        { type: 'text', text: prompt }
-      ]}],
-      { model: 'gpt-4o-mini' }
-    );
+    var imageSource = _selectedFile || img.src;
+    var resp = await puter.ai.chat(prompt, imageSource);
     var text = '';
     if (typeof resp === 'string') text = resp;
     else if (resp && resp.message) {
       var c = resp.message.content;
       if (typeof c === 'string') text = c;
-      else if (Array.isArray(c)) text = c.map(function(x){ return x.text||''; }).join('');
+      else if (Array.isArray(c)) text = c.map(function(x){ return x.text||x.content||''; }).join('');
       else text = String(c||'');
-    }
+    } else if (resp && resp.text) { text = resp.text; }
     text = text.replace(/```(?:json)?|```/g,'').trim();
     var d = JSON.parse(text);
     if(d.error) throw new Error(d.error);
