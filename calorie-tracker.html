@@ -553,8 +553,17 @@ async function scanPhoto(){
     statusEl.textContent = 'Detected: '+d.name;
     setTimeout(function(){ statusEl.textContent=''; }, 4000);
   } catch(e) {
-    var msg = e && (e.message || JSON.stringify(e)) || 'Unknown error';
     console.error('[ALEFIT scan]', e);
+    var code = e && (e.error || (e.message ? '' : '')) || '';
+    var raw = (e && (e.error || e.code)) || (e && e.message) || '';
+    var msg;
+    if(String(raw).indexOf('auth_window_closed')>-1 || String(JSON.stringify(e)).indexOf('auth_window_closed')>-1){
+      msg = 'Sign-in window was closed before finishing. Tap Scan Nutrition again and complete the free Puter sign-up to continue.';
+    } else if(String(JSON.stringify(e)).indexOf('auth')>-1){
+      msg = 'Sign-in needed. Tap Scan Nutrition again and complete the free Puter sign-in popup.';
+    } else {
+      msg = (e && e.message) || (e && e.msg) || 'Scan failed. Try a clearer photo or use AI Lookup instead.';
+    }
     statusEl.className = 'status-msg err';
     statusEl.textContent = msg;
   }
