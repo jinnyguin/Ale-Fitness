@@ -1,1 +1,2 @@
 - [InvokeLLM server-side generator](meal-plan-generator.md) — External free AI APIs (Hack Club, Pollinations) are blocked from Replit's network; use server-side template generator instead.
+- [Photo scanner vision AI](photo-scanner-vision-ai.md) — OpenAI key has no quota, Gemini needs an age-gated key; scanner uses puter.js client-side with explicit sign-in on user gesture, only works in published app / full tab (not preview iframe).

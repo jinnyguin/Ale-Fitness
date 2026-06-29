@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <script src="https://js.puter.com/v2/"></script>
   <script>
   (function(){
     var t = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
@@ -232,7 +233,7 @@
       <div id="tab-photo" class="tab-panel">
         <div class="photo-zone" id="photo-zone">
           <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoSelect(this)">
-          <div class="photo-drop" onclick="document.getElementById('photo-input').click()">
+          <div class="photo-drop" id="photo-drop" onclick="document.getElementById('photo-input').click()">
             <div class="photo-icon">📷</div>
             <div class="photo-text">Tap to take a photo or upload</div>
             <div class="photo-sub">Snap your meal — AI will identify it and calculate nutrition</div>
@@ -246,6 +247,7 @@
           </div>
         </div>
         <div class="status-msg" id="photo-status"></div>
+        <p style="font-size:.72rem;color:var(--muted);margin:.5rem 0 0;text-align:center">Powered by free AI — a one-time Puter sign-in popup may appear. Works best in the published app or a full browser tab.</p>
         <div class="photo-result hidden" id="photo-result">
           <div class="photo-result-title">Detected Food</div>
           <div class="photo-result-name" id="photo-result-name">—</div>
@@ -498,15 +500,45 @@ async function scanPhoto(){
   btn.disabled = true;
   statusEl.className = '';
   statusEl.textContent = '';
-  showOverlay('AI is reading your meal...');
+  showOverlay('Starting AI...');
   try {
-    var resp = await fetch('/api/apps/'+APP_ID+'/scan-food', {
-      method: 'POST',
-      headers: authHdr(),
-      body: JSON.stringify({ image: img.src })
+    /* wait up to 8s for puter.js to load */
+    await new Promise(function(resolve, reject){
+      if(window.puter && window.puter.ai){ resolve(); return; }
+      var n=0; var iv=setInterval(function(){
+        n++;
+        if(window.puter && window.puter.ai){ clearInterval(iv); resolve(); }
+        else if(n>80){ clearInterval(iv); reject(new Error('AI service failed to load. Refresh and try again.')); }
+      },100);
     });
-    var d = await resp.json();
-    if(!resp.ok || d.error) throw new Error(d.error || ('Scan failed ('+resp.status+')'));
+
+    /* ensure a free Puter session (popup opens on this button click) */
+    if(puter.auth && typeof puter.auth.isSignedIn==='function' && !puter.auth.isSignedIn()){
+      hideOverlay();
+      statusEl.className=''; statusEl.textContent='Opening Puter sign-in (free, one-time)...';
+      await puter.auth.signIn();
+      statusEl.textContent='';
+      showOverlay('AI is reading your meal...');
+    } else {
+      showOverlay('AI is reading your meal...');
+    }
+
+    var prompt = 'You are a nutrition expert. Look at this food image and identify the food or meal shown. Respond ONLY with a valid JSON object — no markdown, no extra text — exactly: {"name":"food name","calories":000,"protein":0,"carbs":0,"fat":0}. Estimate values for a typical single serving. If no food is visible, return {"error":"No food detected"}.';
+    var imageSource = _selectedFile || img.src;
+    var resp = await puter.ai.chat(prompt, imageSource, false, { model: 'gpt-4o-mini' });
+
+    var text = '';
+    if (typeof resp === 'string') text = resp;
+    else if (resp && resp.message) {
+      var c = resp.message.content;
+      if (typeof c === 'string') text = c;
+      else if (Array.isArray(c)) text = c.map(function(x){ return x.text||x.content||''; }).join('');
+      else text = String(c||'');
+    } else if (resp && resp.text) { text = resp.text; }
+    text = text.replace(/```(?:json)?|```/g,'').trim();
+
+    var d = JSON.parse(text);
+    if(d.error) throw new Error(d.error);
     if(!d.name) throw new Error('Could not identify food in photo');
 
     _scannedData = d;
