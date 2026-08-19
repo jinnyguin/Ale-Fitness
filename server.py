@@ -1,6 +1,9 @@
 import os
 import json
 import re
+import base64
+import hashlib
+import hmac
 import uuid
 import urllib.request
 import urllib.error
@@ -14,11 +17,13 @@ app = Flask(__name__, static_folder=".")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
-# Service role key — stored in "Database" env var (set during project setup)
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("Database", "")
+# A database password is not a Supabase service-role key. Only use the
+# explicitly named secret for admin auth calls.
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
+LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET") or APP_ID
 
 # ---------------------------------------------------------------------------
 # Postgres helpers (Replit DB for entity storage)
@@ -104,7 +109,13 @@ def get_current_user():
         token = request.args.get("token") or request.args.get("access_token")
     if not token:
         token = request.cookies.get("sb_token")
+    if token and token.startswith("local."):
+        return local_user_from_token(token), token
     user = get_supabase_user(token)
+    if not user and token:
+        # This also lets locally-created accounts survive a later Supabase
+        # outage without forcing the user to sign in again.
+        user = local_user_from_token(token)
     return user, token
 
 
@@ -135,6 +146,187 @@ def ensure_profile(user_id, email, full_name=""):
         conn.close()
     except Exception:
         pass
+
+
+def _b64url_encode(value):
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(value):
+    return base64.urlsafe_b64decode(value + ("=" * (-len(value) % 4)))
+
+
+def local_password_hash(password):
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120000)
+    return _b64url_encode(salt + digest)
+
+
+def local_password_matches(password, stored_hash):
+    try:
+        raw = _b64url_decode(stored_hash)
+        salt, expected = raw[:16], raw[16:]
+        actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120000)
+        return hmac.compare_digest(actual, expected)
+    except Exception:
+        return False
+
+
+def local_user_to_auth_user(row):
+    if not row:
+        return None
+    created_at = row.get("created_at")
+    if hasattr(created_at, "isoformat"):
+        created_at = created_at.isoformat()
+    return {
+        "id": row.get("id", ""),
+        "email": row.get("email", ""),
+        "created_at": created_at or "",
+        "user_metadata": {"full_name": row.get("full_name") or ""},
+        "_local": True,
+    }
+
+
+def ensure_local_auth_table():
+    """Create the local auth store used when the remote auth service is down."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS auth_users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL DEFAULT '',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+        conn.close()
+    except Exception as exc:
+        # The application can still serve public pages if the database is
+        # temporarily unavailable; auth endpoints report the real issue.
+        print("Local auth table setup failed:", type(exc).__name__)
+
+
+def local_user_by_email(email):
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM auth_users WHERE LOWER(email)=LOWER(%s)", (email,))
+        row = cur.fetchone()
+        conn.close()
+        return local_user_to_auth_user(row)
+    except Exception:
+        return None
+
+
+def local_user_by_id(user_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM auth_users WHERE id=%s", (user_id,))
+        row = cur.fetchone()
+        conn.close()
+        return local_user_to_auth_user(row)
+    except Exception:
+        return None
+
+
+def create_local_token(user):
+    payload = {
+        "sub": user["id"],
+        "email": user["email"],
+        "exp": int(datetime.now(timezone.utc).timestamp()) + (30 * 24 * 60 * 60),
+    }
+    encoded = _b64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    signature = hmac.new(
+        LOCAL_AUTH_SECRET.encode("utf-8"), encoded.encode("ascii"), hashlib.sha256
+    ).digest()
+    return "local." + encoded + "." + _b64url_encode(signature)
+
+
+def local_user_from_token(token):
+    try:
+        prefix, encoded, signature = token.split(".", 2)
+        if prefix != "local":
+            return None
+        expected = hmac.new(
+            LOCAL_AUTH_SECRET.encode("utf-8"), encoded.encode("ascii"), hashlib.sha256
+        ).digest()
+        if not hmac.compare_digest(_b64url_encode(expected), signature):
+            return None
+        payload = json.loads(_b64url_decode(encoded).decode("utf-8"))
+        if payload.get("exp", 0) < int(datetime.now(timezone.utc).timestamp()):
+            return None
+        return local_user_by_id(payload.get("sub", ""))
+    except Exception:
+        return None
+
+
+def local_register(email, password, full_name):
+    email = email.strip().lower()
+    if len(password) < 6:
+        return None, (jsonify({"error": "Password must be at least 6 characters."}), 400)
+    if local_user_by_email(email):
+        return None, (
+            jsonify({"error": "An account with this email already exists. Please log in."}),
+            409,
+        )
+    user_id = str(uuid.uuid4())
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO auth_users (id, email, password_hash, full_name)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id, email, full_name, created_at
+            """,
+            (user_id, email, local_password_hash(password), full_name.strip()),
+        )
+        row = cur.fetchone()
+        conn.close()
+    except psycopg2.IntegrityError:
+        return None, (
+            jsonify({"error": "An account with this email already exists. Please log in."}),
+            409,
+        )
+    except Exception:
+        return None, (
+            jsonify({"error": "Could not create your account right now. Please try again."}),
+            503,
+        )
+
+    user = local_user_to_auth_user(
+        {"id": row[0], "email": row[1], "full_name": row[2], "created_at": row[3]}
+    )
+    ensure_profile(user["id"], user["email"], full_name)
+    return user, None
+
+
+def local_login(email, password):
+    user = local_user_by_email(email.strip().lower())
+    if user and local_password_matches(password, _local_password_hash_for(user["id"])):
+        return user
+    return None
+
+
+def _local_password_hash_for(user_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT password_hash FROM auth_users WHERE id=%s", (user_id,))
+        row = cur.fetchone()
+        conn.close()
+        return row[0] if row else ""
+    except Exception:
+        return ""
+
+
+ensure_local_auth_table()
 
 
 # ---------------------------------------------------------------------------
@@ -463,6 +655,14 @@ def auth_register(app_id):
         # Handle duplicate email
         if "already" in str(err).lower() or status == 422:
             return jsonify({"error": "An account with this email already exists. Please log in."}), 409
+        if status == 503:
+            user, error = local_register(email, password, full_name)
+            if error:
+                return error
+            return jsonify({
+                "access_token": create_local_token(user),
+                "user": format_user(user),
+            }), 201
         return jsonify({"error": err}), status
 
     # Fallback: regular signup (may require email confirmation)
@@ -488,6 +688,15 @@ def auth_register(app_id):
         ensure_profile(user.get("id"), email, full_name)
         return jsonify({"access_token": data["access_token"], "user": format_user(user)}), 201
 
+    if status == 503:
+        user, error = local_register(email, password, full_name)
+        if error:
+            return error
+        return jsonify({
+            "access_token": create_local_token(user),
+            "user": format_user(user),
+        }), 201
+
     err = data.get("msg") or data.get("message") or data.get("error") or "Registration failed"
     return jsonify({"error": err}), status
 
@@ -507,6 +716,21 @@ def auth_login(app_id):
         user = data.get("user", {})
         ensure_profile(user.get("id"), email)
         return jsonify({"access_token": data["access_token"], "user": format_user(user)})
+
+    # Try the local account store as a fallback both when Supabase is down
+    # and for accounts created during a previous outage.
+    local_user = local_login(email, password)
+    if local_user:
+        ensure_profile(local_user["id"], local_user["email"], format_user(local_user)["full_name"])
+        return jsonify({
+            "access_token": create_local_token(local_user),
+            "user": format_user(local_user),
+        })
+
+    if status == 503:
+        if local_user_by_email(email):
+            return jsonify({"error": "Invalid email or password."}), 401
+        return jsonify({"error": "Login is temporarily unavailable. Please try again."}), 503
 
     err = data.get("error_description") or data.get("msg") or data.get("error") or "Invalid email or password"
     return jsonify({"error": err}), 401
@@ -541,6 +765,20 @@ def auth_change_password(app_id):
         return jsonify({"error": "Unauthorized"}), 401
     body = request.get_json(force=True) or {}
     new_password = body.get("new_password") or ""
+    if len(new_password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters."}), 400
+    if user.get("_local"):
+        try:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE auth_users SET password_hash=%s, updated_at=NOW() WHERE id=%s",
+                (local_password_hash(new_password), user["id"]),
+            )
+            conn.close()
+            return jsonify({"message": "Password changed successfully"})
+        except Exception:
+            return jsonify({"error": "Failed to change password"}), 400
     status, _ = supabase_auth("PUT", "/auth/v1/user", {"password": new_password}, token=token)
     if status == 200:
         return jsonify({"message": "Password changed successfully"})
@@ -592,12 +830,17 @@ def auth_me_update(app_id):
     bio = body.get("bio")
     daily_calorie_goal = body.get("daily_calorie_goal")
 
-    if full_name is not None:
+    if full_name is not None and not user.get("_local"):
         supabase_auth("PUT", "/auth/v1/user", {"data": {"full_name": full_name}}, token=token)
 
     try:
         conn = get_db()
         cur = conn.cursor()
+        if full_name is not None and user.get("_local"):
+            cur.execute(
+                "UPDATE auth_users SET full_name=%s, updated_at=NOW() WHERE id=%s",
+                (full_name, user["id"]),
+            )
         updates, vals = ["updated_at=NOW()"], []
         if full_name is not None:
             updates.append("full_name=%s"); vals.append(full_name)
