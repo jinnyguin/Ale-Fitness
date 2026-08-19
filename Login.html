@@ -58,15 +58,6 @@
       border-radius: 0.375rem; padding: 0.75rem 0.875rem;
       font-size: 0.875rem; margin-bottom: 1rem; display: none;
     }
-    .recovery-btn {
-      width: 100%; background: transparent; color: #D4FF00;
-      border: 1px solid rgba(212,255,0,0.35); border-radius: 0.375rem;
-      padding: 0.6875rem; font-size: 0.78rem; font-weight: 700;
-      cursor: pointer; margin-top: -0.25rem; margin-bottom: 1rem;
-      letter-spacing: 0.04em; text-transform: uppercase; display: none;
-    }
-    .recovery-btn:hover { background: rgba(212,255,0,0.08); }
-    .recovery-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .links { text-align: center; margin-top: 1.25rem; color: #444; font-size: 0.8125rem; }
     .links a { color: #D4FF00; text-decoration: none; font-weight: 600; }
     .links a:hover { text-decoration: underline; }
@@ -81,7 +72,6 @@
   </div>
   <h2>Sign In</h2>
   <div class="error-msg" id="errorMsg"></div>
-  <button type="button" class="recovery-btn" id="recoveryBtn">Restore access with this email</button>
 
   <form id="loginForm">
     <div class="field">
@@ -126,7 +116,6 @@
   var form = document.getElementById('loginForm');
   var errorMsg = document.getElementById('errorMsg');
   var submitBtn = document.getElementById('submitBtn');
-  var recoveryBtn = document.getElementById('recoveryBtn');
 
   function showError(msg) {
     errorMsg.textContent = msg;
@@ -141,36 +130,6 @@
     dest.searchParams.set('access_token', data.access_token);
     window.location.replace(dest.toString());
   }
-
-  recoveryBtn.addEventListener('click', async function() {
-    var email = document.getElementById('email').value.trim();
-    var password = document.getElementById('password').value;
-    if (!email || !password) {
-      showError('Enter your email and password first.');
-      return;
-    }
-    recoveryBtn.disabled = true;
-    recoveryBtn.textContent = 'Restoring access…';
-    try {
-      var resp = await fetch('/api/apps/' + APP_ID + '/auth/register', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email: email, password: password, full_name: ''})
-      });
-      var data = await resp.json();
-      if (resp.ok && data.access_token) {
-        await saveSession(data);
-      } else {
-        showError(data.error || 'Could not restore access. Please try again.');
-        recoveryBtn.disabled = false;
-        recoveryBtn.textContent = 'Restore access with this email';
-      }
-    } catch (err) {
-      showError('Could not reach the server. Please try again.');
-      recoveryBtn.disabled = false;
-      recoveryBtn.textContent = 'Restore access with this email';
-    }
-  });
 
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -189,13 +148,7 @@
       if (resp.ok && data.access_token) {
         await saveSession(data);
       } else {
-        if (resp.status === 503) {
-          showError('Remote login is temporarily unavailable. You can restore access locally using these credentials.');
-          recoveryBtn.style.display = 'block';
-        } else {
-          showError(data.error || data.message || 'Login failed. Check your email and password.');
-          recoveryBtn.style.display = 'none';
-        }
+        showError(data.error || data.message || 'Login failed. Check your email and password.');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Sign In';
       }
