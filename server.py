@@ -21,7 +21,7 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 # explicitly named secret for admin auth calls.
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
 LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET") or APP_ID
@@ -2200,12 +2200,12 @@ def _scan_food_openai(image_data_url):
         return None, str(e)
 
 
-def _scan_food_groq(image_data_url):
-    """Identify food from an image using Groq's free vision tier."""
-    if not GROQ_API_KEY:
+def _scan_food_openrouter(image_data_url):
+    """Identify food using a vision-capable model from OpenRouter's free router."""
+    if not OPENROUTER_API_KEY:
         return None, "no_key"
     payload = {
-        "model": "qwen/qwen3.6-27b",
+        "model": "openrouter/free",
         "messages": [
             {
                 "role": "system",
@@ -2225,17 +2225,17 @@ def _scan_food_groq(image_data_url):
                 ],
             },
         ],
-        "response_format": {"type": "json_object"},
         "temperature": 0.2,
-        "max_completion_tokens": 400,
+        "max_tokens": 400,
     }
     try:
         req = urllib.request.Request(
-            "https://api.groq.com/openai/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             data=json.dumps(payload).encode(),
             headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "Content-Type": "application/json",
+                "X-OpenRouter-Title": "AleFit",
             },
         )
         with urllib.request.urlopen(req, timeout=45) as resp:
@@ -2248,7 +2248,7 @@ def _scan_food_groq(image_data_url):
             detail = json.loads(e.read()).get("error", {}).get("message", "")
         except Exception:
             detail = ""
-        return None, f"Groq vision service error ({e.code}){': ' + detail if detail else ''}"
+        return None, f"OpenRouter vision service error ({e.code}){': ' + detail if detail else ''}"
     except Exception as e:
         return None, str(e)
 
@@ -2271,16 +2271,16 @@ def scan_food(app_id):
     if image_type not in {"data:image/jpeg", "data:image/png", "data:image/webp"}:
         return jsonify({"error": "Please upload a JPG, PNG, or WebP image."}), 400
 
-    if not GROQ_API_KEY and not OPENAI_API_KEY:
+    if not OPENROUTER_API_KEY and not OPENAI_API_KEY:
         return jsonify({"error": "Photo scanning needs the AI vision service to be configured. In the meantime, use the AI Lookup or manual entry below."}), 503
 
-    # Groq is the primary provider because it does not require an end-user
-    # account. Only use the older OpenAI path when Groq is not configured; this
-    # keeps a Groq rate-limit or outage from unexpectedly using a paid provider.
-    result, scan_err = _scan_food_groq(image)
+    # OpenRouter's free vision router is primary and does not require an
+    # end-user account. Only use the older OpenAI path when it is not configured
+    # so a free-tier rate limit never causes unexpected paid-provider usage.
+    result, scan_err = _scan_food_openrouter(image)
     if scan_err and scan_err != "no_key" and not result:
-        print("Groq food scan failed:", scan_err)
-    if not GROQ_API_KEY and OPENAI_API_KEY:
+        print("OpenRouter food scan failed:", scan_err)
+    if not OPENROUTER_API_KEY and OPENAI_API_KEY:
         result, scan_err = _scan_food_openai(image)
     if scan_err or not result or not result.get("name"):
         return jsonify({"error": "Could not identify food in the photo. Try a clearer, well-lit photo or use AI Lookup instead."}), 422
