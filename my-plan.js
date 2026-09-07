@@ -1,16 +1,16 @@
 (function () {
   "use strict";
 
-  var APP = "6a1f3d189ebdbe71fa7d256c";
+  var APP_ID = "6a1f3d189ebdbe71fa7d256c";
   var root = document.getElementById("plan");
-  var authToken = localStorage.getItem("base44_access_token") || localStorage.getItem("token");
-  var validProgramPaths = [
-    "/programs/baseball.html", "/programs/basketball.html",
-    "/programs/crosscountry.html", "/programs/football.html",
-    "/programs/hiit.html", "/programs/mobility.html",
-    "/programs/soccer.html", "/programs/strength.html",
-    "/programs/swimming.html", "/programs/track.html"
-  ];
+  var token = localStorage.getItem("base44_access_token") || localStorage.getItem("token");
+  var record;
+  var plan;
+  var selectedIndex = 0;
+  var adaptedSession = null;
+  var pendingPlan = null;
+  var loggedFeedbackIds = {};
+  var checkinSaved = false;
 
   function escapeHtml(value) {
     var node = document.createElement("div");
@@ -18,99 +18,295 @@
     return node.innerHTML;
   }
 
-  function signInAgain() {
+  function reauthenticate() {
     localStorage.removeItem("base44_access_token");
     localStorage.removeItem("token");
     localStorage.removeItem("alefit_user");
     window.location.replace("/Login.html?from_url=%2Fmy-plan.html");
   }
 
-  function showFailure() {
-    root.innerHTML = '<span class="eyebrow">Plan unavailable</span>' +
-      '<h1>We could not load your plan.</h1>' +
-      '<p class="sub">Your saved plan was not changed. Check your connection and retry.</p>' +
-      '<button class="button" id="retry-plan" type="button">Retry</button> ' +
-      '<a class="sign-in" href="/Register.html">Review onboarding</a>';
-    document.getElementById("retry-plan").onclick = loadPlan;
+  function currentWeek() {
+    var weekNumber = Math.max(1, Math.min(plan.weeks.length, Number(plan.currentWeek) || 1));
+    return plan.weeks[weekNumber - 1];
   }
 
-  function renderPlan(record) {
-    var plan = record.generated_plan || record.generatedPlan;
-    var preferences = record.preferences || {};
-    if (!plan || !Array.isArray(plan.first) || !Array.isArray(plan.schedule)) {
-      throw new Error("Saved plan is incomplete.");
-    }
-    var programPath = validProgramPaths.indexOf(plan.path) > -1 ?
-      plan.path : "/programs/strength.html";
-    var preferenceSummary = [
-      preferences.sport,
-      (preferences.goals || []).join(", "),
-      preferences.days ? preferences.days + " days / week" : "",
-      preferences.duration ? preferences.duration + " minutes" : ""
-    ].filter(Boolean).join(" · ");
-
-    root.innerHTML = '<span class="eyebrow">Your personalized opening block</span>' +
-      '<h1>' + escapeHtml(plan.name) + '</h1>' +
-      '<p class="sub">' + escapeHtml(plan.summary) + '</p>' +
-      '<p class="review-edit">' + escapeHtml(preferenceSummary) + '</p>' +
-      '<a class="button start-plan" href="#session-one">Start session one</a>' +
-      '<div class="plan-grid saved-plan-grid">' +
-        '<article class="plan-card" id="session-one">' +
-          '<span class="eyebrow">Session one</span>' +
-          '<h3>Your exact workout</h3>' +
-          plan.first.map(function (exercise, index) {
-            return '<label class="exercise exercise-check" for="exercise-' + index + '">' +
-              '<input id="exercise-' + index + '" type="checkbox">' +
-              '<span><b>' + escapeHtml(exercise[0]) + '</b>' +
-              '<small>' + escapeHtml(exercise[1]) + '</small></span></label>';
-          }).join("") +
-        '</article>' +
-        '<article class="plan-card">' +
-          '<span class="eyebrow">Seven-day rhythm</span>' +
-          '<div class="schedule">' +
-            plan.schedule.map(function (entry) {
-              return '<div class="session"><b>' + escapeHtml(entry.day) + '</b>' +
-                '<span>' + escapeHtml(entry.workout) + '</span></div>';
-            }).join("") +
-          '</div>' +
-          '<p class="review-edit">' + escapeHtml(plan.rationale) + '</p>' +
-        '</article>' +
-      '</div>' +
-      '<div class="plan-actions">' +
-        '<a class="sign-in" href="/Register.html">Adjust my plan</a>' +
-        '<a class="sign-in" href="' + programPath + '">Explore the training library</a>' +
-      '</div>';
+  function currentSessions() {
+    return currentWeek().sessions || [];
   }
 
-  async function loadPlan() {
-    if (!authToken) {
-      signInAgain();
+  function selectedSession() {
+    return currentSessions()[selectedIndex] || currentSessions()[0];
+  }
+
+  function feedbackIdFor(session) {
+    return "workout:" + record.id + ":" + session.id;
+  }
+
+  function exerciseMarkup(exercises) {
+    if (!exercises.length) return '<p class="review-edit">No training movement is scheduled here.</p>';
+    return exercises.map(function (exercise) {
+      var startingLoad = exercise.startingLoad ?
+        '<small>Starting reference: ' + escapeHtml(exercise.startingLoad) + "</small>" : "";
+      return '<div class="exercise"><b>' + escapeHtml(exercise.name) + '</b><small>' +
+        escapeHtml(exercise.sets + " × " + exercise.reps + " · rest " +
+          exercise.rest + " · " + exercise.effort) + "</small>" + startingLoad + "</div>";
+    }).join("");
+  }
+
+  function weekMarkup(week) {
+    return '<div class="roadmap-week"><div class="session"><b>Week ' + week.week + " · " +
+      escapeHtml(week.label) + '</b><span>' + escapeHtml(week.progression) + "</span></div>" +
+      (week.sessions || []).map(function (session) {
+        return '<div class="session"><b>' + escapeHtml(session.day) + '</b><span>' +
+          escapeHtml(session.name + " · " + session.minutes + " min · " +
+            session.exercises.length + " movements") + "</span></div>";
+      }).join("") + "</div>";
+  }
+
+  function showMessage(message, isError) {
+    var output = document.getElementById("feedback-message");
+    if (!output) return;
+    output.textContent = message;
+    output.classList.toggle("error", !!isError);
+  }
+
+  function render() {
+    var sessions = currentSessions();
+    if (!sessions.length) {
+      root.innerHTML = '<span class="eyebrow">Recovery block</span><h1>' +
+        escapeHtml(plan.name) + '</h1><p class="sub">Your entered sport workload fills this week, so no extra ALEFIT session was added.</p>' +
+        '<article class="plan-card"><p>' + escapeHtml(plan.recovery) +
+        '</p></article><div class="plan-actions"><a class="button" href="/Register.html">Adjust availability</a></div>';
       return;
     }
-    try {
-      var response = await fetch(
-        "/api/apps/" + APP + "/entities/OnboardingPlan?limit=1",
-        { headers: { Authorization: "Bearer " + authToken } }
-      );
-      if (response.status === 401) {
-        signInAgain();
-        return;
+
+    var session = selectedSession();
+    var sessionFeedbackId = feedbackIdFor(session);
+    var alreadyLogged = !!loggedFeedbackIds[sessionFeedbackId] ||
+      (plan.appliedFeedbackIds || []).indexOf(sessionFeedbackId) !== -1;
+    root.innerHTML =
+      '<span class="eyebrow">Current week · ' + escapeHtml(currentWeek().week) + '</span>' +
+      '<h1>' + escapeHtml(plan.name) + '</h1><p class="sub">' + escapeHtml(plan.summary) + '</p>' +
+      '<article class="plan-card"><span class="eyebrow">Choose a scheduled session</span>' +
+      '<div class="field"><label for="session-choice">This week’s ALEFIT sessions</label><select id="session-choice">' +
+      sessions.map(function (item, index) {
+        return '<option value="' + index + '"' + (index === selectedIndex ? " selected" : "") + ">" +
+          escapeHtml(item.day + " — " + item.name) + "</option>";
+      }).join("") + "</select></div></article>" +
+      '<div class="plan-grid"><article class="plan-card"><span class="eyebrow">Selected session</span><h3>' +
+      escapeHtml(session.name) + " · " + escapeHtml(session.day) + '</h3><div id="today-exercises">' +
+      exerciseMarkup(adaptedSession ? adaptedSession.exercises : session.exercises) +
+      '</div><p id="adapt-note" class="review-edit">' +
+      escapeHtml(adaptedSession ? adaptedSession.adaptation : "") + "</p></article>" +
+      '<article class="plan-card"><span class="eyebrow">Today check-in</span>' +
+      '<div class="field"><label for="energy">Energy</label><select id="energy"><option value="okay">Okay</option><option value="low">Low</option><option value="high">High</option></select></div>' +
+      '<div class="field"><label for="soreness">Soreness</label><select id="soreness"><option value="low">Low</option><option value="moderate">Moderate</option><option value="high">High</option></select></div>' +
+      '<div class="field"><label for="minutes">Minutes available</label><input id="minutes" type="number" min="10" max="120" value="' +
+      escapeHtml(session.minutes) + '"></div>' +
+      '<div class="field"><label for="sport-extra">Extra sport activity</label><input id="sport-extra" maxlength="120" placeholder="Practice, game, or another hard activity"></div>' +
+      '<label class="exercise-check"><input id="pain" type="checkbox"> Pain or discomfort today</label>' +
+      '<button class="button" id="adapt" type="button">Adapt today</button></article></div>' +
+      '<article class="plan-card"><span class="eyebrow">Four-week roadmap</span>' +
+      plan.weeks.map(weekMarkup).join("") +
+      '<p class="review-edit"><b>Current progression:</b> ' + escapeHtml(plan.progression) +
+      '</p><p class="review-edit"><b>Recovery:</b> ' + escapeHtml(plan.recovery) + "</p></article>" +
+      '<article class="plan-card"><span class="eyebrow">Finish selected session</span>' +
+      (alreadyLogged ?
+        '<p class="notice">This scheduled session already has a saved workout log. Its original snapshot is preserved.</p>' :
+        '<div class="field"><label for="status">Outcome</label><select id="status"><option value="completed">Completed</option><option value="partial">Partially completed</option><option value="skipped">Skipped</option></select></div>' +
+        '<div class="field"><label for="difficulty">Difficulty</label><select id="difficulty"><option value="appropriate">Appropriate</option><option value="too-easy">Too easy</option><option value="too-hard">Too hard</option></select></div>' +
+        '<div class="field"><label for="notes">Weights, reps, time, or distance notes <span>(optional)</span></label><textarea id="notes" maxlength="500"></textarea></div>' +
+        '<label class="exercise-check"><input id="feedback-pain" type="checkbox"> Pain or discomfort during this session</label>' +
+        '<button class="button" id="save-feedback" type="button">Save workout feedback</button>') +
+      '<p class="review-edit" id="feedback-message"></p></article>' +
+      '<div class="plan-actions"><a class="sign-in" href="/Register.html">Build a replacement plan</a></div>';
+
+    document.getElementById("session-choice").onchange = function () {
+      selectedIndex = Number(this.value);
+      adaptedSession = null;
+      checkinSaved = false;
+      render();
+    };
+    document.getElementById("adapt").onclick = adaptToday;
+    var feedbackButton = document.getElementById("save-feedback");
+    if (feedbackButton) feedbackButton.onclick = saveFeedback;
+  }
+
+  async function adaptToday() {
+    var session = selectedSession();
+    var checkin = {
+      checkin_id:"readiness:" + record.id + ":" + session.id,
+      session_id:session.id,
+      energy:document.getElementById("energy").value,
+      soreness:document.getElementById("soreness").value,
+      minutesAvailable:Number(document.getElementById("minutes").value),
+      extraSportActivity:document.getElementById("sport-extra").value.trim(),
+      pain:document.getElementById("pain").checked,
+      recorded_at:new Date().toISOString()
+    };
+    adaptedSession = window.ALEFITTrainingEngine.adaptSession(session, checkin);
+    document.getElementById("today-exercises").innerHTML = exerciseMarkup(adaptedSession.exercises);
+    document.getElementById("adapt-note").textContent = adaptedSession.adaptation;
+
+    if (!checkinSaved) {
+      checkinSaved = true;
+      try {
+        var response = await fetch("/api/apps/" + APP_ID + "/entities/ReadinessCheck", {
+          method:"POST",
+          headers:{"Content-Type":"application/json", Authorization:"Bearer " + token},
+          body:JSON.stringify(checkin)
+        });
+        if (response.status === 401) reauthenticate();
+        if (!response.ok) checkinSaved = false;
+      } catch (error) {
+        checkinSaved = false;
       }
-      if (!response.ok) throw new Error("Plan request failed.");
-      var data = await response.json();
-      var records = Array.isArray(data) ? data : (data.data || data.items || []);
-      if (!records.length) {
-        root.innerHTML = '<span class="eyebrow">Build your plan</span>' +
-          '<h1>Your personalized plan starts here.</h1>' +
-          '<p class="sub">Answer six short questions to create your opening block.</p>' +
-          '<a class="button start-plan" href="/Register.html">Build my plan</a>';
-        return;
-      }
-      renderPlan(records[0]);
-    } catch (error) {
-      showFailure();
     }
   }
 
-  loadPlan();
+  async function updateFuturePlan() {
+    var update = await fetch("/api/apps/" + APP_ID + "/onboarding-plan", {
+      method:"POST",
+      headers:{"Content-Type":"application/json", Authorization:"Bearer " + token},
+      body:JSON.stringify({
+        onboarding_id:record.onboarding_id || record.id,
+        replace_id:record.id,
+        preferences:record.preferences || plan.profile,
+        generated_plan:pendingPlan
+      })
+    });
+    if (update.status === 401) return reauthenticate();
+    if (!update.ok) throw new Error("Plan update failed");
+    plan = pendingPlan;
+    record.generated_plan = plan;
+    pendingPlan = null;
+  }
+
+  async function retryPlanUpdate() {
+    var button = document.getElementById("retry-plan-update");
+    if (button) button.disabled = true;
+    try {
+      await updateFuturePlan();
+      render();
+      showMessage("Plan update completed. The existing workout log was not duplicated.", false);
+    } catch (error) {
+      if (button) button.disabled = false;
+      showMessage("The workout is safe, but the plan update still needs a retry.", true);
+    }
+  }
+
+  async function saveFeedback() {
+    var button = document.getElementById("save-feedback");
+    if (!button || button.disabled) return;
+    button.disabled = true;
+    button.textContent = "Saving workout…";
+    var session = selectedSession();
+    var feedbackId = feedbackIdFor(session);
+    var feedback = {
+      feedback_id:feedbackId,
+      session_id:session.id,
+      status:document.getElementById("status").value,
+      difficulty:document.getElementById("difficulty").value,
+      notes:document.getElementById("notes").value.trim(),
+      pain:document.getElementById("feedback-pain").checked,
+      recorded_at:new Date().toISOString()
+    };
+    var snapshot = JSON.parse(JSON.stringify(adaptedSession || session));
+
+    try {
+      var response = await fetch("/api/apps/" + APP_ID + "/workout-log", {
+        method:"POST",
+        headers:{"Content-Type":"application/json", Authorization:"Bearer " + token},
+        body:JSON.stringify({
+          feedback_id:feedbackId,
+          session_snapshot:snapshot,
+          feedback:feedback
+        })
+      });
+      if (response.status === 401) return reauthenticate();
+      if (!response.ok) throw new Error("Workout log failed");
+      loggedFeedbackIds[feedbackId] = true;
+      pendingPlan = window.ALEFITTrainingEngine.applyFeedback(plan, feedback);
+
+      try {
+        await updateFuturePlan();
+        render();
+        showMessage("Workout saved. Only future progression was updated; this session’s snapshot remains unchanged.", false);
+      } catch (updateError) {
+        button.textContent = "Workout saved";
+        var message = document.getElementById("feedback-message");
+        message.innerHTML = 'Your workout is saved. The plan update did not finish. ' +
+          '<button class="text-btn" id="retry-plan-update" type="button">Retry plan update</button>';
+        document.getElementById("retry-plan-update").onclick = retryPlanUpdate;
+      }
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Retry workout save";
+      showMessage("The workout was not saved. Retry when your connection is stable.", true);
+    }
+  }
+
+  async function load() {
+    if (!token) return reauthenticate();
+    try {
+      var headers = {Authorization:"Bearer " + token};
+      var responses = await Promise.all([
+        fetch("/api/apps/" + APP_ID + "/entities/OnboardingPlan?limit=1", {headers:headers}),
+        fetch("/api/apps/" + APP_ID + "/entities/WorkoutLog?limit=100", {headers:headers})
+      ]);
+      if (responses.some(function (response) { return response.status === 401; })) {
+        return reauthenticate();
+      }
+      if (!responses[0].ok) throw new Error("Plan request failed");
+      var planData = await responses[0].json();
+      var logData = responses[1].ok ? await responses[1].json() : [];
+      var plans = Array.isArray(planData) ? planData : (planData.data || planData.items || []);
+      var logs = Array.isArray(logData) ? logData : (logData.data || logData.items || []);
+      logs.forEach(function (log) {
+        if (log.feedback_id) loggedFeedbackIds[log.feedback_id] = true;
+      });
+      if (!plans.length) {
+        root.innerHTML = '<h1>Build your plan.</h1><p class="sub">Complete onboarding to create your four-week block.</p><a class="button" href="/Register.html">Start onboarding</a>';
+        return;
+      }
+      record = plans[0];
+      plan = record.generated_plan || record.generatedPlan;
+      if (!plan || !Array.isArray(plan.weeks) || !plan.weeks.length) {
+        root.innerHTML = '<h1>Your earlier plan is still safe.</h1><p class="sub">Build a new adaptive plan when you are ready. Your account and history will remain unchanged.</p><a class="button" href="/Register.html">Build adaptive plan</a>';
+        return;
+      }
+      var recoveredPlan = plan;
+      var recovered = false;
+      var feedbackPrefix = "workout:" + record.id + ":";
+      logs.slice().reverse().forEach(function (log) {
+        if (!log.feedback || !log.feedback_id) return;
+        if (log.feedback_id.indexOf(feedbackPrefix) !== 0) return;
+        if ((recoveredPlan.appliedFeedbackIds || []).indexOf(log.feedback_id) !== -1) return;
+        recoveredPlan = window.ALEFITTrainingEngine.applyFeedback(recoveredPlan, log.feedback);
+        recovered = true;
+      });
+      if (recovered) {
+        pendingPlan = recoveredPlan;
+        try {
+          await updateFuturePlan();
+          selectedIndex = 0;
+        } catch (recoveryError) {
+          render();
+          var recoveryMessage = document.getElementById("feedback-message");
+          if (recoveryMessage) {
+            recoveryMessage.innerHTML = 'Your workout log is safe, but its plan update still needs a retry. ' +
+              '<button class="text-btn" id="retry-plan-update" type="button">Retry plan update</button>';
+            document.getElementById("retry-plan-update").onclick = retryPlanUpdate;
+          }
+          return;
+        }
+      }
+      render();
+    } catch (error) {
+      root.innerHTML = '<h1>We could not load your plan.</h1><p class="sub">Nothing was changed.</p><button class="button" id="retry-plan">Retry</button>';
+      document.getElementById("retry-plan").onclick = load;
+    }
+  }
+
+  load();
 }());

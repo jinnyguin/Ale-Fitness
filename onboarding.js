@@ -30,6 +30,7 @@
     ["baseball", "Baseball", "Rotational power and throwing"],
     ["swimming", "Swimming", "Pool conditioning and strength"],
     ["track", "Track", "Speed and force"],
+    ["running", "Running", "Build toward your distance"],
     ["cross-country", "Cross country", "Aerobic durability"],
     ["strength", "Strength", "Build the big lifts"],
     ["hiit", "HIIT", "Work capacity and control"],
@@ -44,6 +45,7 @@
     swimming: [["conditioning", "Pool conditioning"], ["strength", "Pulling strength"], ["mobility", "Shoulder mobility"]],
     track: [["speed", "Sprint speed"], ["power", "Force production"], ["conditioning", "Race conditioning"]],
     "cross-country": [["conditioning", "Aerobic base"], ["durability", "Durable running"], ["speed", "Finish speed"]],
+    running: [["conditioning", "Build endurance"], ["durability", "Run comfortably"], ["speed", "Improve pace"]],
     strength: [["strength", "Build strength"], ["muscle", "Build muscle"], ["conditioning", "Work capacity"]],
     hiit: [["conditioning", "Work capacity"], ["fitness", "General fitness"], ["movement", "Move better"]],
     mobility: [["mobility", "More range"], ["durability", "Move comfortably"], ["movement", "Better control"]],
@@ -55,23 +57,8 @@
     ["bands", "Resistance bands", "Anchored or loop bands"],
     ["bodyweight", "Bodyweight", "No external load"],
     ["field", "Court / field", "Outdoor or sport space"],
-    ["pool", "Pool", "Access to a swimming pool"],
-    ["other", "Other", "Describe it in limitations"]
+    ["pool", "Pool", "Access to a swimming pool"]
   ];
-  var paths = {
-    basketball: ["/programs/basketball.html", "Basketball Performance"],
-    football: ["/programs/football.html", "Football Performance"],
-    soccer: ["/programs/soccer.html", "Soccer Performance"],
-    baseball: ["/programs/baseball.html", "Baseball Performance"],
-    swimming: ["/programs/swimming.html", "Swimming Performance"],
-    track: ["/programs/track.html", "Track Power"],
-    "cross-country": ["/programs/crosscountry.html", "Cross Country Performance"],
-    strength: ["/programs/strength.html", "Maximum Strength"],
-    hiit: ["/programs/hiit.html", "HIIT Conditioning"],
-    mobility: ["/programs/mobility.html", "Mobility"],
-    general: ["/programs/strength.html", "Maximum Strength"]
-  };
-
   function persist() {
     sessionStorage.setItem(DRAFT, JSON.stringify(state));
   }
@@ -124,8 +111,16 @@
       html = question(0, "What are you training for?", "Your plan starts with the demands you actually need to meet.",
         '<div class="answers">' + sports.map(function (item) {
           return tile(item[0], item[1], item[2], p.sport === item[0]);
-        }).join("") + '</div><div class="field"><label for="position">Position or event <span>(optional)</span></label>' +
-        '<input id="position" maxlength="60" placeholder="Example: guard, 200m, midfielder" value="' + esc(p.position) + '"></div>');
+        }).join("") + "</div>" +
+        (p.sport === "basketball" ?
+          '<div class="field"><label for="position">Court role</label><select id="position"><option value="not-sure">Not sure</option><option value="guard">Guard</option><option value="wing">Wing / forward</option><option value="center">Center</option></select></div>' : "") +
+        ((p.sport === "running" || p.sport === "cross-country") ?
+          '<div class="field"><label for="run-distance">Target distance</label><select id="run-distance"><option value="not-sure">Not sure</option><option value="5K">5K</option><option value="10K">10K</option><option value="half-marathon">Half marathon</option></select></div>' +
+          '<div class="field"><label for="run-volume">Recent weekly running minutes</label><input id="run-volume" type="number" min="0" max="600" placeholder="Enter 0 if you are starting" value="' + esc(p.weeklyRunVolume == null ? "" : p.weeklyRunVolume) + '"></div>' +
+          '<div class="field"><label for="longest-run">Longest comfortable run (minutes)</label><input id="longest-run" type="number" min="0" max="180" placeholder="Enter 0 if not sure" value="' + esc(p.longestRun == null ? "" : p.longestRun) + '"></div>' +
+          '<div class="field"><label for="race-detail">Race date or current pace <span>(optional)</span></label><input id="race-detail" maxlength="80" placeholder="Example: Oct 12 or 10:00 / mile" value="' + esc(p.raceDetail) + '"></div>' : "") +
+        (p.sport && ["general", "strength", "mobility", "hiit"].indexOf(p.sport) === -1 ?
+          '<div class="field"><label for="season">Season status</label><select id="season"><option value="not-sure">Not sure</option><option value="off-season">Off-season</option><option value="pre-season">Pre-season</option><option value="in-season">In-season</option></select></div>' : ""));
     } else if (state.step === 1) {
       var goals = goalMap[p.sport] || goalMap.general;
       html = question(1, "Choose up to three outcomes.", "Your first choice gets the most emphasis in the opening block.",
@@ -137,8 +132,15 @@
         '<div class="answers">' + [
           ["new", "New to structured training", "Build technique and consistency"],
           ["regular", "Training regularly", "Progress with steady loading"],
-          ["advanced", "Experienced athlete", "Specific, demanding work"]
-        ].map(function (item) { return tile(item[0], item[1], item[2], p.experience === item[0]); }).join("") + "</div>", "Continue", true);
+          ["advanced", "Experienced athlete", "Specific, demanding work"],
+          ["not-sure", "Not sure", "Start conservatively and learn from feedback"]
+        ].map(function (item) { return tile(item[0], item[1], item[2], p.experience === item[0]); }).join("") + "</div>" +
+        '<div class="field"><label for="consistency">Recent training consistency</label><select id="consistency"><option value="not-sure">Not sure</option><option value="low">Less than once most weeks</option><option value="steady">1–3 sessions most weeks</option><option value="high">4+ sessions most weeks</option></select><p class="hint">“Not sure” starts with lower volume and lets your feedback guide progression.</p></div>' +
+        (p.sport === "strength" ?
+          '<div class="field"><label for="familiarity">Basic lift familiarity</label><select id="familiarity"><option value="not-sure">Not sure</option><option value="basic">Learning squat, hinge, and press patterns</option><option value="confident">Confident with the main lifts</option></select></div>' +
+          '<div class="field"><label for="working-weights">Current working weights <span>(optional)</span></label><input id="working-weights" maxlength="100" placeholder="Example: goblet squat 35 lb" value="' + esc(p.workingWeights) + '"></div>' : "") +
+        (p.sport === "general" ?
+          '<div class="field"><label for="activity">Preferred activity</label><select id="activity"><option value="not-sure">Not sure</option><option value="walking">Walking</option><option value="cycling">Cycling</option><option value="mobility">Mobility / yoga</option></select></div>' : ""), "Continue", true);
     } else if (state.step === 3) {
       var conflict = p.equipment.indexOf("pool") > -1 && p.sport !== "swimming";
       html = question(3, "What can you train with?", "Select every option you can use. Portable tools stay useful alongside a court, field or pool.",
@@ -163,115 +165,22 @@
     if (age) age.value = p.age || "";
     var limitations = document.getElementById("limitations");
     if (limitations) limitations.value = p.limitations || "";
+    ["position", "run-distance", "season", "consistency", "familiarity", "activity"].forEach(function (id) {
+      var input = document.getElementById(id);
+      if (!input) return;
+      var key = {
+        "run-distance":"runDistance"
+      }[id] || id;
+      input.value = p[key] || "not-sure";
+    });
     bind();
   }
 
   function buildPlan() {
-    var p = state.prefs;
-    var sport = p.sport || "general";
-    var path = paths[sport] || paths.general;
-    var sets = p.experience === "new" || p.age === "under18" || p.age === "55plus" ? 2 : p.experience === "advanced" ? 4 : 3;
-    var primary = (p.goals[0] || "movement");
-    var catalog = {
-      jump: [["Squat jump", "3 × 4"], ["Split squat", sets + " × 8 / side"], ["Lateral bound", "3 × 5 / side"]],
-      quickness: [["Acceleration start", "6 × 10m"], ["Lateral shuffle", "5 × 10m"], ["Single-leg balance", "3 × 20 sec"]],
-      speed: [["Acceleration start", "6 × 20m"], ["A-skip", "4 × 20m"], ["Split squat", sets + " × 8 / side"]],
-      power: [["Broad jump", "4 × 3"], ["Clean pull", sets + " × 4"], ["Farmer carry", "3 × 30m"]],
-      strength: [["Goblet squat", sets + " × 8"], ["Push-up", sets + " × 8"], ["Romanian deadlift", sets + " × 8"]],
-      conditioning: [["Tempo intervals", "6 × 45 sec"], ["Step-up", sets + " × 8 / side"], ["Dead bug", "3 × 8 / side"]],
-      mobility: [["90/90 transitions", "3 × 6 / side"], ["Cossack squat", "3 × 6 / side"], ["Wall slide", "3 × 8"]],
-      fitness: [["Circuit squat", sets + " × 10"], ["Incline push-up", sets + " × 8"], ["Brisk walk", "12 min"]],
-      durability: [["Isometric split squat", "3 × 20 sec"], ["Calf raise", "3 × 12"], ["Side plank", "3 × 20 sec"]],
-      movement: [["Tempo squat", sets + " × 8"], ["Bear crawl", "3 × 20 sec"], ["Dead bug", "3 × 8 / side"]],
-      agility: [["Deceleration stick", "4 × 4"], ["Lateral shuffle", "4 × 10m"], ["Single-leg balance", "3 × 20 sec"]],
-      muscle: [["Goblet squat", sets + " × 10"], ["Dumbbell floor press", sets + " × 10"], ["Romanian deadlift", sets + " × 10"]]
-    };
-    var exercises = (catalog[primary] || catalog.movement).slice();
-    p.goals.slice(1).forEach(function (goal) {
-      var candidate = catalog[goal] && catalog[goal][0];
-      if (candidate && !exercises.some(function (item) { return item[0] === candidate[0]; })) exercises.push(candidate.slice());
-    });
-    var eq = p.equipment;
-    var sportSupport = {
-      basketball: ["Snap-down to stick", "3 × 5"],
-      football: ["Three-point acceleration stance", "4 × 10m"],
-      soccer: ["Controlled change of direction", "4 × 3 / side"],
-      baseball: ["Half-kneeling rotation", "3 × 8 / side"],
-      swimming: eq.indexOf("pool") > -1 ? ["Easy technique swim", "8 × 25m"] : ["Prone swimmer", "3 × 8"],
-      track: ["Wall sprint drill", "4 × 10 sec"],
-      "cross-country": ["Easy aerobic run", Math.min(35, Number(p.duration || 30)) + " min"],
-      strength: ["Suitcase carry", "3 × 30m"],
-      hiit: ["Low-impact interval", "6 × 30 sec"],
-      mobility: ["Controlled articular rotations", "6 min"],
-      general: ["Brisk walk", "12 min"]
-    };
-    if (sportSupport[sport]) exercises.push(sportSupport[sport]);
-    var hasLoad = eq.indexOf("gym") > -1 || eq.indexOf("dumbbells") > -1;
-    var hasField = eq.indexOf("field") > -1;
-    exercises = exercises.map(function (item) {
-      var name = item[0];
-      if (!hasLoad) {
-        name = name.replace("Goblet squat", "Tempo bodyweight squat")
-          .replace("Dumbbell floor press", "Push-up variation")
-          .replace("Romanian deadlift", "Single-leg hip hinge")
-          .replace("Clean pull", eq.indexOf("bands") > -1 ? "Band high pull" : "Broad jump")
-          .replace("Farmer carry", "Bear crawl")
-          .replace("Suitcase carry", "Side plank");
-      } else if (eq.indexOf("gym") === -1) {
-        name = name.replace("Clean pull", "Dumbbell high pull");
-      }
-      if (!hasField) {
-        name = name.replace(/Acceleration start/g, "Wall acceleration drill")
-          .replace(/Lateral shuffle/g, "Lateral step and stick")
-          .replace(/Controlled change of direction/g, "Lateral step and stick")
-          .replace(/Three-point acceleration stance/g, "Wall acceleration stance");
-      }
-      return [name, item[1]];
-    });
-    var exerciseLimit = Number(p.duration || 45) < 35 ? 3 : Number(p.duration || 45) >= 60 ? 5 : 4;
-    exercises = exercises.filter(function (item, index, list) {
-      return list.findIndex(function (other) { return other[0] === item[0]; }) === index;
-    }).slice(0, exerciseLimit);
-    if (p.limitations) exercises = exercises.map(function (x) { return [x[0] + " — pain-free range only", x[1]]; });
-    var days = Number(p.days || 3);
-    var dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    var dayTerms = [["monday", "mon"], ["tuesday", "tue"], ["wednesday", "wed"], ["thursday", "thu"], ["friday", "fri"], ["saturday", "sat"], ["sunday", "sun"]];
-    var loadText = (p.load || "").toLowerCase();
-    var occupied = dayTerms.map(function (terms) {
-      return terms.some(function (term) { return new RegExp("\\b" + term).test(loadText); });
-    });
-    var preferred = [0, 2, 4, 5, 1, 3, 6];
-    var training = [];
-    preferred.forEach(function (index) {
-      if (training.length < days && !occupied[index]) training.push(index);
-    });
-    preferred.forEach(function (index) {
-      if (training.length < days && training.indexOf(index) === -1) training.push(index);
-    });
-    var sessionNames = ["Primary goal session", "Strength and support", "Secondary goal session", "Short technique session"];
-    var schedule = dayNames.map(function (day, index) {
-      var workout;
-      if (occupied[index]) workout = "Practice / game — no extra conditioning";
-      else if (training.indexOf(index) > -1) workout = sessionNames[training.indexOf(index)] || "Training";
-      else {
-        var nextToDemand = occupied[index - 1] || occupied[index + 1] ||
-          training.indexOf(index - 1) > -1 || training.indexOf(index + 1) > -1;
-        workout = nextToDemand ? "Recovery mobility / easy walk" : "Full rest";
-      }
-      return { day: day, workout: workout };
-    });
-    return {
-      path: path[0], name: path[1],
-      summary: "A " + days + "-day " + sport + " block built around " + primary + ". " +
-        (p.load ? "It leaves room around " + p.load + "." : "Hard sessions are separated by lower-demand days.") ,
-      first: exercises,
-      schedule: schedule,
-      rationale: "Goal priority: " + p.goals.join(", ") + ". " + (p.position ? "The " + p.position + " role/event is carried into exercise emphasis. " : "") +
-        (p.experience === "new" ? "Volume is reduced while technique is learned. " : "") +
-        (p.age === "under18" || p.age === "55plus" ? "Intensity is conservative with extra recovery. " : "") +
-        (eq.indexOf("bodyweight") > -1 ? "Portable bodyweight substitutions are used. " : "") +
-        (p.limitations ? "The note you gave is carried as a training constraint, not interpreted medically." : "")
-    };
+    if (!window.ALEFITTrainingEngine) {
+      throw new Error("The ALEFIT training engine did not load. Refresh before saving a plan.");
+    }
+    return window.ALEFITTrainingEngine.generate(state.prefs, state.context || {});
   }
 
   function preview() {
@@ -285,20 +194,29 @@
     ];
     return '<section class="preview"><span class="eyebrow">Plan review <b class="step-count">PREVIEW</b></span><h1>This is your opening block.</h1>' +
       '<p class="sub">Review every answer before creating your account. Edit any group without restarting.</p><div class="plan-banner"><span class="eyebrow">Recommended path</span><h2>' +
-      esc(state.plan.name) + "</h2><p>" + esc(state.plan.summary) + '</p></div><div class="answer-summary">' +
+       esc(state.plan.name) + "</h2><p>" + esc(state.plan.summary) + '</p></div><div class="answer-summary">' +
       labels.map(function (x) { return '<div class="summary-row"><div><span class="eyebrow">' + x[0] + '</span><b>' + esc(x[1] || "Not set") + '</b></div><button type="button" class="text-btn edit-answer" data-step="' + x[2] + '">Edit</button></div>'; }).join("") +
       '</div><div class="plan-grid"><article class="plan-card"><span class="eyebrow">First session</span><h3>Start controlled</h3>' +
-      state.plan.first.map(function (x) { return '<div class="exercise"><b>' + esc(x[0]) + "</b><span>" + esc(x[1]) + "</span></div>"; }).join("") +
+       state.plan.first.map(function (x) { return '<div class="exercise"><b>' + esc(x.name || x[0]) + "</b><small>" + esc(x.sets ? x.sets + " × " + x.reps + " · " + x.rest + " · " + x.effort : x[1]) + "</small></div>"; }).join("") +
       '</article><article class="plan-card"><span class="eyebrow">Seven-day rhythm</span><div class="schedule">' +
-      state.plan.schedule.map(function (x) { return '<div class="session"><b>' + x.day + "</b><span>" + esc(x.workout) + "</span></div>"; }).join("") +
-      '</div><p class="review-edit">' + esc(state.plan.rationale) + '</p></article></div>' + footer(token() ? "Save this plan" : "Create account & save plan", true) + "</section>";
+       state.plan.schedule.map(function (x) { return '<div class="session"><b>' + x.day + "</b><span>" + esc(x.title || x.workout) + "</span></div>"; }).join("") +
+       '</div><p class="review-edit"><b>4-week progression:</b> ' + esc(state.plan.progression) + '</p><p class="review-edit"><b>Recovery:</b> ' + esc(state.plan.recovery) + '</p></article></div><article class="plan-card"><span class="eyebrow">Why this plan</span>' + state.plan.explanations.slice(0,3).map(function(x){return "<p class=\"review-edit\">"+esc(x)+"</p>";}).join("") + '</article>' + footer(token() ? "Save this plan" : "Create account & save plan", true) + "</section>";
   }
 
   function bind() {
     root.querySelectorAll(".tile").forEach(function (button) {
       button.onclick = function () {
         var value = button.dataset.value;
-        if (state.step === 0) state.prefs.sport = value;
+        if (state.step === 0) {
+          if (state.prefs.sport !== value) {
+            state.prefs.goals = [];
+            ["position", "season", "runDistance", "weeklyRunVolume", "longestRun", "raceDetail",
+              "familiarity", "workingWeights", "activity"].forEach(function (key) {
+              delete state.prefs[key];
+            });
+          }
+          state.prefs.sport = value;
+        }
         if (state.step === 1) {
           var index = state.prefs.goals.indexOf(value);
           if (index > -1) state.prefs.goals.splice(index, 1);
@@ -329,8 +247,25 @@
   }
   function captureCurrentInputs() {
     var p = state.prefs;
-    if (state.step === 0 && document.getElementById("position")) {
-      p.position = document.getElementById("position").value.trim();
+    if (state.step === 0) {
+      ["position", "season", "run-distance", "run-volume", "longest-run", "race-detail"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var key = {
+          "run-distance":"runDistance",
+          "run-volume":"weeklyRunVolume",
+          "longest-run":"longestRun",
+          "race-detail":"raceDetail"
+        }[id] || id;
+        p[key] = el.type === "number" ? Number(el.value || 0) : el.value.trim();
+      });
+    }
+    if (state.step === 2) {
+      ["consistency", "familiarity", "working-weights", "activity"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        p[id === "working-weights" ? "workingWeights" : id] = el.value.trim();
+      });
     }
     if (state.step === 4 && document.getElementById("duration")) {
       p.duration = Number(document.getElementById("duration").value);
@@ -438,5 +373,23 @@
       showError("Your account is ready, but the plan was not saved. Retry without creating the account again.");
     }
   }
+  async function loadContextThenRender() {
+    if (!token() || state.context) return render();
+    try {
+      var headers={Authorization:"Bearer "+token()};
+      var results=await Promise.all([
+        fetch("/api/apps/"+APP+"/entities/WorkoutLog?limit=20",{headers:headers}),
+        fetch("/api/apps/"+APP+"/entities/ReadinessCheck?limit=10",{headers:headers}),
+        fetch("/api/apps/"+APP+"/entities/RecoveryScore?limit=10",{headers:headers})
+      ]);
+      if(results.some(function(result){return result.status===401;}))return returnToSignIn();
+      var json=await Promise.all(results.map(function(r){return r.ok?r.json():[];}));
+      function records(value){return Array.isArray(value)?value:(value.data||value.items||[]);}
+      state.context={workoutLogs:records(json[0]),readiness:records(json[1]).concat(records(json[2]))};
+    } catch(e) { state.context={workoutLogs:[],readiness:[]}; }
+    render();
+  }
+  var originalRender=render;
+  render=function(){ if(state.step===6&&!state.context&&token()){loadContextThenRender();return;} originalRender(); };
   render();
 }());

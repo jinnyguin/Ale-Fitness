@@ -1,0 +1,235 @@
+ALEFIT’s personalization is still too generic. I want you to improve how answers change the actual training—not just add more questions or insert someone’s sport into a generic workout.
+
+Inspect the current onboarding, plan-generation logic, exercise database, and saved athlete profiles. Then implement genuine personalization using the existing architecture.
+
+Keep the interface clean. Do not redesign unrelated pages.
+
+1. MAKE EVERY ANSWER MATTER
+
+The training plan must meaningfully respond to:
+- Primary sport or general fitness.
+- Specific goals and their priority.
+- Position, event, or discipline when relevant.
+- Training experience and recent consistency.
+- Available equipment.
+- Available training days and session duration.
+- Existing sports practices, games, or competitions.
+- Relevant age considerations and movement limitations.
+- Actual workout history and readiness feedback.
+
+For each input, identify what programming decision it changes. If a question does not affect the plan, remove it or implement its purpose.
+
+2. USE SHORT, BRANCHING ONBOARDING
+
+Do not give everyone the same long questionnaire.
+
+Start with approximately six core screens. Reveal a small number of relevant follow-ups based on previous answers.
+
+Examples:
+
+Basketball:
+- Main priority: jumping, acceleration, strength, conditioning, or general athleticism.
+- Optional position.
+- Existing practice and game days.
+- In-season or off-season.
+
+Running:
+- Target distance or general running goal.
+- Recent weekly running volume.
+- Longest comfortable recent run.
+- Optional race date.
+- Current pace only if known; do not require it.
+
+Strength/muscle:
+- Primary goal.
+- Recent lifting consistency.
+- Familiarity with basic movements.
+- Available equipment.
+- Optional recent working weights, never a required max-strength test.
+
+General fitness:
+- Desired improvement.
+- Current activity level.
+- Preferred activities.
+- Practical schedule.
+
+Let users select “Not sure.” Explain how the app will start conservatively and learn from feedback.
+
+Do not pretend every sport has expert-specific support. Use an honest general athletic-development fallback where necessary.
+
+3. PERSONALIZE THE ACTUAL PROGRAM
+
+Build a structured athlete profile and use it to determine:
+- Weekly training frequency.
+- Session placement around practices and competitions.
+- Training emphasis.
+- Exercise and drill selection.
+- Sets, reps, time, distance, rest, and effort.
+- Starting difficulty.
+- Exercise substitutions.
+- Progression and recovery.
+
+Distinguish goals properly:
+- Strength should affect loading, rest, and progression.
+- Muscle development should affect volume and exercise selection.
+- Power should emphasize quality, appropriate recovery, and avoiding excessive fatigue.
+- Endurance should affect conditioning structure and workload.
+- Sport preparation should consider existing sport demands.
+
+Do not simply give every athlete the same bodybuilding split.
+
+Account for total workload: a hard sports practice is not a rest day just because it was not an ALEFIT workout.
+
+4. CREATE A COHERENT MULTIWEEK PLAN
+
+The plan should be more than unrelated daily workouts.
+
+Build a sensible progression:
+- An appropriate starting week.
+- Repeatable key exercises so progress can be measured.
+- Gradual changes based on completion and difficulty.
+- Recovery adjustments when needed.
+- Sport-season or event considerations where relevant.
+
+Do not change exercises randomly every day to make the app seem intelligent.
+
+Upcoming sessions may adapt. Completed workouts must remain an accurate record of what the user did.
+
+5. USE A STRUCTURED EXERCISE DATABASE
+
+Exercises and drills should include metadata such as:
+- Movement pattern.
+- Equipment required.
+- Difficulty and prerequisites.
+- Relevant training qualities.
+- Impact and fatigue considerations.
+- Appropriate alternatives.
+- Prescription parameters.
+
+Use that information to filter and select exercises.
+
+Equipment availability, schedule, and session-duration limits should be enforced—not treated as suggestions.
+
+Do not treat simple keyword matching as reliable injury screening. Avoid diagnosing or prescribing rehabilitation. Provide conservative options and recommend qualified guidance where appropriate.
+
+6. SHOW THE PERSONALIZATION BEFORE SIGNUP
+
+The preview should make the connection between answers and programming obvious.
+
+Show:
+- Their training focus.
+- Their weekly schedule.
+- A useful first workout.
+- Recovery days.
+- Three concise explanations of specific decisions.
+
+For example:
+“You have basketball practice Tuesday and Thursday, so we placed your additional strength sessions on Monday and Saturday.”
+
+Only show explanations that accurately describe decisions the planner actually made.
+
+Include a “Change answers” option that updates the real plan.
+
+Then invite account creation:
+“Save my plan and start today.”
+
+Save the reviewed profile and starting plan—not a different generic plan after signup.
+
+7. LEARN FROM COMPLETED TRAINING
+
+After a session, collect minimal useful feedback:
+- Completed, partially completed, or skipped.
+- Too easy, appropriate, or too hard.
+- Relevant logged weights, reps, time, or distance.
+- Optional pain or discomfort flag.
+
+Use this information to:
+- Progress gradually when appropriate.
+- Hold or reduce difficulty when necessary.
+- Adjust unrealistic session lengths.
+- Suggest substitutions for unsuitable exercises.
+- Reorganize missed sessions without cramming everything into the next day.
+
+Do not automatically progress a user merely because a calendar week passed.
+
+8. ADAPT TO TODAY WITHOUT LOSING THE PLAN
+
+Use a quick check-in:
+- Energy.
+- Soreness.
+- Time available.
+- Relevant additional sport activity.
+
+If the user only has 20 minutes instead of 45, prioritize the important work and reduce the session accordingly.
+
+If fatigue is elevated, consider lighter work or recovery.
+
+Explain significant changes briefly. Do not rewrite the entire program after one low-energy day.
+
+Pain must not be treated as normal soreness or something to push through.
+
+9. MAKE REST DAYS PERSONALIZED TOO
+
+Recovery guidance should reflect recent workload and upcoming training.
+
+Offer appropriate options such as complete rest, easy movement, or gentle mobility. Do not make recovery another intense session or imply that optional activity is mandatory.
+
+10. DO NOT FAKE AI INTELLIGENCE
+
+A chatbot or an AI-generated paragraph is not sufficient personalization.
+
+Use structured programming rules and validation. If an LLM is used:
+- Call it server-side.
+- Validate its output.
+- Enforce equipment, time, workload, and safety constraints.
+- Provide a reliable fallback.
+- Do not expose API keys.
+- Do not add paid services without approval.
+
+Clearly distinguish implemented rules from actual model capabilities.
+
+11. PROVE THAT PERSONALIZATION WORKS
+
+Create test profiles with meaningfully different needs, including:
+
+A. Beginner basketball athlete with dumbbells, two available strength days, and three weekly practices.
+
+B. Experienced basketball athlete with full-gym access, four available training days, and an off-season power goal.
+
+C. Beginner runner preparing for a first 5K with low recent running volume.
+
+D. Experienced lifter focused on muscle growth with limited 30-minute sessions.
+
+E. General-fitness user training at home with bodyweight only.
+
+For each profile, verify differences in:
+- Weekly structure.
+- Exercises.
+- Volume and effort.
+- Conditioning.
+- Recovery.
+- Progression.
+
+Also test changing one input at a time:
+- Removing equipment changes incompatible exercises.
+- Reducing session time reduces actual prescribed work.
+- Adding a game changes the surrounding workload where appropriate.
+- Repeated “too hard” feedback prevents automatic progression.
+- Missed sessions do not produce unsafe catch-up schedules.
+
+Do not merely test whether a plan was returned. Test whether it obeys the profile.
+
+DELIVERY
+
+Implement the improvements and provide a working preview.
+
+Show me:
+1. What was generic before.
+2. Which answers now affect which decisions.
+3. Two contrasting example plans generated by the actual engine.
+4. Which adaptation rules were tested.
+5. Any limitations that remain.
+
+Preserve existing accounts and history. Do not publish to Alefit.org or change hosting without approval.
+
+The goal is that two people with different sports, abilities, equipment, schedules, and workloads receive meaningfully different guidance—and their plans become better informed as they train.

@@ -957,7 +957,23 @@ def ensure_onboarding_plan_index():
         pass
 
 
+def ensure_workout_log_index():
+    """Guarantee one workout log per owner-bound feedback identifier."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            """CREATE UNIQUE INDEX IF NOT EXISTS entities_workout_feedback_unique
+               ON entities (user_id, ((data->>'feedback_id')))
+               WHERE entity_type='WorkoutLog' AND data ? 'feedback_id'"""
+        )
+        conn.close()
+    except Exception:
+        pass
+
+
 ensure_onboarding_plan_index()
+ensure_workout_log_index()
 
 
 @app.route("/api/apps/<app_id>/onboarding-plan", methods=["POST"])
@@ -982,7 +998,7 @@ def save_onboarding_plan(app_id):
 
     allowed_sports = {
         "basketball", "football", "soccer", "baseball", "swimming", "track",
-        "cross-country", "strength", "hiit", "mobility", "general",
+        "running", "cross-country", "strength", "hiit", "mobility", "general",
     }
     allowed_paths = {
         "/programs/baseball.html", "/programs/basketball.html",
@@ -1037,6 +1053,65 @@ def save_onboarding_plan(app_id):
     stored["created_date"] = row[1].isoformat() if row[1] else ""
     stored["updated_date"] = row[2].isoformat() if row[2] else ""
     return jsonify(stored), status
+
+
+@app.route("/api/apps/<app_id>/workout-log", methods=["POST"])
+def save_workout_log(app_id):
+    """Idempotently store an immutable completed-session snapshot."""
+    user, token, err = require_auth()
+    if err:
+        return err
+
+    body = request.get_json(force=True) or {}
+    feedback_id = str(body.get("feedback_id") or "").strip()
+    session_snapshot = body.get("session_snapshot")
+    feedback = body.get("feedback")
+    if not feedback_id or len(feedback_id) > 180:
+        return jsonify({"error": "A valid feedback identifier is required."}), 400
+    if not isinstance(session_snapshot, dict) or not isinstance(feedback, dict):
+        return jsonify({"error": "Session snapshot and feedback are required."}), 400
+
+    stored = {
+        "feedback_id": feedback_id,
+        "session_snapshot": session_snapshot,
+        "feedback": feedback,
+    }
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        entity_id = str(uuid.uuid4())
+        cur.execute(
+            """INSERT INTO entities (id, user_id, entity_type, data)
+               VALUES (%s, %s, 'WorkoutLog', %s)
+               ON CONFLICT (user_id, ((data->>'feedback_id')))
+                 WHERE entity_type='WorkoutLog' AND data ? 'feedback_id'
+               DO NOTHING
+               RETURNING id, created_at, updated_at""",
+            (entity_id, user["id"], json.dumps(stored)),
+        )
+        row = cur.fetchone()
+        created = bool(row)
+        if not row:
+            cur.execute(
+                """SELECT id, created_at, updated_at
+                   FROM entities
+                   WHERE user_id=%s AND entity_type='WorkoutLog'
+                     AND data->>'feedback_id'=%s
+                   LIMIT 1""",
+                (user["id"], feedback_id),
+            )
+            row = cur.fetchone()
+        conn.close()
+    except Exception:
+        return jsonify({"error": "Could not save workout feedback. Please retry."}), 503
+
+    if not row:
+        return jsonify({"error": "Could not verify workout feedback."}), 503
+    stored["id"] = row[0]
+    stored["created"] = created
+    stored["created_date"] = row[1].isoformat() if row[1] else ""
+    stored["updated_date"] = row[2].isoformat() if row[2] else ""
+    return jsonify(stored), 201 if created else 200
 
 
 @app.route("/api/apps/<app_id>/entities/<entity_type>", methods=["GET"])
@@ -1108,6 +1183,8 @@ def create_entity(app_id, entity_type):
     user, token, err = require_auth()
     if err:
         return err
+    if entity_type == "WorkoutLog":
+        return jsonify({"error": "Workout logs are immutable. Use the workout feedback endpoint."}), 405
 
     body = request.get_json(force=True) or {}
     body.pop("id", None)
@@ -1172,6 +1249,8 @@ def update_entity(app_id, entity_type, entity_id):
     user, token, err = require_auth()
     if err:
         return err
+    if entity_type == "WorkoutLog":
+        return jsonify({"error": "Completed workout snapshots cannot be changed."}), 405
 
     body = request.get_json(force=True) or {}
     body.pop("id", None)
@@ -1214,6 +1293,8 @@ def delete_entity(app_id, entity_type, entity_id):
     user, token, err = require_auth()
     if err:
         return err
+    if entity_type == "WorkoutLog":
+        return jsonify({"error": "Completed workout snapshots cannot be deleted."}), 405
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -1235,6 +1316,8 @@ def delete_many_entities(app_id, entity_type):
     user, token, err = require_auth()
     if err:
         return err
+    if entity_type == "WorkoutLog":
+        return jsonify({"error": "Completed workout snapshots cannot be deleted."}), 405
     body = request.get_json(force=True) or {}
     ids = body if isinstance(body, list) else body.get("ids", [])
     try:
