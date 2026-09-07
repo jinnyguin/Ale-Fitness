@@ -21,6 +21,7 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 # explicitly named secret for admin auth calls.
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
 LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET") or APP_ID
@@ -2199,6 +2200,59 @@ def _scan_food_openai(image_data_url):
         return None, str(e)
 
 
+def _scan_food_groq(image_data_url):
+    """Identify food from an image using Groq's free vision tier."""
+    if not GROQ_API_KEY:
+        return None, "no_key"
+    payload = {
+        "model": "qwen/qwen3.6-27b",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a nutrition expert. Identify the food in the image and "
+                    "estimate nutrition for the portion shown. Respond with valid JSON "
+                    'only: {"name": string, "calories": number, "protein": number, '
+                    '"carbs": number, "fat": number}. Protein, carbs and fat are in '
+                    "grams. If no food is visible, set name to an empty string."
+                ),
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What food is this and what is its nutrition?"},
+                    {"type": "image_url", "image_url": {"url": image_data_url}},
+                ],
+            },
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.2,
+        "max_completion_tokens": 400,
+    }
+    try:
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/chat/completions",
+            data=json.dumps(payload).encode(),
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            result = json.loads(resp.read())
+        content = result["choices"][0]["message"]["content"]
+        cleaned = re.sub(r"```(?:json)?|```", "", content).strip()
+        return json.loads(cleaned), None
+    except urllib.error.HTTPError as e:
+        try:
+            detail = json.loads(e.read()).get("error", {}).get("message", "")
+        except Exception:
+            detail = ""
+        return None, f"Groq vision service error ({e.code}){': ' + detail if detail else ''}"
+    except Exception as e:
+        return None, str(e)
+
+
 @app.route("/api/apps/<app_id>/scan-food", methods=["POST"])
 def scan_food(app_id):
     user, token, err = require_auth()
@@ -2210,10 +2264,24 @@ def scan_food(app_id):
     if not image or not image.startswith("data:image"):
         return jsonify({"error": "No valid image provided."}), 400
 
-    if not OPENAI_API_KEY:
+    if len(image) > 12 * 1024 * 1024:
+        return jsonify({"error": "That image is too large. Please choose a smaller photo."}), 413
+
+    image_type = image.split(";", 1)[0].lower()
+    if image_type not in {"data:image/jpeg", "data:image/png", "data:image/webp"}:
+        return jsonify({"error": "Please upload a JPG, PNG, or WebP image."}), 400
+
+    if not GROQ_API_KEY and not OPENAI_API_KEY:
         return jsonify({"error": "Photo scanning needs the AI vision service to be configured. In the meantime, use the AI Lookup or manual entry below."}), 503
 
-    result, scan_err = _scan_food_openai(image)
+    # Groq is the primary provider because it does not require an end-user
+    # account. Only use the older OpenAI path when Groq is not configured; this
+    # keeps a Groq rate-limit or outage from unexpectedly using a paid provider.
+    result, scan_err = _scan_food_groq(image)
+    if scan_err and scan_err != "no_key" and not result:
+        print("Groq food scan failed:", scan_err)
+    if not GROQ_API_KEY and OPENAI_API_KEY:
+        result, scan_err = _scan_food_openai(image)
     if scan_err or not result or not result.get("name"):
         return jsonify({"error": "Could not identify food in the photo. Try a clearer, well-lit photo or use AI Lookup instead."}), 422
 

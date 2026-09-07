@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet"/>
-  <script src="https://js.puter.com/v2/"></script>
   <script>
   (function(){
     var t = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
@@ -247,7 +246,7 @@
           </div>
         </div>
         <div class="status-msg" id="photo-status"></div>
-        <p style="font-size:.72rem;color:var(--muted);margin:.5rem 0 0;text-align:center">Powered by free AI — a one-time Puter sign-in popup may appear. Works best in the published app or a full browser tab.</p>
+        <p style="font-size:.72rem;color:var(--muted);margin:.5rem 0 0;text-align:center">Powered by free AI — no additional account or sign-in is required.</p>
         <div class="photo-result hidden" id="photo-result">
           <div class="photo-result-title">Detected Food</div>
           <div class="photo-result-name" id="photo-result-name">—</div>
@@ -502,43 +501,18 @@ async function scanPhoto(){
   statusEl.textContent = '';
   showOverlay('Starting AI...');
   try {
-    /* wait up to 8s for puter.js to load */
-    await new Promise(function(resolve, reject){
-      if(window.puter && window.puter.ai){ resolve(); return; }
-      var n=0; var iv=setInterval(function(){
-        n++;
-        if(window.puter && window.puter.ai){ clearInterval(iv); resolve(); }
-        else if(n>80){ clearInterval(iv); reject(new Error('AI service failed to load. Refresh and try again.')); }
-      },100);
+    showOverlay('AI is reading your meal...');
+    var response = await fetch('/api/apps/' + (window._AF_APP || '6a1f3d189ebdbe71fa7d256c') + '/scan-food', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + getToken()
+      },
+      body: JSON.stringify({image: img.src})
     });
-
-    /* ensure a free Puter session (popup opens on this button click) */
-    if(puter.auth && typeof puter.auth.isSignedIn==='function' && !puter.auth.isSignedIn()){
-      hideOverlay();
-      statusEl.className=''; statusEl.textContent='Opening Puter sign-in (free, one-time)...';
-      await puter.auth.signIn();
-      statusEl.textContent='';
-      showOverlay('AI is reading your meal...');
-    } else {
-      showOverlay('AI is reading your meal...');
-    }
-
-    var prompt = 'You are a nutrition expert. Look at this food image and identify the food or meal shown. Respond ONLY with a valid JSON object — no markdown, no extra text — exactly: {"name":"food name","calories":000,"protein":0,"carbs":0,"fat":0}. Estimate values for a typical single serving. If no food is visible, return {"error":"No food detected"}.';
-    var imageSource = _selectedFile || img.src;
-    var resp = await puter.ai.chat(prompt, imageSource, false, { model: 'gpt-4o-mini' });
-
-    var text = '';
-    if (typeof resp === 'string') text = resp;
-    else if (resp && resp.message) {
-      var c = resp.message.content;
-      if (typeof c === 'string') text = c;
-      else if (Array.isArray(c)) text = c.map(function(x){ return x.text||x.content||''; }).join('');
-      else text = String(c||'');
-    } else if (resp && resp.text) { text = resp.text; }
-    text = text.replace(/```(?:json)?|```/g,'').trim();
-
-    var d = JSON.parse(text);
-    if(d.error) throw new Error(d.error);
+    var payload = await response.json().catch(function(){ return {}; });
+    if(!response.ok) throw new Error(payload.error || 'Photo scan failed. Please try again.');
+    var d = payload;
     if(!d.name) throw new Error('Could not identify food in photo');
 
     _scannedData = d;
@@ -554,18 +528,8 @@ async function scanPhoto(){
     setTimeout(function(){ statusEl.textContent=''; }, 4000);
   } catch(e) {
     console.error('[ALEFIT scan]', e);
-    var code = e && (e.error || (e.message ? '' : '')) || '';
-    var raw = (e && (e.error || e.code)) || (e && e.message) || '';
-    var msg;
-    if(String(raw).indexOf('auth_window_closed')>-1 || String(JSON.stringify(e)).indexOf('auth_window_closed')>-1){
-      msg = 'Sign-in window was closed before finishing. Tap Scan Nutrition again and complete the free Puter sign-up to continue.';
-    } else if(String(JSON.stringify(e)).indexOf('auth')>-1){
-      msg = 'Sign-in needed. Tap Scan Nutrition again and complete the free Puter sign-in popup.';
-    } else {
-      msg = (e && e.message) || (e && e.msg) || 'Scan failed. Try a clearer photo or use AI Lookup instead.';
-    }
     statusEl.className = 'status-msg err';
-    statusEl.textContent = msg;
+    statusEl.textContent = (e && e.message) || 'Scan failed. Try a clearer photo or use AI Lookup instead.';
   }
   hideOverlay();
   btn.disabled = false;

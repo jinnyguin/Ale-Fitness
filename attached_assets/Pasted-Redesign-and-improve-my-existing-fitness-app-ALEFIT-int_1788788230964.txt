@@ -1,0 +1,408 @@
+Redesign and improve my existing fitness app, ALEFIT, into a polished, mobile-first personalized training app.
+
+This is an existing project. Inspect its code, authentication, database, routes, and deployment configuration before making changes. Preserve existing accounts and useful functionality. Implement the app—not just a landing page, mockup, or development plan.
+
+PRODUCT DIRECTION
+
+ALEFIT should feel like a focused personal training app, with Runna as the main inspiration for organization and user experience—but for multiple sports and fitness goals, not just running.
+
+Learn from Runna’s clear training schedule and daily guidance, Ladder’s workout-first experience, and Fitbod’s personalization.
+
+Do not copy their branding, assets, wording, or exact interface. Keep ALEFIT’s identity.
+
+The core experience should be:
+Answer a few questions → preview a personalized plan → create an account → know exactly what to do today → complete training → receive useful adjustments.
+
+The personalized plan is the product. Do not organize the experience around a collection of unrelated calculators or 20 generic programs.
+
+DESIGN REQUIREMENTS
+
+Make this feel like a premium fitness app on an iPhone, not a crowded fitness website.
+
+- Clean, restrained, athletic design.
+- Preserve ALEFIT’s existing logo and recognizable lime/green brand accent.
+- Use mostly neutral dark charcoal surfaces, readable white text, and subtle secondary text.
+- Use the accent selectively for important actions and selected states.
+- Avoid green-tinted backgrounds, giant neon headlines, heavy gradients, excessive borders, and unnecessary decorations.
+- Use consistent typography, spacing, card shapes, buttons, and icons.
+- Avoid oversized all-caps headings, long promotional paragraphs, feature lists above the actual activity, and cards nested inside more cards.
+- Make the primary action immediately obvious.
+- Reveal secondary information when requested instead of showing everything at once.
+- Build responsive layouts for phones, tablets, and desktop.
+- Account for iPhone safe areas, the keyboard, and bottom navigation.
+- Use accessible contrast, labeled controls, visible keyboard focus, and comfortable touch targets.
+
+Changing colors alone is not enough. Fix the information hierarchy and interactions.
+
+CORE NAVIGATION
+
+Use four primary sections:
+1. Today
+2. My Plan
+3. Progress
+4. Profile
+
+On mobile, use persistent bottom navigation.
+On desktop, adapt this into a clean navigation layout.
+
+Preserve navigation state appropriately. Browser Back and direct links should work.
+
+TODAY
+
+This should be the main screen for returning users.
+
+Show:
+- Today’s date.
+- Their sport or training focus.
+- One prominent workout or recovery card.
+- Session title, estimated duration, and a short explanation.
+- A clear status: planned, in progress, or completed.
+- One primary Start Workout, Continue Workout, or Start Recovery button.
+
+Below the main session:
+- A compact optional readiness check-in.
+- A small preview of upcoming sessions.
+- A link to the full plan.
+
+Do not overwhelm this screen with every exercise, every metric, nutrition tools, and marketing content.
+
+Tapping Start should open a focused workout experience, not just scroll through a giant dashboard.
+
+MY PLAN
+
+Create a useful training calendar.
+
+- Show a weekly schedule with clear training and recovery days.
+- Let users select a date and inspect the session.
+- Support browsing previous and upcoming weeks.
+- Clearly distinguish completed sessions, saved past sessions, and future previews.
+- Preserve what actually happened in completed workouts.
+- Never regenerate a historical workout and present it as what the user completed.
+- Explain that upcoming sessions may adjust with feedback.
+- Make training preferences easy to edit.
+- When preferences change, update future programming without rewriting completed history.
+
+Do not present every sport as another generic program to buy or choose.
+
+PROGRESS
+
+Use real saved data.
+
+Initially prioritize:
+- Completed workouts.
+- Completed recovery days.
+- Weekly consistency.
+- Session history.
+- Recorded exercise performance where available.
+- Trends based on actual logged results.
+
+Provide thoughtful empty states for new users.
+
+Do not fabricate strength increases, estimated transformations, calorie burns, streaks, personal records, or performance percentages.
+
+Separate workout attendance from actual performance improvement.
+
+PROFILE
+
+Include:
+- Name and account details.
+- Sport and optional position/event.
+- Goals.
+- Experience.
+- Equipment.
+- Training days and session length.
+- Relevant training limitations.
+- Account settings and sign out.
+- Calendar integration settings.
+
+Put secondary calculators, nutrition tools, and legacy resources here or in a clearly secondary Tools area.
+
+Do not delete the old programs or user data without first preserving them. Remove them from the primary experience rather than leaving them competing with the personalized plan.
+
+PERSONALIZATION BEFORE SIGNUP
+
+Do not ask for name, email, and password first.
+
+Organize setup into clear stages:
+Your goals → Your routine → Your plan → Save.
+
+Use approximately six short question screens, followed by the plan preview and account creation.
+
+Suggested questions:
+
+1. What are you training for?
+   Choose a sport or general fitness.
+   Include basketball, soccer, football, baseball/softball, tennis, volleyball, running/track, swimming, combat sports, cycling, strength training, and other sports where properly supported.
+   Allow optional position or event details.
+
+2. What would you like to improve?
+   Tailor the choices to the selected sport.
+   Examples: strength, muscle, speed, jumping, endurance, mobility, general fitness.
+   For basketball, use understandable options such as jump higher, quicker first step, and late-game stamina.
+   Let users choose up to three priorities.
+
+3. What is your experience?
+   Beginner, intermediate, advanced.
+   Explain these briefly and avoid assuming advanced ability.
+
+4. What equipment can you use?
+   Full gym, dumbbells, bands, bodyweight, field/court/track, pool, and other supported equipment.
+   Ensure conflicting choices are handled sensibly.
+
+5. When can you train?
+   Available days and usual session duration.
+   Keep rest and recovery realistic.
+   Where needed, account for existing sports practices or games without turning onboarding into a long interview.
+
+6. Anything the plan should account for?
+   Age range and optional pain or movement limitations.
+   Explain why this information matters.
+   Collect only what is necessary.
+
+ONBOARDING INTERACTIONS
+
+- One main decision per screen.
+- Large, obvious answer choices.
+- Short useful copy.
+- Clear progress.
+- Back navigation that retains answers.
+- Explicit selection states.
+- No fake loading process, countdown, testimonials, or unsupported results promises.
+- Avoid unnecessary typed answers.
+- Keep optional details optional.
+- Do not silently lose answers when signup encounters an error.
+- Never store passwords in browser storage.
+
+PLAN REVEAL
+
+Before requiring an account, show genuine value:
+
+- A concise personalized summary.
+- The first workout.
+- A preview of the week.
+- Recovery days.
+- A short explanation of how their answers affected the plan.
+
+For example, show that a basketball plan fits three available days and dumbbells—but only if those are the user’s actual answers.
+
+Lead with the useful result, not a wall of explanation.
+
+Allow individual answers to be edited directly from the preview. Users should not have to repeat every question.
+
+Then show:
+“Save my plan and start today.”
+
+After signup, take the user directly into their saved personalized experience.
+
+AUTHENTICATION
+
+Audit and repair the existing signup and login flow.
+
+- Use the project’s supported secure authentication approach.
+- Do not replace working authentication unnecessarily.
+- Support signup, login, logout, session restoration, and password reset.
+- Provide meaningful errors for invalid inputs, duplicate accounts, incorrect credentials, expired sessions, and network problems.
+- Prevent duplicate submissions.
+- Handle partial success: if the account was created but the plan failed to save, retry saving the plan without creating another account.
+- Preserve onboarding answers during recoverable failures.
+- Keep tokens and secrets out of URLs and logs wherever possible.
+- Validate redirect destinations.
+- Enforce user ownership on the server.
+- Never rely solely on hiding UI for authorization.
+- Make password recovery work end to end, or clearly report the missing email configuration.
+- Do not claim login can “never fail.”
+
+PERSONALIZED TRAINING ENGINE
+
+Make the programming genuinely depend on:
+- Sport.
+- Goals.
+- Experience.
+- Age-appropriate considerations.
+- Equipment.
+- Available training days.
+- Session duration.
+- Limitations.
+- Existing sport workload where supplied.
+- Recent workout completion.
+- Energy, soreness, and difficulty feedback.
+
+Do not simply change the sport name on the same workout.
+
+Account for different demands such as:
+- Basketball: acceleration, deceleration, lateral movement, jumping, strength, and repeat-effort conditioning.
+- Running: appropriate running volume, intensity distribution, strength, and recovery.
+- General strength: progressive resistance training and balanced movement patterns.
+- Other supported sports: relevant demands with suitable exercise selection.
+
+Where support is limited, be honest. Do not claim expert programming for every possible sport.
+
+Use a structured, testable planning system with exercise metadata and sensible constraints.
+
+WORKOUT CONTENT
+
+Each session should explain:
+- Warm-up.
+- Exercises or drills.
+- Sets and repetitions, time, or distance.
+- Rest periods.
+- Effort guidance.
+- Technique cues.
+- Suitable substitutions.
+- Cool-down or recovery work when appropriate.
+
+Workout duration must reasonably match the requested time.
+
+Do not recommend equipment the user does not have.
+
+Do not stack demanding sessions without considering recovery and sports practice.
+
+WORKOUT EXECUTION
+
+Build a focused session view:
+- Clear current exercise or section.
+- Easy navigation through exercises.
+- Readable prescriptions and cues.
+- Exercise completion tracking.
+- Logging of relevant reps, weights, times, or distances.
+- A rest timer where useful.
+- A clear finish action.
+
+Persist meaningful workout progress so accidental navigation or refreshing does not lose recorded work.
+
+After the workout, ask a short difficulty question:
+Too easy / Just right / Too hard.
+
+Save completion reliably and update Progress immediately.
+
+Prevent duplicate workout or feedback records on repeated taps or retries.
+
+DAILY ADAPTATION
+
+Keep the readiness check-in short:
+- Energy.
+- Soreness.
+- Time available.
+
+Use it to make sensible adjustments:
+- Reduce volume when needed.
+- Shorten a session when time is limited.
+- Substitute appropriate exercises.
+- Recommend recovery rather than forcing hard training.
+- Progress gradually when the user is consistently ready.
+
+Explain important changes in plain language.
+
+Use trends across sessions rather than overreacting to one answer.
+
+REST DAYS
+
+Give clear, optional recovery guidance:
+- Rest or easy activity.
+- Gentle mobility where appropriate.
+- Basic recovery reminders.
+
+Do not turn every recovery day into another demanding workout.
+
+Make it clear that pain is not the same as ordinary training soreness. Avoid diagnosis or treatment claims. Recommend qualified guidance when necessary.
+
+For younger users, use conservative, age-appropriate guidance. Do not recommend aggressive weight loss or unsafe maximal training.
+
+AI EXPECTATIONS
+
+I want this to be very intelligent, but do not fake intelligence.
+
+- Clearly distinguish deterministic programming rules from an actual language-model integration.
+- Use structured workout data and validation.
+- If an LLM is used, call it server-side.
+- Keep API keys secret.
+- Validate outputs for equipment, duration, workload, and safety constraints.
+- Provide a reliable fallback if the model is unavailable.
+- Do not let an AI response bypass safety or programming rules.
+- Do not promise unlimited free AI usage.
+- Explain any required provider configuration and costs before adding paid dependencies.
+- The app should remain useful without a chatbot.
+
+APPLE CALENDAR
+
+Allow users to add planned sessions to Apple Calendar.
+
+Choose a practical supported approach:
+- Downloadable .ics events/calendar as a baseline.
+- A subscription feed only if it can be implemented securely and reliably.
+
+Include the date, time, timezone, title, duration, and useful session details.
+
+Make the distinction clear:
+A one-time calendar import is not automatic two-way synchronization.
+
+Do not claim direct Apple Calendar integration unless it actually works.
+
+DATA AND RELIABILITY
+
+Use the existing backend and database where appropriate.
+
+Persist:
+- Athlete profile.
+- Plan preferences.
+- Saved daily sessions.
+- Workout logs.
+- Readiness check-ins.
+- Completion and feedback.
+- Progress history.
+
+Do not use browser-only storage as the authoritative database.
+
+Maintain access controls and preserve existing users.
+Keep completed history stable when plans change.
+Handle empty, loading, failure, and retry states.
+
+Do not require a GitHub or Supabase migration just to implement this redesign. Inspect the current architecture and work within it unless a change is genuinely necessary.
+
+IMPLEMENTATION PROCESS
+
+1. Inspect the existing project and identify the actual problems.
+2. Briefly explain the implementation approach.
+3. Build the main app structure and real interactions.
+4. Connect onboarding, authentication, planning, and progress into one coherent flow.
+5. Verify on mobile and desktop.
+6. Fix defects rather than stopping at a visual mockup.
+
+Keep the work focused. Do not add social feeds, stores, rankings, subscriptions, or unrelated features.
+
+VERIFICATION
+
+Test:
+- New visitor → questionnaire → personalized preview → signup → Today.
+- Existing user → login → correct saved plan.
+- Back navigation and editing answers.
+- Signup failure without lost answers.
+- Account-created/plan-save-failed recovery.
+- Start, log, resume, and complete a session.
+- Duplicate taps and network retries.
+- Completion appearing in Progress.
+- Recovery-day behavior.
+- Calendar browsing and date/timezone handling.
+- Preference changes affecting future plans, not completed history.
+- Sign out and session expiry.
+- Password reset.
+- User data isolation.
+- Small-screen layout, keyboard behavior, and bottom navigation.
+- No broken buttons, placeholder metrics, or missing destinations.
+
+DELIVERY
+
+Implement the changes in the existing project and provide a working Replit preview.
+
+Clearly summarize:
+- What works.
+- What changed.
+- What was tested.
+- Any features still requiring configuration.
+- Any remaining limitations.
+
+Do not claim unfinished features are complete.
+
+Do not publish to Alefit.org, change DNS, replace hosting, delete existing data, or purchase services without my explicit approval.
+
+The end result should feel like opening my own personal training app: I immediately know what to do today, how it fits my week, and how I’m progressing.

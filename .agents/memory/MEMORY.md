@@ -1,3 +1,3 @@
 - [InvokeLLM server-side generator](meal-plan-generator.md) — External free AI APIs (Hack Club, Pollinations) are blocked from Replit's network; use server-side template generator instead.
-- [Photo scanner vision AI](photo-scanner-vision-ai.md) — OpenAI key has no quota, Gemini needs an age-gated key; scanner uses puter.js client-side with explicit sign-in on user gesture, only works in published app / full tab (not preview iframe).
+- [Photo scanner vision AI](photo-scanner-vision-ai.md) — Scanner uses Groq vision server-side so users need no provider account; validate uploads and keep provider keys off the browser.
 - [Auth provider resilience](auth-provider-resilience.md) — Keep local auth as a fallback when the configured remote auth host is unavailable; never treat the database secret as a provider admin key.
