@@ -2229,20 +2229,32 @@ def _scan_food_openrouter(image_data_url):
         "max_tokens": 400,
     }
     try:
-        req = urllib.request.Request(
-            "https://openrouter.ai/api/v1/chat/completions",
-            data=json.dumps(payload).encode(),
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-                "X-OpenRouter-Title": "AleFit",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=45) as resp:
-            result = json.loads(resp.read())
-        content = result["choices"][0]["message"]["content"]
-        cleaned = re.sub(r"```(?:json)?|```", "", content).strip()
-        return json.loads(cleaned), None
+        last_error = None
+        for attempt in range(2):
+            req = urllib.request.Request(
+                "https://openrouter.ai/api/v1/chat/completions",
+                data=json.dumps(payload).encode(),
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "X-OpenRouter-Title": "AleFit",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                raw = resp.read().decode("utf-8", "replace").strip()
+            try:
+                result = json.loads(raw)
+                content = result["choices"][0]["message"]["content"] or ""
+                cleaned = re.sub(r"```(?:json)?|```", "", content).strip()
+                start, end = cleaned.find("{"), cleaned.rfind("}")
+                if start >= 0 and end >= start:
+                    return json.loads(cleaned[start:end + 1]), None
+                last_error = "The vision model returned an empty result."
+            except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+                last_error = f"Invalid vision response: {type(exc).__name__}"
+            if attempt == 0:
+                continue
+        return None, last_error or "The vision model returned an invalid result."
     except urllib.error.HTTPError as e:
         try:
             detail = json.loads(e.read()).get("error", {}).get("message", "")
