@@ -1,0 +1,442 @@
+(function () {
+  "use strict";
+
+  var APP = "6a1f3d189ebdbe71fa7d256c";
+  var DRAFT = "alefit_onboarding_draft";
+  var root = document.getElementById("onboarding");
+  var progress = document.getElementById("progress");
+  var saved = {};
+  try {
+    saved = JSON.parse(sessionStorage.getItem(DRAFT) || "{}");
+  } catch (error) {
+    sessionStorage.removeItem(DRAFT);
+  }
+  var state = {
+    step: Number(saved.step || 0),
+    prefs: saved.prefs || { goals: [], equipment: [] },
+    plan: saved.plan || null,
+    existingId: saved.existingId || null,
+    onboardingId: saved.onboardingId || (window.crypto && window.crypto.randomUUID ?
+      window.crypto.randomUUID() : "onboarding-" + Date.now() + "-" + Math.random().toString(36).slice(2))
+  };
+  state.prefs.goals = Array.isArray(state.prefs.goals) ? state.prefs.goals : [];
+  state.prefs.equipment = Array.isArray(state.prefs.equipment) ? state.prefs.equipment :
+    (state.prefs.equipment ? [state.prefs.equipment] : []);
+
+  var sports = [
+    ["basketball", "Basketball", "Jump, cut and defend"],
+    ["football", "Football", "Acceleration and contact power"],
+    ["soccer", "Soccer", "Repeat sprint and agility"],
+    ["baseball", "Baseball", "Rotational power and throwing"],
+    ["swimming", "Swimming", "Pool conditioning and strength"],
+    ["track", "Track", "Speed and force"],
+    ["cross-country", "Cross country", "Aerobic durability"],
+    ["strength", "Strength", "Build the big lifts"],
+    ["hiit", "HIIT", "Work capacity and control"],
+    ["mobility", "Mobility", "Move with more range"],
+    ["general", "General fitness", "Train for your life"]
+  ];
+  var goalMap = {
+    basketball: [["jump", "Jump higher"], ["quickness", "First-step quickness"], ["durability", "Stay durable"]],
+    football: [["speed", "Acceleration"], ["power", "Explosive power"], ["strength", "Contact strength"]],
+    soccer: [["speed", "Repeat sprint ability"], ["agility", "Change direction"], ["conditioning", "Match fitness"]],
+    baseball: [["power", "Rotational power"], ["speed", "First-step speed"], ["durability", "Shoulder resilience"]],
+    swimming: [["conditioning", "Pool conditioning"], ["strength", "Pulling strength"], ["mobility", "Shoulder mobility"]],
+    track: [["speed", "Sprint speed"], ["power", "Force production"], ["conditioning", "Race conditioning"]],
+    "cross-country": [["conditioning", "Aerobic base"], ["durability", "Durable running"], ["speed", "Finish speed"]],
+    strength: [["strength", "Build strength"], ["muscle", "Build muscle"], ["conditioning", "Work capacity"]],
+    hiit: [["conditioning", "Work capacity"], ["fitness", "General fitness"], ["movement", "Move better"]],
+    mobility: [["mobility", "More range"], ["durability", "Move comfortably"], ["movement", "Better control"]],
+    general: [["strength", "Get stronger"], ["fitness", "Build fitness"], ["movement", "Move better"]]
+  };
+  var equipment = [
+    ["gym", "Full gym", "Barbell, machines and open space"],
+    ["dumbbells", "Dumbbells", "One or two adjustable weights"],
+    ["bands", "Resistance bands", "Anchored or loop bands"],
+    ["bodyweight", "Bodyweight", "No external load"],
+    ["field", "Court / field", "Outdoor or sport space"],
+    ["pool", "Pool", "Access to a swimming pool"],
+    ["other", "Other", "Describe it in limitations"]
+  ];
+  var paths = {
+    basketball: ["/programs/basketball.html", "Basketball Performance"],
+    football: ["/programs/football.html", "Football Performance"],
+    soccer: ["/programs/soccer.html", "Soccer Performance"],
+    baseball: ["/programs/baseball.html", "Baseball Performance"],
+    swimming: ["/programs/swimming.html", "Swimming Performance"],
+    track: ["/programs/track.html", "Track Power"],
+    "cross-country": ["/programs/crosscountry.html", "Cross Country Performance"],
+    strength: ["/programs/strength.html", "Maximum Strength"],
+    hiit: ["/programs/hiit.html", "HIIT Conditioning"],
+    mobility: ["/programs/mobility.html", "Mobility"],
+    general: ["/programs/strength.html", "Maximum Strength"]
+  };
+
+  function persist() {
+    sessionStorage.setItem(DRAFT, JSON.stringify(state));
+  }
+  function esc(value) {
+    var node = document.createElement("div");
+    node.textContent = value == null ? "" : String(value);
+    return node.innerHTML;
+  }
+  function token() {
+    return localStorage.getItem("base44_access_token") || localStorage.getItem("token");
+  }
+  function returnToSignIn() {
+    persist();
+    localStorage.removeItem("base44_access_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("alefit_user");
+    window.location.replace("/Login.html?from_url=%2FRegister.html");
+  }
+  function tile(value, title, copy, selected) {
+    return '<button type="button" class="tile ' + (selected ? "selected" : "") +
+      '" data-value="' + esc(value) + '" aria-pressed="' + selected + '">' +
+      "<strong>" + esc(title) + "</strong><small>" + esc(copy) + "</small></button>";
+  }
+  function footer(label, back) {
+    return '<div class="footer">' + (back ? '<button type="button" class="button secondary back" id="back">Back</button>' : "") +
+      '<button type="button" class="button" id="next">' + label + "</button></div>";
+  }
+  function showError(message) {
+    var old = root.querySelector(".error");
+    if (old) old.remove();
+    var error = document.createElement("p");
+    error.className = "error";
+    error.setAttribute("role", "alert");
+    error.textContent = message;
+    var footerNode = root.querySelector(".footer");
+    root.insertBefore(error, footerNode || null);
+  }
+  function question(step, title, sub, body, next, back) {
+    return '<span class="eyebrow">Plan build <b class="step-count">0' + (step + 1) +
+      " / 06</b></span><h1>" + title + "</h1><p class=\"sub\">" + sub + "</p>" +
+      body + footer(next || "Continue", back);
+  }
+
+  function render() {
+    persist();
+    progress.style.width = ((Math.min(state.step, 6) + 1) / 7 * 100) + "%";
+    var p = state.prefs;
+    var html = "";
+    if (state.step === 0) {
+      html = question(0, "What are you training for?", "Your plan starts with the demands you actually need to meet.",
+        '<div class="answers">' + sports.map(function (item) {
+          return tile(item[0], item[1], item[2], p.sport === item[0]);
+        }).join("") + '</div><div class="field"><label for="position">Position or event <span>(optional)</span></label>' +
+        '<input id="position" maxlength="60" placeholder="Example: guard, 200m, midfielder" value="' + esc(p.position) + '"></div>');
+    } else if (state.step === 1) {
+      var goals = goalMap[p.sport] || goalMap.general;
+      html = question(1, "Choose up to three outcomes.", "Your first choice gets the most emphasis in the opening block.",
+        '<div class="answers">' + goals.map(function (item) {
+          return tile(item[0], item[1], "Add this to your focus", p.goals.indexOf(item[0]) > -1);
+        }).join("") + "</div>", "Continue", true);
+    } else if (state.step === 2) {
+      html = question(2, "Where are you starting?", "Honest inputs keep the first block appropriately challenging.",
+        '<div class="answers">' + [
+          ["new", "New to structured training", "Build technique and consistency"],
+          ["regular", "Training regularly", "Progress with steady loading"],
+          ["advanced", "Experienced athlete", "Specific, demanding work"]
+        ].map(function (item) { return tile(item[0], item[1], item[2], p.experience === item[0]); }).join("") + "</div>", "Continue", true);
+    } else if (state.step === 3) {
+      var conflict = p.equipment.indexOf("pool") > -1 && p.sport !== "swimming";
+      html = question(3, "What can you train with?", "Select every option you can use. Portable tools stay useful alongside a court, field or pool.",
+        '<div class="answers">' + equipment.map(function (item) {
+          return tile(item[0], item[1], item[2], p.equipment.indexOf(item[0]) > -1);
+        }).join("") + "</div>" + (conflict ? '<div class="notice">Pool work is saved as optional conditioning; your main plan follows your selected sport.</div>' : ""));
+    } else if (state.step === 4) {
+      html = question(4, "How much training fits?", "We will protect recovery around your practices and games.",
+        '<div class="answers">' + [["2", "2 days / week", "Minimal, focused exposure"], ["3", "3 days / week", "Balanced progress"], ["4", "4 days / week", "Higher capacity"]].map(function (item) {
+          return tile(item[0], item[1], item[2], String(p.days) === item[0]);
+        }).join("") + '</div><div class="field"><label for="duration">Minutes per session</label><input id="duration" type="number" min="20" max="120" value="' + esc(p.duration || 45) + '">' +
+        '</div><div class="field"><label for="load">Practice or game load</label><input id="load" maxlength="120" placeholder="Example: practice Tue/Thu, game Saturday" value="' + esc(p.load) + '"></div>', "Continue", true);
+    } else if (state.step === 5) {
+      html = question(5, "What should we work around?", "Age and limitations help us choose sensible volume. This is training context, not a diagnosis.",
+        '<div class="field"><label for="age">Age range</label><select id="age"><option value="">Choose one</option><option value="under18">Under 18</option><option value="adult">18–54</option><option value="55plus">55+</option></select></div>' +
+        '<div class="field"><label for="limitations">Limitations <span>(optional)</span></label><textarea id="limitations" maxlength="180" placeholder="Example: avoid impact this week"></textarea></div>', "Review my plan", true);
+    } else {
+      html = preview();
+    }
+    root.innerHTML = html;
+    var age = document.getElementById("age");
+    if (age) age.value = p.age || "";
+    var limitations = document.getElementById("limitations");
+    if (limitations) limitations.value = p.limitations || "";
+    bind();
+  }
+
+  function buildPlan() {
+    var p = state.prefs;
+    var sport = p.sport || "general";
+    var path = paths[sport] || paths.general;
+    var sets = p.experience === "new" || p.age === "under18" || p.age === "55plus" ? 2 : p.experience === "advanced" ? 4 : 3;
+    var primary = (p.goals[0] || "movement");
+    var catalog = {
+      jump: [["Squat jump", "3 × 4"], ["Split squat", sets + " × 8 / side"], ["Lateral bound", "3 × 5 / side"]],
+      quickness: [["Acceleration start", "6 × 10m"], ["Lateral shuffle", "5 × 10m"], ["Single-leg balance", "3 × 20 sec"]],
+      speed: [["Acceleration start", "6 × 20m"], ["A-skip", "4 × 20m"], ["Split squat", sets + " × 8 / side"]],
+      power: [["Broad jump", "4 × 3"], ["Clean pull", sets + " × 4"], ["Farmer carry", "3 × 30m"]],
+      strength: [["Goblet squat", sets + " × 8"], ["Push-up", sets + " × 8"], ["Romanian deadlift", sets + " × 8"]],
+      conditioning: [["Tempo intervals", "6 × 45 sec"], ["Step-up", sets + " × 8 / side"], ["Dead bug", "3 × 8 / side"]],
+      mobility: [["90/90 transitions", "3 × 6 / side"], ["Cossack squat", "3 × 6 / side"], ["Wall slide", "3 × 8"]],
+      fitness: [["Circuit squat", sets + " × 10"], ["Incline push-up", sets + " × 8"], ["Brisk walk", "12 min"]],
+      durability: [["Isometric split squat", "3 × 20 sec"], ["Calf raise", "3 × 12"], ["Side plank", "3 × 20 sec"]],
+      movement: [["Tempo squat", sets + " × 8"], ["Bear crawl", "3 × 20 sec"], ["Dead bug", "3 × 8 / side"]],
+      agility: [["Deceleration stick", "4 × 4"], ["Lateral shuffle", "4 × 10m"], ["Single-leg balance", "3 × 20 sec"]],
+      muscle: [["Goblet squat", sets + " × 10"], ["Dumbbell floor press", sets + " × 10"], ["Romanian deadlift", sets + " × 10"]]
+    };
+    var exercises = (catalog[primary] || catalog.movement).slice();
+    p.goals.slice(1).forEach(function (goal) {
+      var candidate = catalog[goal] && catalog[goal][0];
+      if (candidate && !exercises.some(function (item) { return item[0] === candidate[0]; })) exercises.push(candidate.slice());
+    });
+    var eq = p.equipment;
+    var sportSupport = {
+      basketball: ["Snap-down to stick", "3 × 5"],
+      football: ["Three-point acceleration stance", "4 × 10m"],
+      soccer: ["Controlled change of direction", "4 × 3 / side"],
+      baseball: ["Half-kneeling rotation", "3 × 8 / side"],
+      swimming: eq.indexOf("pool") > -1 ? ["Easy technique swim", "8 × 25m"] : ["Prone swimmer", "3 × 8"],
+      track: ["Wall sprint drill", "4 × 10 sec"],
+      "cross-country": ["Easy aerobic run", Math.min(35, Number(p.duration || 30)) + " min"],
+      strength: ["Suitcase carry", "3 × 30m"],
+      hiit: ["Low-impact interval", "6 × 30 sec"],
+      mobility: ["Controlled articular rotations", "6 min"],
+      general: ["Brisk walk", "12 min"]
+    };
+    if (sportSupport[sport]) exercises.push(sportSupport[sport]);
+    var hasLoad = eq.indexOf("gym") > -1 || eq.indexOf("dumbbells") > -1;
+    var hasField = eq.indexOf("field") > -1;
+    exercises = exercises.map(function (item) {
+      var name = item[0];
+      if (!hasLoad) {
+        name = name.replace("Goblet squat", "Tempo bodyweight squat")
+          .replace("Dumbbell floor press", "Push-up variation")
+          .replace("Romanian deadlift", "Single-leg hip hinge")
+          .replace("Clean pull", eq.indexOf("bands") > -1 ? "Band high pull" : "Broad jump")
+          .replace("Farmer carry", "Bear crawl")
+          .replace("Suitcase carry", "Side plank");
+      } else if (eq.indexOf("gym") === -1) {
+        name = name.replace("Clean pull", "Dumbbell high pull");
+      }
+      if (!hasField) {
+        name = name.replace(/Acceleration start/g, "Wall acceleration drill")
+          .replace(/Lateral shuffle/g, "Lateral step and stick")
+          .replace(/Controlled change of direction/g, "Lateral step and stick")
+          .replace(/Three-point acceleration stance/g, "Wall acceleration stance");
+      }
+      return [name, item[1]];
+    });
+    var exerciseLimit = Number(p.duration || 45) < 35 ? 3 : Number(p.duration || 45) >= 60 ? 5 : 4;
+    exercises = exercises.filter(function (item, index, list) {
+      return list.findIndex(function (other) { return other[0] === item[0]; }) === index;
+    }).slice(0, exerciseLimit);
+    if (p.limitations) exercises = exercises.map(function (x) { return [x[0] + " — pain-free range only", x[1]]; });
+    var days = Number(p.days || 3);
+    var dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    var dayTerms = [["monday", "mon"], ["tuesday", "tue"], ["wednesday", "wed"], ["thursday", "thu"], ["friday", "fri"], ["saturday", "sat"], ["sunday", "sun"]];
+    var loadText = (p.load || "").toLowerCase();
+    var occupied = dayTerms.map(function (terms) {
+      return terms.some(function (term) { return new RegExp("\\b" + term).test(loadText); });
+    });
+    var preferred = [0, 2, 4, 5, 1, 3, 6];
+    var training = [];
+    preferred.forEach(function (index) {
+      if (training.length < days && !occupied[index]) training.push(index);
+    });
+    preferred.forEach(function (index) {
+      if (training.length < days && training.indexOf(index) === -1) training.push(index);
+    });
+    var sessionNames = ["Primary goal session", "Strength and support", "Secondary goal session", "Short technique session"];
+    var schedule = dayNames.map(function (day, index) {
+      var workout;
+      if (occupied[index]) workout = "Practice / game — no extra conditioning";
+      else if (training.indexOf(index) > -1) workout = sessionNames[training.indexOf(index)] || "Training";
+      else {
+        var nextToDemand = occupied[index - 1] || occupied[index + 1] ||
+          training.indexOf(index - 1) > -1 || training.indexOf(index + 1) > -1;
+        workout = nextToDemand ? "Recovery mobility / easy walk" : "Full rest";
+      }
+      return { day: day, workout: workout };
+    });
+    return {
+      path: path[0], name: path[1],
+      summary: "A " + days + "-day " + sport + " block built around " + primary + ". " +
+        (p.load ? "It leaves room around " + p.load + "." : "Hard sessions are separated by lower-demand days.") ,
+      first: exercises,
+      schedule: schedule,
+      rationale: "Goal priority: " + p.goals.join(", ") + ". " + (p.position ? "The " + p.position + " role/event is carried into exercise emphasis. " : "") +
+        (p.experience === "new" ? "Volume is reduced while technique is learned. " : "") +
+        (p.age === "under18" || p.age === "55plus" ? "Intensity is conservative with extra recovery. " : "") +
+        (eq.indexOf("bodyweight") > -1 ? "Portable bodyweight substitutions are used. " : "") +
+        (p.limitations ? "The note you gave is carried as a training constraint, not interpreted medically." : "")
+    };
+  }
+
+  function preview() {
+    state.plan = buildPlan();
+    persist();
+    var p = state.prefs;
+    var labels = [
+      ["Focus", p.sport, 0], ["Goals", p.goals.join(", "), 1], ["Experience", p.experience, 2],
+      ["Equipment", p.equipment.join(", "), 3], ["Schedule", p.days + " days, " + p.duration + " min", 4],
+      ["Considerations", p.age + (p.limitations ? " · " + p.limitations : ""), 5]
+    ];
+    return '<section class="preview"><span class="eyebrow">Plan review <b class="step-count">PREVIEW</b></span><h1>This is your opening block.</h1>' +
+      '<p class="sub">Review every answer before creating your account. Edit any group without restarting.</p><div class="plan-banner"><span class="eyebrow">Recommended path</span><h2>' +
+      esc(state.plan.name) + "</h2><p>" + esc(state.plan.summary) + '</p></div><div class="answer-summary">' +
+      labels.map(function (x) { return '<div class="summary-row"><div><span class="eyebrow">' + x[0] + '</span><b>' + esc(x[1] || "Not set") + '</b></div><button type="button" class="text-btn edit-answer" data-step="' + x[2] + '">Edit</button></div>'; }).join("") +
+      '</div><div class="plan-grid"><article class="plan-card"><span class="eyebrow">First session</span><h3>Start controlled</h3>' +
+      state.plan.first.map(function (x) { return '<div class="exercise"><b>' + esc(x[0]) + "</b><span>" + esc(x[1]) + "</span></div>"; }).join("") +
+      '</article><article class="plan-card"><span class="eyebrow">Seven-day rhythm</span><div class="schedule">' +
+      state.plan.schedule.map(function (x) { return '<div class="session"><b>' + x.day + "</b><span>" + esc(x.workout) + "</span></div>"; }).join("") +
+      '</div><p class="review-edit">' + esc(state.plan.rationale) + '</p></article></div>' + footer(token() ? "Save this plan" : "Create account & save plan", true) + "</section>";
+  }
+
+  function bind() {
+    root.querySelectorAll(".tile").forEach(function (button) {
+      button.onclick = function () {
+        var value = button.dataset.value;
+        if (state.step === 0) state.prefs.sport = value;
+        if (state.step === 1) {
+          var index = state.prefs.goals.indexOf(value);
+          if (index > -1) state.prefs.goals.splice(index, 1);
+          else if (state.prefs.goals.length < 3) state.prefs.goals.push(value);
+        }
+        if (state.step === 2) state.prefs.experience = value;
+        if (state.step === 3) {
+          var equipmentIndex = state.prefs.equipment.indexOf(value);
+          if (equipmentIndex > -1) state.prefs.equipment.splice(equipmentIndex, 1);
+          else state.prefs.equipment.push(value);
+        }
+        if (state.step === 4) state.prefs.days = value;
+        persist();
+        render();
+      };
+    });
+    var next = document.getElementById("next");
+    if (next) next.onclick = nextStep;
+    var back = document.getElementById("back");
+    if (back) back.onclick = function () {
+      captureCurrentInputs();
+      state.step -= 1;
+      render();
+    };
+    root.querySelectorAll(".edit-answer").forEach(function (button) {
+      button.onclick = function () { state.step = Number(button.dataset.step); render(); };
+    });
+  }
+  function captureCurrentInputs() {
+    var p = state.prefs;
+    if (state.step === 0 && document.getElementById("position")) {
+      p.position = document.getElementById("position").value.trim();
+    }
+    if (state.step === 4 && document.getElementById("duration")) {
+      p.duration = Number(document.getElementById("duration").value);
+      p.load = document.getElementById("load").value.trim();
+    }
+    if (state.step === 5 && document.getElementById("age")) {
+      p.age = document.getElementById("age").value;
+      p.limitations = document.getElementById("limitations").value.trim();
+    }
+    persist();
+  }
+  function nextStep() {
+    var p = state.prefs;
+    captureCurrentInputs();
+    if (state.step === 0) {
+      if (!p.sport) return showError("Choose a training focus to continue.");
+    }
+    if (state.step === 1 && !p.goals.length) return showError("Choose at least one outcome.");
+    if (state.step === 2 && !p.experience) return showError("Choose your training experience.");
+    if (state.step === 3 && !p.equipment.length) return showError("Choose at least one equipment option.");
+    if (state.step === 4) {
+      if (p.duration < 20 || p.duration > 120) return showError("Enter a session duration from 20 to 120 minutes.");
+    }
+    if (state.step === 5) {
+      if (!p.age) return showError("Choose an age range so we can set sensible volume.");
+    }
+    if (state.step === 6) return token() ? checkExisting() : showAccount();
+    state.step += 1;
+    render();
+  }
+  function showAccount() {
+    root.innerHTML = '<section class="account"><span class="eyebrow">Account</span><h1>Save my plan and start today.</h1><p class="sub">Your reviewed plan is ready. Create an account to keep it.</p><form id="form"><div class="field"><label for="name">Full name</label><input id="name" minlength="2" maxlength="80" autocomplete="name" required></div><div class="field"><label for="email">Email</label><input id="email" type="email" maxlength="254" autocomplete="email" required></div><div class="field"><label for="password">Password</label><input id="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required><p class="hint">Use at least 8 characters.</p></div><button class="button" id="create">Create account & save plan</button></form><div class="plan-actions"><button type="button" class="text-btn" id="account-back">Back to plan</button><p class="review-edit">Already have an account? <a class="sign-in" href="/Login.html?from_url=%2FRegister.html">Sign in</a></p></div></section>';
+    document.getElementById("form").onsubmit = register;
+    document.getElementById("account-back").onclick = render;
+  }
+  async function register(event) {
+    event.preventDefault();
+    var button = document.getElementById("create");
+    if (button.disabled) return;
+    if (!document.getElementById("form").reportValidity()) return;
+    button.disabled = true;
+    button.textContent = "Creating account…";
+    try {
+      var response = await fetch("/api/apps/" + APP + "/auth/register", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name: document.getElementById("name").value.trim(), email: document.getElementById("email").value.trim(), password: document.getElementById("password").value })
+      });
+      var data = await response.json();
+      if (!response.ok || !data.access_token) throw new Error(data.error || data.message || "Account could not be created.");
+      localStorage.setItem("base44_access_token", data.access_token);
+      localStorage.setItem("token", data.access_token);
+      if (data.user) localStorage.setItem("alefit_user", JSON.stringify(data.user));
+      savePlan();
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Create account & save plan";
+      showError(error.message || "Account could not be created. Your plan is still here.");
+    }
+  }
+  async function checkExisting() {
+    var response;
+    try {
+      response = await fetch("/api/apps/" + APP + "/entities/OnboardingPlan?limit=1", { headers: { Authorization: "Bearer " + token() } });
+      if (response.status === 401) return returnToSignIn();
+      if (!response.ok) throw new Error("Could not verify your existing plan.");
+      var data = await response.json();
+      var records = Array.isArray(data) ? data : (data.data || data.items || []);
+      if (records.length) {
+        state.existingId = records[0].id;
+        persist();
+        if (!window.confirm("Replace your existing ALEFIT plan with this reviewed plan?")) return;
+      }
+      savePlan();
+    } catch (error) {
+      showError(error.message + " Nothing was changed. Try again when your connection is stable.");
+    }
+  }
+  async function savePlan() {
+    var button = document.getElementById("next") || document.getElementById("create");
+    if (!button || button.dataset.saving === "true") return;
+    button.dataset.saving = "true";
+    button.disabled = true;
+    button.textContent = "Saving plan…";
+    var url = "/api/apps/" + APP + "/onboarding-plan";
+    try {
+      var response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token() },
+        body: JSON.stringify({
+          onboarding_id: state.onboardingId,
+          replace_id: state.existingId,
+          preferences: state.prefs,
+          generated_plan: state.plan
+        })
+      });
+      if (response.status === 401) return returnToSignIn();
+      if (!response.ok) throw new Error("Plan save failed.");
+      sessionStorage.removeItem(DRAFT);
+      window.location.replace("/my-plan.html");
+    } catch (error) {
+      button.dataset.saving = "false";
+      button.disabled = false;
+      button.textContent = "Retry save";
+      button.onclick = function (event) { event.preventDefault(); savePlan(); };
+      showError("Your account is ready, but the plan was not saved. Retry without creating the account again.");
+    }
+  }
+  render();
+}());

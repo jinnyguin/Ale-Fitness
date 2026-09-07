@@ -2,134 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sign Up | ALEFIT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Your Training Plan | ALEFIT</title>
   <link rel="icon" href="/images/alefit-logo.png" type="image/png"/>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-      background: #0f0f0f; min-height: 100vh;
-      display: flex; align-items: center; justify-content: center; padding: 1.5rem;
-    }
-    .card {
-      background: #111111; border: 1px solid #222222; border-radius: 0.75rem;
-      padding: 2.5rem 2rem; width: 100%; max-width: 420px;
-    }
-    .logo { text-align: center; margin-bottom: 2rem; }
-    .logo h1 { font-size: 2rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: #fff; }
-    .logo h1 span { color: #D4FF00; }
-    .logo p { color: #555; font-size: 0.8125rem; margin-top: 0.25rem; letter-spacing: 0.06em; text-transform: uppercase; }
-    h2 { color: #fff; font-size: 1.25rem; font-weight: 700; margin-bottom: 1.25rem; text-align: center; letter-spacing: 0.04em; }
-    label { display: block; color: #666; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.375rem; letter-spacing: 0.06em; text-transform: uppercase; }
-    .field { margin-bottom: 1.125rem; }
-    input[type=email], input[type=password], input[type=text] {
-      width: 100%; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 0.375rem;
-      padding: 0.6875rem 0.875rem; color: #fff; font-size: 0.9375rem; outline: none; transition: border-color 0.15s;
-    }
-    input:focus { border-color: #D4FF00; }
-    input::placeholder { color: #333; }
-    .btn {
-      width: 100%; background: #D4FF00; color: #000; border: none; border-radius: 0.375rem;
-      padding: 0.8125rem; font-size: 0.9rem; font-weight: 800; cursor: pointer;
-      margin-top: 0.5rem; letter-spacing: 0.06em; text-transform: uppercase;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-    .btn:hover { opacity: 0.88; }
-    .btn:active { transform: scale(0.99); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .error-msg {
-      background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.3); color: #fca5a5;
-      border-radius: 0.375rem; padding: 0.75rem 0.875rem; font-size: 0.875rem; margin-bottom: 1rem; display: none;
-    }
-    .hint { color: #444; font-size: 0.75rem; margin-top: 0.25rem; }
-    .links { text-align: center; margin-top: 1.25rem; color: #444; font-size: 0.8125rem; }
-    .links a { color: #D4FF00; text-decoration: none; font-weight: 600; }
-    .links a:hover { text-decoration: underline; }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/onboarding.css"/>
 </head>
 <body>
-<div class="card">
-  <div class="logo">
-    <img src="/images/alefit-logo.png" alt="AleFit" style="height:56px;width:auto;margin-bottom:.5rem">
-    <p>Elite Performance Training</p>
-  </div>
-  <h2>Create Account</h2>
-  <div class="error-msg" id="errorMsg"></div>
-
-  <form id="registerForm">
-    <div class="field">
-      <label>Full Name</label>
-      <input type="text" id="fullName" placeholder="Alex Johnson" required autocomplete="name"/>
-    </div>
-    <div class="field">
-      <label>Email</label>
-      <input type="email" id="email" placeholder="you@example.com" required autocomplete="email"/>
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input type="password" id="password" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password"/>
-      <p class="hint">Minimum 6 characters</p>
-    </div>
-    <button type="submit" class="btn" id="submitBtn">Create Account — Free</button>
-  </form>
-  <div class="links">
-    Already have an account? <a href="/Login.html">Sign in</a>
-  </div>
-</div>
-<script>
-(function() {
-  var APP_ID = '6a1f3d189ebdbe71fa7d256c';
-  var params = new URLSearchParams(window.location.search);
-  var fromUrl = params.get('from_url') || '/';
-
-  var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
-  if (token) { window.location.replace(fromUrl); return; }
-
-  var form = document.getElementById('registerForm');
-  var errorMsg = document.getElementById('errorMsg');
-  var submitBtn = document.getElementById('submitBtn');
-  function showError(msg) { errorMsg.textContent = msg; errorMsg.style.display = 'block'; }
-
-  form.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    errorMsg.style.display = 'none';
-    submitBtn.disabled = true; submitBtn.textContent = 'Creating account…';
-    var fullName = document.getElementById('fullName').value.trim();
-    var email = document.getElementById('email').value.trim();
-    var password = document.getElementById('password').value;
-    try {
-      var resp = await fetch('/api/apps/' + APP_ID + '/auth/register', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email: email, password: password, full_name: fullName})
-      });
-      var text = await resp.text();
-      var data;
-      try { data = JSON.parse(text); } catch(e) {
-        console.error('Non-JSON response (' + resp.status + '):', text.slice(0, 200));
-        showError('Server error (' + resp.status + '). Please try again.');
-        submitBtn.disabled = false; submitBtn.textContent = 'Create Account — Free';
-        return;
-      }
-      if ((resp.status === 200 || resp.status === 201) && data.access_token) {
-        localStorage.setItem('base44_access_token', data.access_token);
-        localStorage.setItem('token', data.access_token);
-        if (data.user) localStorage.setItem('alefit_user', JSON.stringify(data.user));
-        var dest = new URL(fromUrl, window.location.origin);
-        dest.searchParams.set('access_token', data.access_token);
-        window.location.replace(dest.toString());
-      } else {
-        showError(data.error || 'Registration failed (status ' + resp.status + ').');
-        submitBtn.disabled = false; submitBtn.textContent = 'Create Account — Free';
-      }
-    } catch(err) {
-      console.error('Register fetch error:', err);
-      showError('Could not reach server: ' + (err.message || err));
-      submitBtn.disabled = false; submitBtn.textContent = 'Create Account — Free';
-    }
-  });
-})();
-</script>
+  <main class="shell">
+    <header class="topbar">
+      <a href="/" class="brand" aria-label="ALEFIT home"><img src="/images/alefit-logo.png" alt="ALEFIT"/></a>
+      <a class="sign-in" href="/Login.html?from_url=%2FRegister.html">Sign in</a>
+    </header>
+    <div class="progress-wrap" aria-label="Onboarding progress"><div class="progress" id="progress"></div></div>
+    <section class="onboarding" id="onboarding" aria-live="polite"></section>
+  </main>
+  <script src="/onboarding.js"></script>
 </body>
 </html>

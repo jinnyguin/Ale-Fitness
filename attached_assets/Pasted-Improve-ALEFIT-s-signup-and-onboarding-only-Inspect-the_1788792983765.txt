@@ -1,0 +1,116 @@
+Improve ALEFIT’s signup and onboarding only. Inspect the existing project first, preserve its authentication and database where possible, and implement the changes—not just a mockup.
+
+Do not redesign the homepage, dashboard, or other unrelated pages.
+
+GOAL
+
+Make onboarding feel like building a personal training plan, not filling out an account form. Use Runna and Ladder as structural inspiration without copying their branding.
+
+Flow:
+Choose goals → personalize training → preview the plan → create an account → start.
+
+DESIGN
+
+- Clean, mobile-first, and consistent with ALEFIT’s existing identity.
+- Neutral dark backgrounds, readable text, and restrained use of ALEFIT’s lime accent.
+- One main question per screen.
+- Large answer tiles, short explanations, visible selected states.
+- A small progress indicator, Back button, and clear Continue button.
+- No giant headlines, marketing paragraphs, fake countdowns, or fabricated testimonials.
+- Keep answers when moving backward.
+- Support keyboard navigation and iPhone safe areas.
+
+PERSONALIZATION QUESTIONS
+
+Keep it to roughly six short screens:
+
+1. Sport or training focus
+   Include supported sports and general fitness.
+   Offer an optional position/event field.
+
+2. Goals
+   Tailor choices to the sport.
+   For basketball, examples include jumping higher, first-step speed, strength, and stamina.
+   Allow up to three priorities.
+
+3. Experience
+   Beginner, intermediate, or advanced, with brief descriptions.
+
+4. Equipment
+   Full gym, dumbbells, resistance bands, bodyweight, court/field, pool, and other supported options.
+   Handle conflicting choices sensibly.
+
+5. Schedule
+   Available training days and usual workout length.
+   Account for existing practices/games if relevant without adding a lengthy questionnaire.
+   Leave appropriate room for recovery.
+
+6. Relevant considerations
+   Age range and optional pain or movement limitations.
+   Explain briefly why these matter.
+   Collect only necessary information.
+
+PERSONALIZED PLAN PREVIEW
+
+Before requesting account details, show:
+- A short summary reflecting the actual answers.
+- The first workout, including useful exercise details.
+- A compact weekly training/recovery schedule.
+- A brief explanation of why the plan fits.
+- The ability to edit an individual answer and regenerate the preview without restarting.
+
+The preview must use the actual planning system, not a generic plan with the sport name swapped.
+
+Do not invent results predictions, strength gains, or transformation dates.
+
+ACCOUNT CREATION
+
+After the preview, show:
+“Save my plan and start today.”
+
+Ask only for the account information actually needed.
+
+- Keep Sign in available for existing users.
+- Save the exact reviewed preferences to the new account.
+- Take the user directly to their personalized plan after successful signup.
+- If an existing user signs in during onboarding, preserve their answers and ask before replacing an existing plan.
+
+RELIABILITY AND SECURITY
+
+Audit and fix the existing signup flow.
+
+- Validate inputs and display clear inline errors.
+- Prevent duplicate submissions.
+- Preserve answers during recoverable failures.
+- Never store passwords in browser storage.
+- If account creation succeeds but saving the plan fails, retry the plan save without creating another account.
+- Handle duplicate emails, expired sessions, and network failures.
+- Use secure password handling through the existing authentication system.
+- Keep secrets out of client code and tokens out of URLs where possible.
+- Validate redirects and enforce user ownership server-side.
+- Do not add social-login buttons unless they are genuinely configured and working.
+
+PERSONALIZATION QUALITY
+
+Use sport, goals, experience, equipment, schedule, and relevant limitations to shape the plan.
+
+- Recommend only available equipment.
+- Match session length realistically.
+- Include recovery days.
+- Use conservative, age-appropriate programming.
+- Do not diagnose injuries or promise expert coverage for unsupported sports.
+- Preserve existing planning functionality rather than replacing it with fake AI output.
+
+VERIFICATION
+
+Test:
+- Questionnaire → preview → signup → saved plan.
+- Back navigation and editing answers.
+- Different answers producing meaningfully different plans.
+- Duplicate email and invalid input errors.
+- Network failure without lost answers.
+- Account-created/plan-save-failed recovery.
+- Existing-user sign-in without accidental plan replacement.
+- Mobile layout, keyboard behavior, and accessibility.
+
+Provide a working preview and explain any remaining configuration needs. Do not change hosting, publish to Alefit.org, delete existing data, or add paid services without approval.

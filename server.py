@@ -269,8 +269,8 @@ def local_user_from_token(token):
 
 def local_register(email, password, full_name):
     email = email.strip().lower()
-    if len(password) < 6:
-        return None, (jsonify({"error": "Password must be at least 6 characters."}), 400)
+    if len(password) < 8:
+        return None, (jsonify({"error": "Password must be at least 8 characters."}), 400)
     if local_user_by_email(email):
         return None, (
             jsonify({"error": "An account with this email already exists. Please log in."}),
@@ -625,12 +625,22 @@ def alias_scan_food(app_id):
 @app.route("/api/apps/<app_id>/auth/register", methods=["POST"])
 def auth_register(app_id):
     body = request.get_json(force=True) or {}
-    email = (body.get("email") or "").strip()
+    email = (body.get("email") or "").strip().lower()
     password = body.get("password") or ""
-    full_name = body.get("full_name") or body.get("name") or ""
+    full_name = (body.get("full_name") or body.get("name") or "").strip()
 
-    if not email or not password:
-        return jsonify({"error": "Email and password are required"}), 400
+    if not full_name or len(full_name) < 2:
+        return jsonify({"error": "Please enter your full name."}), 400
+    if len(full_name) > 80:
+        return jsonify({"error": "Full name must be 80 characters or fewer."}), 400
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return jsonify({"error": "Please enter a valid email address."}), 400
+    if len(email) > 254:
+        return jsonify({"error": "Email address is too long."}), 400
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters."}), 400
+    if len(password) > 128:
+        return jsonify({"error": "Password must be 128 characters or fewer."}), 400
 
     # Use admin API to create user with email auto-confirmed (no email verification needed)
     if SUPABASE_SERVICE_KEY:
@@ -930,6 +940,103 @@ def require_auth():
     if not user:
         return None, None, (jsonify({"error": "Unauthorized"}), 401)
     return user, token, None
+
+
+def ensure_onboarding_plan_index():
+    """Guarantee atomic idempotency for onboarding retries."""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            """CREATE UNIQUE INDEX IF NOT EXISTS entities_onboarding_session_unique
+               ON entities (user_id, ((data->>'onboarding_id')))
+               WHERE entity_type='OnboardingPlan' AND data ? 'onboarding_id'"""
+        )
+        conn.close()
+    except Exception:
+        pass
+
+
+ensure_onboarding_plan_index()
+
+
+@app.route("/api/apps/<app_id>/onboarding-plan", methods=["POST"])
+def save_onboarding_plan(app_id):
+    """Idempotently save the exact plan reviewed during onboarding."""
+    user, token, err = require_auth()
+    if err:
+        return err
+
+    body = request.get_json(force=True) or {}
+    onboarding_id = str(body.get("onboarding_id") or "").strip()
+    replace_id = str(body.get("replace_id") or "").strip()
+    preferences = body.get("preferences")
+    plan = body.get("generated_plan")
+
+    if not onboarding_id or len(onboarding_id) > 100:
+        return jsonify({"error": "Invalid onboarding session."}), 400
+    if not isinstance(preferences, dict) or not isinstance(plan, dict):
+        return jsonify({"error": "Preferences and generated plan are required."}), 400
+    if len(json.dumps({"preferences": preferences, "generated_plan": plan})) > 50000:
+        return jsonify({"error": "Onboarding plan is too large."}), 413
+
+    allowed_sports = {
+        "basketball", "football", "soccer", "baseball", "swimming", "track",
+        "cross-country", "strength", "hiit", "mobility", "general",
+    }
+    allowed_paths = {
+        "/programs/baseball.html", "/programs/basketball.html",
+        "/programs/crosscountry.html", "/programs/football.html",
+        "/programs/hiit.html", "/programs/mobility.html",
+        "/programs/soccer.html", "/programs/strength.html",
+        "/programs/swimming.html", "/programs/track.html",
+    }
+    if preferences.get("sport") not in allowed_sports:
+        return jsonify({"error": "Choose a supported training focus."}), 400
+    if plan.get("path") not in allowed_paths:
+        return jsonify({"error": "Generated plan contains an invalid program path."}), 400
+
+    stored = {
+        "onboarding_id": onboarding_id,
+        "preferences": preferences,
+        "generated_plan": plan,
+    }
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        if replace_id:
+            cur.execute(
+                """UPDATE entities SET data=%s, updated_at=NOW()
+                   WHERE id=%s AND user_id=%s AND entity_type='OnboardingPlan'
+                   RETURNING id, created_at, updated_at""",
+                (json.dumps(stored), replace_id, user["id"]),
+            )
+            row = cur.fetchone()
+            if not row:
+                conn.close()
+                return jsonify({"error": "The existing plan could not be found."}), 404
+            status = 200
+        else:
+            entity_id = str(uuid.uuid4())
+            cur.execute(
+                """INSERT INTO entities (id, user_id, entity_type, data)
+                   VALUES (%s, %s, 'OnboardingPlan', %s)
+                   ON CONFLICT (user_id, ((data->>'onboarding_id')))
+                     WHERE entity_type='OnboardingPlan' AND data ? 'onboarding_id'
+                   DO UPDATE SET data=EXCLUDED.data, updated_at=NOW()
+                   RETURNING id, created_at, updated_at""",
+                (entity_id, user["id"], json.dumps(stored)),
+            )
+            row = cur.fetchone()
+            status = 200
+        conn.close()
+    except Exception:
+        return jsonify({"error": "Could not save your plan right now. Please retry."}), 503
+
+    stored["id"] = row[0]
+    stored["created_date"] = row[1].isoformat() if row[1] else ""
+    stored["updated_date"] = row[2].isoformat() if row[2] else ""
+    return jsonify(stored), status
 
 
 @app.route("/api/apps/<app_id>/entities/<entity_type>", methods=["GET"])
