@@ -1,600 +1,314 @@
 <!DOCTYPE html>
 <html lang="en">
- 
 <head>
   <meta charset="utf-8"/>
-  <link href="/images/alefit-logo.png" rel="icon" type="image/svg+xml"/>
-  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-  <link href="api/apps/manifests/6a1f3d189ebdbe71fa7d256c/manifest.json" rel="manifest"/>
-  <title>
-   ALEFIT
-  </title>
-  <script>
-  /* ── ALEFIT interceptor — must load BEFORE puter.js and SPA bundle ──
-     Captures NATIVE XMLHttpRequest and fetch before puter.js patches them.
-     This ensures our URL-rewriting and InvokeLLM proxy work correctly.
-  ──────────────────────────────────────────────────────────────────── */
-  (function() {
-    /* Capture native APIs before puter.js loads */
-    var _open = XMLHttpRequest.prototype.open;
-    var _send = XMLHttpRequest.prototype.send;
-    var _setRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
-    var _nativeFetch = window.fetch ? window.fetch.bind(window) : null;
-
-    function waitPuter(cb) {
-      if (window.puter && window.puter.ai) { cb(); return; }
-      var iv = setInterval(function() {
-        if (window.puter && window.puter.ai) { clearInterval(iv); cb(); }
-      }, 60);
-      setTimeout(function() { clearInterval(iv); cb(); }, 8000);
-    }
-
-    function normalizeResp(resp) {
-      var text = '';
-      if (typeof resp === 'string') { text = resp; }
-      else if (resp && resp.message) {
-        var c = resp.message.content;
-        if (typeof c === 'string') text = c;
-        else if (Array.isArray(c)) text = c.map(function(x){ return x.text || x.content || ''; }).join('');
-        else text = String(c || '');
-      }
-      return text;
-    }
-
-    function savePlan(result, prompt) {
-      var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
-      if (!token) return;
-      fetch('/api/apps/6a1f3d189ebdbe71fa7d256c/entities/MealPlan', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: result, generated_at: new Date().toISOString(), prompt: prompt })
-      }).catch(function() {});
-    }
-
-    function handleInvokeLLM(prompt, wantsJson, onDone) {
-      var sysMsg = wantsJson
-        ? 'You are an expert sports nutritionist for ALEFIT. You MUST respond with valid JSON only — no markdown fences, no extra text, just a raw JSON object matching the requested schema.'
-        : 'You are an expert sports nutritionist and performance coach for ALEFIT. Give detailed, practical, athlete-optimised responses.';
-
-      waitPuter(function() {
-        puter.ai.chat([
-          { role: 'system', content: sysMsg },
-          { role: 'user',   content: prompt }
-        ]).then(function(resp) {
-          var text = normalizeResp(resp);
-          var result;
-          if (wantsJson) {
-            try { result = JSON.parse(text); }
-            catch(e) {
-              var cleaned = text.replace(/```(?:json)?|```/g, '').trim();
-              try { result = JSON.parse(cleaned); }
-              catch(e2) { result = { error: 'Could not parse AI response. Please try again.' }; }
-            }
-          } else {
-            result = { result: text };
-          }
-          if (wantsJson && result && !result.error) savePlan(result, prompt);
-          onDone(200, JSON.stringify(result));
-        }).catch(function(err) {
-          onDone(502, JSON.stringify({ error: 'AI unavailable: ' + (err.message || err) }));
-        });
-      });
-    }
-
-    function rewriteBase44(url) {
-      if (typeof url === 'string' && url.indexOf('https://base44.app') === 0) {
-        return url.replace('https://base44.app', '');
-      }
-      return url;
-    }
-
-    /* Intercept window.location.href setter to fix broken SPA redirects.
-       The SPA calls redirectToLogin() which sets location.href to
-       "undefined/Login.html?..." when appBaseUrl is not configured.
-       We catch that and redirect to our real Login.html instead. */
-    (function() {
-      try {
-        var locProto = Object.getPrototypeOf(window.location);
-        var origHrefDesc = Object.getOwnPropertyDescriptor(locProto, 'href');
-        if (origHrefDesc && origHrefDesc.set) {
-          var origSet = origHrefDesc.set;
-          Object.defineProperty(locProto, 'href', {
-            get: origHrefDesc.get,
-            set: function(val) {
-              if (typeof val === 'string') {
-                /* Fix "undefined/Login.html?..." → "/Login.html?..." */
-                if (val.indexOf('undefined/') === 0) {
-                  val = '/' + val.slice('undefined/'.length);
-                  console.log('[ALEFIT] fixed undefined/Login.html redirect →', val);
-                }
-                /* Fix "https://base44.app/..." → relative path */
-                if (val.indexOf('https://base44.app') === 0) {
-                  val = val.replace('https://base44.app', '');
-                  console.log('[ALEFIT] fixed base44 href redirect →', val);
-                }
-              }
-              return origSet.call(this, val);
-            },
-            configurable: true,
-            enumerable: true
-          });
-        }
-      } catch(e) {
-        console.warn('[ALEFIT] could not patch location.href setter:', e);
-      }
-    })();
-
-    XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
-      var rewritten = rewriteBase44(url);
-      if (typeof url === 'string' && url !== rewritten) {
-        console.log('[ALEFIT interceptor] rewriting XHR:', url, '->', rewritten);
-      }
-      if (typeof url === 'string' && (url.indexOf('auth') !== -1 || url.indexOf('register') !== -1 || url.indexOf('login') !== -1)) {
-        console.log('[ALEFIT interceptor] auth XHR:', method, url);
-      }
-      /* Detect User/me requests — on 401 redirect to Login.html so the
-         SPA never shows its broken inline auth form */
-      var isUserMe = (typeof rewritten === 'string' && rewritten.indexOf('/entities/User/me') !== -1);
-      this._interceptUrl = (typeof rewritten === 'string') ? rewritten : '';
-      this._interceptMethod = method;
-      this._interceptHeaders = {};
-      this._isUserMe = isUserMe;
-      return _open.call(this, method, rewritten, async !== false, user, password);
-    };
-
-    XMLHttpRequest.prototype.setRequestHeader = function(header, value) {
-      if (this._interceptHeaders) this._interceptHeaders[header.toLowerCase()] = value;
-      return _setRequestHeader.call(this, header, value);
-    };
-
-    XMLHttpRequest.prototype.send = function(data) {
-      var self = this;
-      var url = this._interceptUrl || '';
-      console.log('[ALEFIT XHR send]', this._interceptMethod, url);
-
-      /* When User/me returns 401, redirect to Login.html instead of
-         letting the SPA render its broken inline auth form */
-      if (this._isUserMe) {
-        this.addEventListener('readystatechange', function() {
-          if (self.readyState === 4 && self.status === 401) {
-            var currentPath = window.location.pathname;
-            if (currentPath === '/' || currentPath === '') return;
-            var fromUrl = encodeURIComponent(window.location.href);
-            console.log('[ALEFIT] User/me 401 — redirecting to Login.html');
-            window.location.href = '/Login.html?from_url=' + fromUrl;
-          }
-        });
-      }
-
-      if (url.indexOf('InvokeLLM') === -1) {
-        return _send.call(this, data);
-      }
-
-      var body = {};
-      try { body = JSON.parse(data || '{}'); } catch(e) {}
-      var prompt = body.prompt || '';
-      var wantsJson = !!body.response_json_schema;
-
-      handleInvokeLLM(prompt, wantsJson, function(status, respText) {
-        Object.defineProperty(self, 'readyState', { value: 4, writable: true });
-        Object.defineProperty(self, 'status',     { value: status, writable: true });
-        Object.defineProperty(self, 'statusText', { value: status === 200 ? 'OK' : 'Error', writable: true });
-        Object.defineProperty(self, 'responseText',{ value: respText, writable: true });
-        Object.defineProperty(self, 'response',   { value: respText, writable: true });
-        self._interceptHeaders = self._interceptHeaders || {};
-        if (self.onreadystatechange) self.onreadystatechange();
-        if (self.onload) self.onload();
-        if (self.onloadend) self.onloadend();
-      });
-    };
-
-    /* Intercept fetch — uses native fetch captured before puter.js loads */
-    window.fetch = async function(url, opts) {
-      var urlStr = (typeof url === 'string') ? url : (url && url.url) || '';
-      /* Rewrite base44.app calls to local server */
-      if (urlStr.indexOf('https://base44.app') === 0) {
-        urlStr = urlStr.replace('https://base44.app', '');
-        url = urlStr;
-      }
-      if (urlStr.indexOf('auth') !== -1 || urlStr.indexOf('register') !== -1) {
-        console.log('[ALEFIT fetch]', (opts && opts.method) || 'GET', urlStr);
-      }
-      /* Use native fetch (not puter's) for all non-InvokeLLM requests */
-      if (urlStr.indexOf('InvokeLLM') === -1) {
-        var nf = _nativeFetch || XMLHttpRequest.prototype._nativeFetch;
-        if (!nf) {
-          /* Fallback: create a fresh XMLHttpRequest bypass */
-          return new Promise(function(resolve, reject) {
-            var xhr = new XMLHttpRequest();
-            _open.call(xhr, (opts && opts.method) || 'GET', urlStr, true);
-            var headers = (opts && opts.headers) ? opts.headers : {};
-            Object.keys(headers).forEach(function(k) { _setRequestHeader.call(xhr, k, headers[k]); });
-            xhr.onload = function() {
-              resolve(new Response(xhr.responseText, { status: xhr.status, headers: { 'Content-Type': 'application/json' } }));
-            };
-            xhr.onerror = function() { reject(new TypeError('Network Error')); };
-            _send.call(xhr, opts && opts.body ? opts.body : null);
-          });
-        }
-        return nf(url, opts);
-      }
-      return new Promise(function(resolve) {
-        var body = {};
-        try { body = JSON.parse(opts && opts.body ? opts.body : '{}'); } catch(e) {}
-        handleInvokeLLM(body.prompt || '', !!body.response_json_schema, function(status, text) {
-          resolve(new Response(text, { status: status, headers: { 'Content-Type': 'application/json' } }));
-        });
-      });
-    };
-  })();
-  </script>
-  <!-- puter.js loads AFTER our interceptor so we captured native XHR/fetch above -->
-  <script src="https://js.puter.com/v2/"></script>
-  <script crossorigin="" src="assets/index-Pexels2024.js?v=2" type="module">
-  </script>
-  <script src="/program-images.js"></script>
-  <link crossorigin="" href="assets/index-AqnWfqV4.css" rel="stylesheet"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>ALEFIT — Training Built Around You</title>
+  <link rel="icon" href="/images/alefit-logo.png" type="image/png"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
-    /* Remove hero background image from home page */
-    img[alt="Athlete gripping a barbell with chalk on hands"],
-    img[src*="bbcf3126a_generated_52fdbe43"] {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --lime: #D4FF00;
+      --dark: #0F0F0F;
+      --surface: #141414;
+      --card: #1a1a1a;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #ffffff;
+      --muted: rgba(255, 255, 255, 0.4);
     }
-    section#home > div:first-child {
-      display: none !important;
-      visibility: hidden !important;
+
+    html {
+      background: var(--dark);
+      scroll-behavior: smooth;
     }
-    section#home {
-      justify-content: center !important;
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
     }
-    section#home > div:nth-child(2) {
-      width: 100% !important;
-      max-width: 860px !important;
-      padding-left: 3rem !important;
-      padding-right: 3rem !important;
+
+    .shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
-    /* Hide "PULSE" background watermark text in hero */
-    section#home [class*="pulse"],
-    section#home [class*="Pulse"],
-    section#home [class*="watermark"],
-    section#home [class*="bg-text"],
-    section#home [class*="background-text"] {
-      display: none !important;
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(15, 15, 15, 0.95);
+      backdrop-filter: blur(10px);
+    }
+
+    .topbar .brand {
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .topbar .brand img {
+      height: 32px;
+      width: auto;
+    }
+
+    .topbar .actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .button {
+      background: var(--lime);
+      color: #000;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      font-family: inherit;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .button:hover {
+      opacity: 0.88;
+    }
+
+    .button:active {
+      transform: scale(0.98);
+    }
+
+    .button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .button.secondary:hover {
+      border-color: rgba(212, 255, 0, 0.3);
+    }
+
+    .hero {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 2rem;
+      text-align: center;
+    }
+
+    .hero-content {
+      max-width: 720px;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 10vw, 4rem);
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .lime {
+      color: var(--lime);
+    }
+
+    .subtitle {
+      font-size: 1.25rem;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 3rem;
+      max-width: 580px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 4rem;
+    }
+
+    .benefits {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      max-width: 900px;
+      margin: 0 auto;
+      padding-top: 4rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .benefit {
+      text-align: left;
+    }
+
+    .benefit-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .benefit h3 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+
+    .benefit p {
+      font-size: 0.95rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 768px) {
+      .topbar {
+        padding: 1rem 1.5rem;
+      }
+
+      .hero {
+        padding: 3rem 1.5rem;
+      }
+
+      h1 {
+        font-size: clamp(1.75rem, 8vw, 2.5rem);
+      }
+
+      .subtitle {
+        font-size: 1rem;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .benefits {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .topbar {
+        padding: 0.875rem 1rem;
+      }
+
+      .topbar .brand {
+        font-size: 1.25rem;
+      }
+
+      .hero {
+        padding: 2rem 1rem;
+      }
+
+      h1 {
+        font-size: clamp(1.5rem, 7vw, 2rem);
+        margin-bottom: 1rem;
+      }
+
+      .subtitle {
+        font-size: 0.95rem;
+        margin-bottom: 2rem;
+      }
+
+      .button {
+        padding: 0.625rem 1.25rem;
+        font-size: 0.8rem;
+      }
+
+      .benefits {
+        padding-top: 2rem;
+      }
     }
   </style>
-  <meta content="An elite fitness management engine designed for high-performance training, featuring kinetic class scheduling and personalized athlete data tracking." name="description"/>
-  <meta content="ALEFIT" property="og:title"/>
-  <meta content="An elite fitness management engine designed for high-performance training, featuring kinetic class scheduling and personalized athlete data tracking." property="og:description"/>
-  <meta content="/" property="og:url"/>
-  <meta content="website" property="og:type"/>
-  <meta content="ALEFIT" property="og:site_name"/>
-  <meta content="ALEFIT" name="twitter:title"/>
-  <meta content="An elite fitness management engine designed for high-performance training, featuring kinetic class scheduling and personalized athlete data tracking." name="twitter:description"/>
-  <meta content="summary_large_image" name="twitter:card"/>
-  <meta content="/" name="twitter:url"/>
-  <meta content="/images/f986cd818_IMG_1546.jpeg" property="og:image"/>
-  <meta content="/images/f986cd818_IMG_1546.jpeg" name="twitter:image"/>
-  <meta content="yes" name="mobile-web-app-capable"/>
-  <meta content="black" name="apple-mobile-web-app-status-bar-style"/>
-  <meta content="ALEFIT" name="apple-mobile-web-app-title"/>
-  <link href="index.html" rel="canonical"/>
-  <script data-seo-source="builder" type="application/ld+json">
-   {"name": "ALEFIT", "@context": "https://schema.org", "@type": "WebSite", "url": "/"}
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ALEFIT home">
+        <img src="/images/alefit-logo.png" alt="ALEFIT"/>
+      </a>
+      <div class="actions" id="nav-actions">
+        <a class="button secondary" href="/my-plan.html" id="logged-in-link" style="display:none">My Plan</a>
+        <a class="button" href="/Register.html" id="signup-link">Build Plan</a>
+        <a class="button secondary" href="/Account.html" id="account-link" style="display:none">Profile</a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero-content">
+        <h1>Training built <span class="lime">around you</span></h1>
+        <p class="subtitle">Personalized workouts adapt to your sport, experience, equipment, and readiness. Get a 4-week plan built by an AI coach that learns from your feedback.</p>
+        
+        <div class="hero-actions">
+          <a class="button" href="/Register.html">Start Building</a>
+          <a class="button secondary" href="#benefits">Learn More</a>
+        </div>
+
+        <div class="benefits" id="benefits">
+          <div class="benefit">
+            <div class="benefit-icon">🎯</div>
+            <h3>Personalized</h3>
+            <p>Your sport, goals, and equipment shape every workout.</p>
+          </div>
+          <div class="benefit">
+            <div class="benefit-icon">📈</div>
+            <h3>Adaptive</h3>
+            <p>Adjusts to your energy, soreness, and performance feedback.</p>
+          </div>
+          <div class="benefit">
+            <div class="benefit-icon">⚡</div>
+            <h3>Simple</h3>
+            <p>Clear exercises, sets, reps, and rest. No guessing.</p>
+          </div>
+          <div class="benefit">
+            <div class="benefit-icon">🏆</div>
+            <h3>Effective</h3>
+            <p>Built on proven training principles and real feedback.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Show logged-in nav when authenticated
+    (function() {
+      var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
+      if (token) {
+        document.getElementById('signup-link').style.display = 'none';
+        document.getElementById('logged-in-link').style.display = 'inline-flex';
+        document.getElementById('account-link').style.display = 'inline-flex';
+      }
+    })();
   </script>
-  <script data-seo-source="builder" type="application/ld+json">
-   {"name": "ALEFIT", "logo": "/images/alefit-logo.png", "@context": "https://schema.org", "@type": "Organization", "url": "/"}
-  </script>
- </head>
- <body>
- <script>
- (function(){
-   var OLD_SUB = 'Join ALEFIT today and unlock your true potential with expert coaching, state-of-the-art equipment, and a community that drives you forward.';
-   var NEW_SUB = 'Precision-engineered for the obsessed. Every program is built on science, forged in intensity, and designed to make you the best version of yourself — no shortcuts, no excuses.';
-
-   function replaceText(node){
-     if(node.nodeType===3&&node.nodeValue.trim()===OLD_SUB){node.nodeValue=NEW_SUB;return true;}
-     for(var i=0;i<node.childNodes.length;i++){if(replaceText(node.childNodes[i]))return true;}
-     return false;
-   }
-
-   /* Find elements whose trimmed visible text matches a string */
-   function findByText(selector, text){
-     var els = document.querySelectorAll(selector);
-     var t = text.toLowerCase();
-     for(var i=0;i<els.length;i++){
-       if((els[i].textContent||'').trim().toLowerCase().indexOf(t)!==-1) return els[i];
-     }
-     return null;
-   }
-
-   /* Hide the bottom "create account / join" CTA section */
-   function hideCreateAccountSection(){
-     /* Walk up from any "Create Account" button to hide its whole section */
-     var allEls = document.querySelectorAll('button, a, h2, h3, p');
-     for(var i=0;i<allEls.length;i++){
-       var txt = (allEls[i].textContent||'').trim().toLowerCase();
-       if(txt === 'create account'){
-         /* Walk up to find a section or a large container div */
-         var el = allEls[i];
-         for(var j=0;j<8;j++){
-           if(!el.parentElement) break;
-           el = el.parentElement;
-           var tag = el.tagName.toLowerCase();
-           if(tag==='section' || (tag==='div' && el.parentElement && (el.parentElement.tagName.toLowerCase()==='main' || el.parentElement.id==='root' || el.parentElement === document.body))){
-             el.style.setProperty('display','none','important');
-             break;
-           }
-         }
-       }
-     }
-   }
-
-   /* Wire "START YOUR JOURNEY" button to /Register.html */
-   var _wiredJourneyEls = new WeakSet();
-   function wireJourneyButton(){
-     var btns = document.querySelectorAll('button, a');
-     for(var i=0;i<btns.length;i++){
-       var btn = btns[i];
-       if(_wiredJourneyEls.has(btn)) continue;
-       var txt = (btn.textContent||'').trim().toLowerCase();
-       if(txt.indexOf('start your journey')!==-1){
-         _wiredJourneyEls.add(btn);
-         btn.removeAttribute('href');
-         btn.addEventListener('click', function(e){
-           e.preventDefault();
-           e.stopPropagation();
-           window.location.href='/Register.html';
-         }, true);
-       }
-     }
-   }
-
-   /* Wire nav LOGIN and SIGN UP to custom auth pages.
-      Uses a WeakSet so we re-wire every time React replaces DOM nodes. */
-   var _wiredNavEls = new WeakSet();
-   function wireNavButtons(){
-     var btns = document.querySelectorAll('button, a');
-     for(var i=0;i<btns.length;i++){
-       var el = btns[i];
-       if(_wiredNavEls.has(el)) continue;
-       var txt = (el.textContent||'').trim().toLowerCase();
-       if(txt==='login'||txt==='sign in'){
-         _wiredNavEls.add(el);
-         el.removeAttribute('href');
-         el.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.location.href='/Login.html'; return false; }, true);
-       }
-       if(txt==='sign up'||txt==='signup'||txt==='register'){
-         _wiredNavEls.add(el);
-         el.removeAttribute('href');
-         el.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.location.href='/Register.html'; return false; }, true);
-       }
-     }
-   }
-
-   /* Hide PULSE watermark text node if rendered as plain text */
-   function hidePulseText(){
-     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-     var node;
-     while((node=walker.nextNode())){
-       if(node.nodeValue && node.nodeValue.trim()==='PULSE'){
-         var parent = node.parentElement;
-         if(parent) parent.style.setProperty('display','none','important');
-       }
-     }
-   }
-
-   /* Intercept SPA auth form submissions at document level (capture phase).
-      This fires BEFORE React's capture listener at #root, so we handle auth
-      before React can trigger its broken axios call to base44.app. */
-   var _authInterceptInstalled = false;
-   function interceptAuthForms(){
-     if(_authInterceptInstalled) return;
-     _authInterceptInstalled = true;
-     document.addEventListener('submit', function(e){
-       var f = e.target;
-       if(!f || f.tagName !== 'FORM') return;
-       var hasPassword = f.querySelector('input[type="password"]');
-       if(!hasPassword) return;
-       var emailEl = f.querySelector('input[type="email"]') || f.querySelector('input[name="email"]');
-       var passEl  = f.querySelector('input[type="password"]');
-       var nameEl  = f.querySelector('input[name="name"]') || f.querySelector('input[name="full_name"]') || f.querySelector('input[placeholder*="name" i]') || f.querySelector('input[placeholder*="Name" i]');
-       var isRegister = !!(nameEl) || f.querySelectorAll('input[type="password"]').length > 1;
-       var email    = emailEl ? emailEl.value.trim() : '';
-       var password = passEl  ? passEl.value : '';
-       if(!email || !password) return;
-       e.preventDefault();
-       e.stopImmediatePropagation();
-       console.log('[ALEFIT] intercepted auth form submit, isRegister=', isRegister, 'email=', email);
-       if(isRegister){
-         var fullName = nameEl ? nameEl.value.trim() : '';
-         fetch('/api/apps/6a1f3d189ebdbe71fa7d256c/auth/register',{
-           method:'POST', headers:{'Content-Type':'application/json'},
-           body: JSON.stringify({email:email, password:password, full_name:fullName})
-         }).then(function(r){return r.json();}).then(function(d){
-           if(d.access_token){
-             localStorage.setItem('base44_access_token',d.access_token);
-             localStorage.setItem('token',d.access_token);
-             if(d.user) localStorage.setItem('alefit_user',JSON.stringify(d.user));
-             window.location.reload();
-           } else {
-             var err = f.querySelector('.error-msg,[class*="error"],[class*="Error"]');
-             if(err){ err.textContent=d.error||'Registration failed.'; err.style.display='block'; }
-             else { alert(d.error||'Registration failed. Please try again.'); }
-           }
-         }).catch(function(err){ console.error('[ALEFIT] register fetch failed',err); window.location.href='/Register.html'; });
-       } else {
-         fetch('/api/apps/6a1f3d189ebdbe71fa7d256c/auth/login',{
-           method:'POST', headers:{'Content-Type':'application/json'},
-           body: JSON.stringify({email:email, password:password})
-         }).then(function(r){return r.json();}).then(function(d){
-           if(d.access_token){
-             localStorage.setItem('base44_access_token',d.access_token);
-             localStorage.setItem('token',d.access_token);
-             if(d.user) localStorage.setItem('alefit_user',JSON.stringify(d.user));
-             window.location.reload();
-           } else {
-             var err = f.querySelector('.error-msg,[class*="error"],[class*="Error"]');
-             if(err){ err.textContent=d.error||'Login failed.'; err.style.display='block'; }
-             else { alert(d.error||'Invalid email or password.'); }
-           }
-         }).catch(function(err){ console.error('[ALEFIT] login fetch failed',err); window.location.href='/Login.html'; });
-       }
-     }, true); /* capture=true fires before React's #root handler */
-   }
-
-   var subtitleDone = false;
-   function runAll(){
-     if(!subtitleDone && replaceText(document.body)) subtitleDone = true;
-     hideCreateAccountSection();
-     wireJourneyButton();
-     wireNavButtons();
-     hidePulseText();
-     interceptAuthForms();
-   }
-
-   var obs = new MutationObserver(runAll);
-   obs.observe(document.documentElement, {childList:true, subtree:true});
-   runAll();
- })();
- </script>
-  <div id="root">
-   <div data-seo-source="builder" id="seo-snapshot" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
-    <main>
-     <header>
-      <h1>
-       ALEFIT
-      </h1>
-      <p>
-       An elite fitness management engine designed for high-performance training, featuring kinetic class scheduling and personalized athlete data tracking.
-      </p>
-     </header>
-     <nav aria-label="Pages">
-      <h2>
-       Pages
-      </h2>
-      <ul>
-       <li>
-        <a href="calorie-tracker.html">
-         Calorie Tracker
-        </a>
-       </li>
-       <li>
-        <a href="ForgotPassword.html">
-         Forgot Password
-        </a>
-       </li>
-       <li>
-        <a href="Login.html">
-         Login
-        </a>
-       </li>
-       <li>
-        <a href="programs/baseball.html">
-         Program Baseball
-        </a>
-       </li>
-       <li>
-        <a href="programs/basketball.html">
-         Program Basketball
-        </a>
-       </li>
-       <li>
-        <a href="programs/crosscountry.html">
-         Program Cross Country
-        </a>
-       </li>
-       <li>
-        <a href="programs/crossfit.html">
-         Program Crossfit
-        </a>
-       </li>
-       <li>
-        <a href="programs/football.html">
-         Program Football
-        </a>
-       </li>
-       <li>
-        <a href="programs/golf.html">
-         Program Golf
-        </a>
-       </li>
-       <li>
-        <a href="programs/hiit.html">
-         Program HIIT
-        </a>
-       </li>
-       <li>
-        <a href="programs/mobility.html">
-         Program Mobility
-        </a>
-       </li>
-       <li>
-        <a href="programs/pilates.html">
-         Program Pilates
-        </a>
-       </li>
-       <li>
-        <a href="programs/soccer.html">
-         Program Soccer
-        </a>
-       </li>
-       <li>
-        <a href="programs/strength.html">
-         Program Strength
-        </a>
-       </li>
-       <li>
-        <a href="programs/swimming.html">
-         Program Swimming
-        </a>
-       </li>
-       <li>
-        <a href="programs/tennis.html">
-         Program Tennis
-        </a>
-       </li>
-       <li>
-        <a href="programs/track.html">
-         Program Track
-        </a>
-       </li>
-       <li>
-        <a href="programs/weightgain.html">
-         Program Weight Gain
-        </a>
-       </li>
-       <li>
-        <a href="programs/weightloss.html">
-         Program Weight Loss
-        </a>
-       </li>
-       <li>
-        <a href="programs/vertical-jump.html">
-         Program Vertical Jump
-        </a>
-       </li>
-       <li>
-        <a href="Register.html">
-         Register
-        </a>
-       </li>
-       <li>
-        <a href="ResetPassword.html">
-         Reset Password
-        </a>
-       </li>
-       <li>
-        <a href="meal-plan.html">
-         Meal Plan
-        </a>
-       </li>
-      </ul>
-     </nav>
-    </main>
-   </div>
-  </div>
- </body>
-
+</body>
 </html>
