@@ -345,8 +345,7 @@ AUTH_GUARD_SCRIPT = """<script>
 </script>"""
 
 PROTECTED_PATHS = {
-    "/account", "/Account.html", "/today.html", "/progress.html", "/coach.html",
-    "/profile.html", "/workout.html", "/my-plan.html",
+    "/account", "/Account.html",
 }
 PROTECTED_PREFIXES = ("/programs/",)
 
