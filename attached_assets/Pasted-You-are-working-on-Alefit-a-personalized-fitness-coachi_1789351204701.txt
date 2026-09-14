@@ -1,0 +1,1548 @@
+You are working on Alefit, a personalized fitness coaching app.
+
+Your job is NOT to create a generic fitness website.
+
+Your job is to transform the existing Alefit project into a polished, premium, highly personalized fitness app that feels competitive with successful modern fitness products.
+
+The main inspiration for product clarity and structure is apps such as Runna, but DO NOT copy Runna’s branding, exact layouts, wording, illustrations, or proprietary design.
+
+Alefit must have its own identity.
+
+The core product idea is:
+
+Alefit learns about the user, creates a training plan specifically for them, tells them exactly what to do today, tracks their progress, and adapts their future training.
+
+The personalized plan should be the center of the entire product.
+
+⸻
+
+FIRST: INSPECT THE CURRENT PROJECT
+
+Before changing code, inspect the entire existing Alefit project.
+
+Determine:
+
+* current framework
+* page structure
+* routing
+* styling architecture
+* authentication
+* user/profile storage
+* onboarding
+* workout/program data
+* exercise data
+* personalized-plan logic
+* dashboard/home page
+* AI Coach functionality
+* progress tracking
+* backend/API integrations
+* database integrations
+* deployment configuration
+* environment variables
+* mobile responsiveness
+
+Do NOT immediately replace the project.
+
+Do NOT rebuild everything from scratch unless something is completely unusable.
+
+Preserve working functionality.
+
+Refactor and redesign the existing app intelligently.
+
+⸻
+
+PRODUCT VISION
+
+Alefit should feel like:
+
+A personal trainer living inside the user’s phone.
+
+The user should never feel like they are browsing a library of random programs.
+
+The experience should be:
+
+Landing page
+
+↓
+
+Personalized onboarding
+
+↓
+
+Alefit learns goals, schedule, experience, equipment, sport, weaknesses, etc.
+
+↓
+
+“Building your plan”
+
+↓
+
+Personal plan preview
+
+↓
+
+Account creation / login
+
+↓
+
+Today screen
+
+↓
+
+Start workout
+
+↓
+
+Complete workout
+
+↓
+
+Track progress
+
+↓
+
+Future workouts adapt
+
+The user should understand within 5 seconds:
+
+“Alefit builds my training around me.”
+
+⸻
+
+MAJOR PROBLEM TO FIX
+
+The old Alefit product has many separate programs such as:
+
+* Baseball
+* Basketball
+* CrossFit
+* Football
+* Golf
+* HIIT
+* Pilates
+* Soccer
+* Strength
+* Swimming
+* Tennis
+* Track
+* Weight Loss
+* Weight Gain
+* Vertical Jump
+* other categories
+
+These should NOT be the main customer-facing experience.
+
+Keep all useful workouts, exercises, and program data internally.
+
+Treat those programs as training ingredients.
+
+Alefit should choose the correct training automatically.
+
+Example:
+
+User answers:
+
+Primary goal:
+Basketball performance
+
+Secondary goal:
+Build strength
+
+Experience:
+Intermediate
+
+Training:
+4 days/week
+
+Session length:
+60 minutes
+
+Equipment:
+Full gym
+
+Weaknesses:
+Vertical jump + conditioning
+
+Alefit should automatically generate ONE plan using relevant:
+
+* basketball work
+* strength training
+* power development
+* vertical jump work
+* conditioning
+* mobility
+* recovery
+
+The user should not manually choose five separate programs.
+
+⸻
+
+LANDING PAGE
+
+Completely rethink the public homepage around personalization.
+
+The hero should communicate the value immediately.
+
+Suggested direction:
+
+Training built around you.
+
+Supporting copy:
+
+Alefit creates a personalized training plan based on your goals, experience, schedule, equipment, and progress.
+
+Primary CTA:
+
+Build My Plan
+
+Secondary:
+
+Sign In
+
+Do NOT lead with:
+
+* Browse Programs
+* Classes
+* program categories
+* generic fitness marketing
+* technical terminology
+
+Remove confusing copy such as:
+
+“elite fitness management engine”
+
+or
+
+“kinetic class scheduling”
+
+Use simple language.
+
+Possible homepage structure:
+
+Hero
+
+↓
+
+How Alefit works
+
+1. Tell us about yourself
+2. Get your personalized plan
+3. Train with Alefit
+4. Adapt as you improve
+
+↓
+
+Personalization examples
+
+↓
+
+Progress/adaptive coaching
+
+↓
+
+Final CTA
+
+Keep the homepage clean.
+
+Do not make it overly long.
+
+⸻
+
+ONBOARDING
+
+This is one of the most important parts of the entire app.
+
+The onboarding should create emotional investment BEFORE account creation.
+
+It should feel like Alefit is actually learning about the user.
+
+Use a multi-step experience.
+
+Only show one major question per screen.
+
+Include:
+
+progress indicator
+
+Back button
+
+Continue button
+
+smooth transitions
+
+large tap targets
+
+mobile-first layout
+
+Do NOT make it feel like a boring form.
+
+⸻
+
+ONBOARDING QUESTIONS
+
+Ask relevant questions such as:
+
+Goal
+
+“What do you want Alefit to help you achieve?”
+
+Options:
+
+* Build muscle
+* Get stronger
+* Lose weight
+* Improve athletic performance
+* Increase endurance
+* Become more explosive
+* Improve general fitness
+
+Allow multiple goals when appropriate.
+
+Ask for:
+
+Primary goal
+
+Secondary goal
+
+⸻
+
+SPORT
+
+If athletic performance is selected:
+
+“What sport are you training for?”
+
+Use currently supported sports.
+
+Potential options:
+
+* Basketball
+* Football
+* Baseball
+* Soccer
+* Track
+* Swimming
+* Tennis
+* Golf
+* CrossFit
+* Other
+
+⸻
+
+EXPERIENCE
+
+Ask:
+
+“How experienced are you?”
+
+Options:
+
+* Beginner
+* Intermediate
+* Advanced
+
+Give very short explanations.
+
+⸻
+
+TRAINING FREQUENCY
+
+“How many days can you realistically train?”
+
+2–7 days.
+
+Do not guilt users for choosing fewer days.
+
+⸻
+
+TRAINING DAYS
+
+Let users choose which days they typically train.
+
+Example:
+
+Mon
+Tue
+Wed
+Thu
+Fri
+Sat
+Sun
+
+Use toggles/cards.
+
+⸻
+
+SESSION LENGTH
+
+“How much time do you normally have?”
+
+* 20–30 min
+* 30–45 min
+* 45–60 min
+* 60–90 min
+* 90+ min
+
+⸻
+
+LOCATION
+
+“Where do you usually train?”
+
+* Full gym
+* Home gym
+* Minimal equipment
+* Bodyweight
+
+⸻
+
+EQUIPMENT
+
+If relevant, ask what equipment they have.
+
+Examples:
+
+* Barbell
+* Dumbbells
+* Bench
+* Squat rack
+* Cable machine
+* Resistance bands
+* Pull-up bar
+* Machines
+* Cardio equipment
+
+⸻
+
+FOCUS AREAS
+
+Ask:
+
+“What would you most like to improve?”
+
+Examples:
+
+* Strength
+* Muscle
+* Speed
+* Explosiveness
+* Vertical jump
+* Endurance
+* Conditioning
+* Mobility
+* Core strength
+* Upper body
+* Lower body
+
+Allow several.
+
+⸻
+
+OPTIONAL LIMITATIONS
+
+Ask about training limitations only if useful.
+
+Examples:
+
+* exercises they dislike
+* unavailable equipment
+* schedule limitations
+
+Do NOT turn Alefit into a medical questionnaire.
+
+⸻
+
+PLAN GENERATION MOMENT
+
+After onboarding, do NOT immediately dump the user onto a dashboard.
+
+Create a polished plan-generation moment.
+
+Example:
+
+Building your Alefit plan
+
+Animated progression:
+
+✓ Analyzing your goals
+
+✓ Matching training to your experience
+
+✓ Building around your schedule
+
+✓ Balancing training and recovery
+
+✓ Selecting your highest-priority training
+
+✓ Creating your first week
+
+Then:
+
+Your plan is ready.
+
+This should feel exciting.
+
+⸻
+
+PLAN PREVIEW BEFORE SIGNUP
+
+Where technically feasible, show the user some value BEFORE requiring account creation.
+
+Example:
+
+Your Alefit Plan
+
+Basketball Performance + Strength
+
+4 training days/week
+
+Approx. 55 minutes/session
+
+Main focus:
+
+* Explosiveness
+* Strength
+* Vertical jump
+* Conditioning
+
+Week preview:
+
+Monday
+Lower Body Power
+
+Wednesday
+Upper Body Strength + Basketball
+
+Friday
+Speed & Explosiveness
+
+Saturday
+Full Body Performance
+
+Then CTA:
+
+Save My Plan
+
+This leads into signup.
+
+⸻
+
+SIGNUP / LOGIN
+
+Authentication should be extremely simple.
+
+Do not make auth screens busy.
+
+Login:
+
+Alefit logo
+
+Welcome back
+
+Email
+
+Password
+
+Sign In
+
+Forgot password?
+
+Create account
+
+Signup should feel like the continuation of onboarding.
+
+Copy example:
+
+Save your personalized plan
+
+Email
+
+Password
+
+Create My Account
+
+Avoid making the user feel like the onboarding disappeared.
+
+⸻
+
+TODAY SCREEN
+
+This should become the most important logged-in screen.
+
+The first question Alefit should answer every day:
+
+What should I do today?
+
+Design the screen around ONE primary action.
+
+Example:
+
+Good morning
+
+Today’s Training
+
+Lower Body Strength + Power
+
+52 min
+
+8 exercises
+
+Strength · Power · Mobility
+
+Start Workout
+
+Below this, show only a few useful things.
+
+Examples:
+
+This Week
+
+3 of 4 workouts completed
+
+Next Workout
+
+Friday · Speed & Explosiveness
+
+Coach Insight
+
+“Because explosiveness is one of your priorities, today’s workout emphasizes lower-body power.”
+
+Do NOT create a giant dashboard.
+
+⸻
+
+NAVIGATION
+
+Main navigation should be simple.
+
+Recommended:
+
+Today
+
+My Plan
+
+Progress
+
+Coach
+
+Profile
+
+On mobile, use a clean bottom navigation if appropriate.
+
+Do not clutter navigation with:
+
+* every program
+* sports categories
+* random utilities
+* admin pages
+
+⸻
+
+MY PLAN
+
+Build a premium personal-plan screen.
+
+Top:
+
+Your Plan
+
+Basketball Performance + Strength
+
+4 days/week
+
+~55 min/session
+
+Focus:
+
+Strength · Explosiveness · Conditioning
+
+Then weekly schedule.
+
+Example:
+
+MON
+
+Lower Strength + Power
+
+Completed ✓
+
+TUE
+
+Recovery
+
+WED
+
+Upper Strength + Basketball
+
+THU
+
+Rest
+
+FRI
+
+Speed + Explosiveness
+
+SAT
+
+Full Body Performance
+
+SUN
+
+Rest
+
+Keep it easy to understand.
+
+Allow users to open workouts.
+
+Do not show months of workouts all at once.
+
+⸻
+
+WORKOUT EXPERIENCE
+
+Workout execution needs to feel like a real app.
+
+At top:
+
+Workout title
+
+Estimated duration
+
+Training focus
+
+Exercise count
+
+Then exercises.
+
+For each:
+
+Exercise name
+
+Sets
+
+Reps
+
+Weight
+
+Rest
+
+Instructions
+
+Previous performance when available
+
+Allow user actions such as:
+
+* complete set
+* edit weight
+* edit reps
+* skip exercise
+* replace exercise if supported
+* go to next exercise
+
+Make controls easy to tap.
+
+⸻
+
+WORKOUT COMPLETION
+
+After finishing:
+
+Workout Complete
+
+Show:
+
+Duration
+
+Exercises completed
+
+Sets completed
+
+Any PRs
+
+Weekly training progress
+
+Then give a short relevant message.
+
+Example:
+
+“Nice work. You’re now 3 of 4 workouts through this week’s plan.”
+
+Avoid childish excessive gamification.
+
+⸻
+
+REAL PERSONALIZATION
+
+This is critical.
+
+Do NOT merely write “personalized” in the UI.
+
+Use onboarding data throughout the product.
+
+Examples:
+
+“Today’s lower-body emphasis supports your vertical jump goal.”
+
+“You trained legs yesterday, so today’s session focuses on upper body.”
+
+“You selected 45-minute sessions, so we’ve prioritized the highest-value exercises.”
+
+“You have basketball scheduled tonight, so today’s gym work is lighter.”
+
+Only make claims supported by available data.
+
+⸻
+
+PERSONALIZED PLAN GENERATION
+
+Create structured logic that turns onboarding answers into an actual training plan.
+
+Inputs should include:
+
+* primary goal
+* secondary goal
+* sport
+* experience
+* training days
+* available time
+* equipment
+* focus areas
+* schedule
+
+The logic should select:
+
+training split
+
+exercise categories
+
+training intensity
+
+volume
+
+sport-specific work
+
+recovery days
+
+conditioning
+
+mobility
+
+Use existing workout/program content wherever possible.
+
+Do NOT hard-code the exact same plan for everyone.
+
+Even if full AI generation is not yet available, create a rule-based plan generator that produces meaningfully different plans.
+
+⸻
+
+ADAPTIVE TRAINING
+
+Create the foundation for Alefit to adapt.
+
+Use:
+
+* completed workouts
+* skipped sessions
+* performance
+* user feedback
+* available time
+* training consistency
+
+Examples:
+
+If user repeatedly misses Saturday:
+
+Suggest changing schedule.
+
+If user finishes a workout quickly:
+
+Do not automatically increase intensity without logic.
+
+If user says soreness is high:
+
+Offer lighter alternatives.
+
+If user changes from 60 min to 30 min:
+
+Create a shorter version.
+
+⸻
+
+DAILY READINESS
+
+If possible in the current architecture, allow a simple readiness check.
+
+Before training:
+
+How do you feel today?
+
+Energy
+
+Low / Normal / High
+
+Soreness
+
+Low / Moderate / High
+
+Time available
+
+30 min
+45 min
+60 min
+Full session
+
+Use this to adjust today’s session when possible.
+
+Keep it fast.
+
+⸻
+
+AI COACH
+
+Create or improve Coach.
+
+Coach should feel like part of the personalized training system.
+
+Possible questions:
+
+“Why am I doing this workout?”
+
+“Can I replace squats?”
+
+“My knees are sore. What should I change?”
+
+“I only have 30 minutes.”
+
+“I have basketball tonight.”
+
+“Should I train tomorrow?”
+
+“Make this workout harder.”
+
+Use available user plan context.
+
+The Coach should ideally know:
+
+goal
+
+sport
+
+schedule
+
+current workout
+
+recent workouts
+
+experience
+
+equipment
+
+Do not place a giant chatbot permanently on Today.
+
+Use a clean Coach page/button.
+
+⸻
+
+PROGRESS
+
+Progress must reflect what the user actually cares about.
+
+Possible metrics:
+
+Strength user
+
+* key lifts
+* total volume
+* consistency
+* PRs
+
+Athlete
+
+* strength
+* jump
+* speed
+* conditioning
+* consistency
+
+Muscle growth
+
+* lifting progression
+* volume
+* bodyweight if tracked
+* consistency
+
+Weight loss
+
+* weight trend
+* workouts completed
+* activity
+* consistency
+
+Do not show meaningless charts.
+
+If data does not exist yet, use good empty states.
+
+Example:
+
+Your progress starts with your first workout.
+
+⸻
+
+STREAKS / MOTIVATION
+
+Alefit can use motivation but should remain premium.
+
+Possible features:
+
+Weekly goal
+
+3/4 workouts
+
+Training streak
+
+Personal records
+
+Monthly consistency
+
+Do not turn the app into a children’s game.
+
+⸻
+
+PROFILE
+
+Profile should allow:
+
+Goals
+
+Sport
+
+Experience
+
+Training days
+
+Workout duration
+
+Equipment
+
+Focus areas
+
+Units
+
+Account
+
+Users should be able to update their training preferences later.
+
+Plan should refresh intelligently when major preferences change.
+
+⸻
+
+REST DAYS
+
+Rest days should still feel useful.
+
+Example:
+
+Recovery Day
+
+Today’s focus:
+
+* Mobility
+* Walking
+* Hydration
+* Sleep
+
+Optional:
+
+10-Minute Mobility
+
+Ask Coach
+
+Do not show “nothing scheduled.”
+
+⸻
+
+DESIGN SYSTEM
+
+The interface must feel:
+
+Premium
+
+Modern
+
+Athletic
+
+Minimal
+
+Confident
+
+Professional
+
+Mobile-first
+
+Use Alefit’s existing brand identity/colors unless they are clearly broken.
+
+Improve consistency rather than randomly inventing new colors.
+
+⸻
+
+VISUAL RULES
+
+Use:
+
+Strong typography hierarchy
+
+Plenty of whitespace
+
+Large headlines
+
+Clear CTAs
+
+Subtle shadows
+
+Modern cards
+
+Rounded corners where appropriate
+
+Smooth transitions
+
+Large touch targets
+
+Consistent spacing
+
+Clean bottom navigation
+
+Do NOT overuse:
+
+Gradients
+
+Glowing effects
+
+Tiny cards
+
+Huge icon collections
+
+Borders everywhere
+
+Animations
+
+Competing CTA buttons
+
+Walls of text
+
+⸻
+
+MOBILE FIRST
+
+Alefit should feel like a native-quality mobile fitness app.
+
+Optimize heavily for:
+
+375px
+
+390px
+
+430px
+
+Test:
+
+navigation
+
+cards
+
+forms
+
+onboarding
+
+workouts
+
+charts
+
+modals
+
+Nothing should horizontally overflow.
+
+No tiny text.
+
+Buttons should be comfortably tappable.
+
+⸻
+
+DESKTOP
+
+Desktop should still look polished, but DO NOT simply stretch mobile cards across the entire screen.
+
+Use reasonable max widths and centered layouts.
+
+⸻
+
+PROGRAM LIBRARY
+
+Do NOT delete useful legacy training content.
+
+Instead restructure it internally.
+
+Example internal architecture:
+
+training library
+
+↓
+
+templates
+
+↓
+
+sports
+
+↓
+
+goals
+
+↓
+
+exercise categories
+
+↓
+
+plan generation
+
+The user sees:
+
+My Plan
+
+not:
+
+“Choose one of 20 programs.”
+
+⸻
+
+REMOVE UNREALISTIC CLAIMS
+
+Search the codebase for claims such as:
+
+“Vertical Jump +8 Inches”
+
+or other guaranteed results.
+
+Replace with responsible language such as:
+
+Build Explosive Jump Power
+
+Train to Improve Your Vertical
+
+Build Strength & Athleticism
+
+Alefit should never promise a guaranteed physical transformation.
+
+⸻
+
+SMART EMPTY STATES
+
+Never show blank sections.
+
+Examples:
+
+No plan:
+
+Let’s build your training plan.
+
+No progress:
+
+Your progress starts with your first workout.
+
+No workout today:
+
+Recovery Day
+
+No AI history:
+
+Ask Alefit Coach anything about your training.
+
+⸻
+
+LOADING STATES
+
+Add clean loading/skeleton states for:
+
+plan generation
+
+workout loading
+
+progress
+
+Coach responses
+
+authentication
+
+Avoid flashing empty content.
+
+⸻
+
+ERROR HANDLING
+
+Every important feature should have understandable errors.
+
+Example:
+
+Instead of:
+
+“500 Error”
+
+Use:
+
+“We couldn’t load your plan. Try again.”
+
+Provide retry actions.
+
+⸻
+
+ACCESSIBILITY
+
+Use:
+
+semantic HTML
+
+labels
+
+keyboard accessibility
+
+good contrast
+
+meaningful alt text
+
+focus states
+
+Do not sacrifice accessibility for appearance.
+
+⸻
+
+CODE QUALITY
+
+While improving Alefit:
+
+Reuse existing components.
+
+Remove duplicated logic.
+
+Remove dead UI.
+
+Avoid unnecessary dependencies.
+
+Do not expose secrets.
+
+Do not hard-code API keys.
+
+Keep user data safe.
+
+Fix broken routes.
+
+Fix broken buttons.
+
+Fix console errors.
+
+Fix obvious warnings.
+
+Keep code organized.
+
+Add comments only where they genuinely help.
+
+⸻
+
+PERFORMANCE
+
+Optimize:
+
+large images
+
+unnecessary scripts
+
+repeated API calls
+
+render performance
+
+page load
+
+mobile performance
+
+Lazy-load where appropriate.
+
+Do not destroy UX for micro-optimizations.
+
+⸻
+
+IMPORTANT: DO NOT FAKE BACKEND FUNCTIONALITY
+
+If the backend does not support something yet:
+
+Do NOT pretend that it works.
+
+Create the proper frontend architecture.
+
+Clearly document what backend work is still needed.
+
+Do not fill the app with random fake user data.
+
+Mock data may only be used where necessary for development and should be clearly isolated.
+
+⸻
+
+DEPLOYMENT
+
+Do NOT replace the live Alefit.org site until the redesign has been verified.
+
+First make the Replit preview version work.
+
+Verify all critical flows.
+
+Then explain what is needed to deploy.
+
+Do not change production DNS or hosting without explicit approval.
+
+⸻
+
+TEST THESE FLOWS
+
+Test:
+
+New visitor → Build My Plan
+
+Onboarding
+
+Plan generation
+
+Plan preview
+
+Signup
+
+Login
+
+Today screen
+
+My Plan
+
+Start workout
+
+Log sets
+
+Finish workout
+
+Progress
+
+Coach
+
+Profile changes
+
+Logout
+
+Return login
+
+Mobile navigation
+
+Browser refresh
+
+⸻
+
+BUG FIXING
+
+While inspecting the project, fix:
+
+broken links
+
+non-working buttons
+
+console errors
+
+layout overflow
+
+mobile bugs
+
+invalid redirects
+
+authentication errors
+
+missing loading states
+
+duplicated content
+
+visual inconsistencies
+
+dead code
+
+unresponsive controls
+
+⸻
+
+FINAL QUALITY BAR
+
+Before considering the work complete, ask:
+
+Does Alefit feel like a product someone would pay for?
+
+Does Alefit immediately explain why it is different?
+
+Does the experience feel personalized?
+
+Does Today clearly tell the user what to do?
+
+Does onboarding create investment?
+
+Does the design feel calm and premium?
+
+Would someone think this is a real fitness startup rather than a school/demo website?
+
+If not, keep improving it.
+
+⸻
+
+DO NOT STOP AFTER ONE PAGE
+
+Work across the full experience.
+
+Do not redesign only the landing page.
+
+Do not redesign only onboarding.
+
+Do not stop after creating basic components.
+
+Make the experience cohesive.
+
+⸻
+
+PRIORITY ORDER
+
+If you need to prioritize work, use:
+
+1. Onboarding + personalization
+2. Today screen
+3. My Plan
+4. Workout experience
+5. Signup/login flow
+6. Landing page
+7. Progress
+8. Coach
+9. Profile/settings
+10. Visual polish
+11. Performance
+12. Deployment readiness
+
+⸻
+
+AT THE END
+
+Give me a clear report with:
+
+1. Everything changed
+2. Files changed
+3. Features added
+4. Bugs fixed
+5. What personalization logic now exists
+6. What still needs backend support
+7. What still needs improvement
+8. Whether the build passes
+9. Whether there are console errors
+10. Whether mobile layouts were tested
+11. How to preview everything
+12. What is required to safely deploy it to Alefit.org
+
+Do NOT deploy to Alefit.org without explicit approval.
+
+The goal is to make Alefit feel like an elite, highly personalized digital coach — not a website full of workout programs.
