@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/onboarding.css">
+  <link rel="stylesheet" href="/app.css">
 </head>
 <body>
   <main class="shell">
@@ -16,13 +17,20 @@
       <a class="brand" href="/" aria-label="ALEFIT home">
         <img src="/images/alefit-logo.png" alt="ALEFIT">
       </a>
-      <a class="sign-in" href="/">Home</a>
+      <a class="sign-in" href="/today.html">Today</a>
     </header>
     <section class="onboarding preview" id="plan" aria-live="polite">
       <span class="eyebrow">Your plan</span>
       <h1>Loading your plan.</h1>
     </section>
   </main>
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <a href="/today.html"><span>Today</span></a>
+    <a class="active" href="/my-plan.html"><span>My Plan</span></a>
+    <a href="/progress.html"><span>Progress</span></a>
+    <a href="/coach.html"><span>Coach</span></a>
+    <a href="/profile.html"><span>Profile</span></a>
+  </nav>
   <script src="/training-engine.js"></script>
   <script src="/my-plan.js"></script>
 </body>
