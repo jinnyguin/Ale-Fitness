@@ -134,13 +134,16 @@
     var skipped = logs.filter(function (entry) {
       return (entry.feedback || entry).status === "skipped";
     }).length;
+    var pain = logs.some(function (entry) {
+      return !!(entry.feedback || entry).pain;
+    });
     var lowRecovery = readiness.some(function (entry) {
       var energy = entry.energy || entry.energy_level;
       var soreness = entry.soreness || entry.soreness_level;
       var score = numeric(entry.score != null ? entry.score : entry.total, 100);
       return energy === "low" || soreness === "high" || score < 55;
     });
-    return {logs:logs, readiness:readiness, tooHard:tooHard, skipped:skipped, lowRecovery:lowRecovery};
+    return {logs:logs, readiness:readiness, tooHard:tooHard, skipped:skipped, pain:pain, lowRecovery:lowRecovery};
   }
 
   function chooseTrainingDays(workload, count) {
@@ -217,36 +220,130 @@
     return ids;
   }
 
-  function prescribedSets(focus, profile, week, historyState) {
+  function phaseFor(focus, week) {
+    if (week === 1) {
+      return {
+        key:"foundation",
+        label:"Foundation",
+        emphasis:"Technique, baseline capacity, and repeatable movement quality",
+        conditioning:"Easy, conversational conditioning",
+        recovery:"Leave room to recover and record how the work feels",
+        reason:"Establish a repeatable baseline before adding stress."
+      };
+    }
+    if (week === 2) {
+      return {
+        key:"build",
+        label:"Build",
+        emphasis:"Progressive volume and support-work capacity",
+        conditioning:"Steady conditioning with controlled progression",
+        recovery:"Keep at least one easy day between demanding sessions",
+        reason:"Build volume gradually while keeping the key pattern familiar."
+      };
+    }
+    if (week === 3) {
+      return {
+        key:focus === "power" || focus === "endurance" ? "performance" : "intensification",
+        label:focus === "power" || focus === "endurance" ? "Performance" : "Intensification",
+        emphasis:focus === "power" ?
+          "Fast, high-quality efforts without chasing fatigue" :
+          focus === "endurance" ?
+            "Controlled quality and sport-specific conditioning" :
+            "Higher-quality work with slightly more intensity",
+        conditioning:focus === "endurance" ?
+          "One controlled quality stimulus; no all-out efforts" :
+          "Short, purposeful conditioning that supports the goal",
+        recovery:"Protect sleep and keep non-training activity easy",
+        reason:"Use the strongest stimulus of the block only after the earlier work is earned."
+      };
+    }
+    return {
+      key:"deload",
+      label:"Deload / Recovery",
+      emphasis:"Reduce fatigue while keeping the movement patterns fresh",
+      conditioning:"Easy movement, walking, or gentle mobility",
+      recovery:"Prioritize recovery and reassess readiness before the next block",
+      reason:"Reduce volume for recovery, then use your feedback to shape the next block."
+    };
+  }
+
+  function phaseExerciseIds(profile, focus, phase, baseIds) {
+    var sport = profile.sport || "general";
+    var rotations = {
+      basketball:{
+        build:["snap-down","band-lateral","step-up","band-row","dead-bug"],
+        performance:["broad-jump","acceleration","split-squat","dumbbell-row","dead-bug"],
+        deload:["wall-march","lateral-step","glute-bridge","prone-swimmer","mobility-flow"]
+      },
+      running:{
+        build:["split-squat","calf-raise","dead-bug","mobility-flow","brisk-walk"],
+        performance:["tempo-run","split-squat","calf-raise","mobility-flow","dead-bug"],
+        deload:["mobility-flow","glute-bridge","calf-raise","brisk-walk","dead-bug"]
+      },
+      "cross-country":{
+        build:["split-squat","calf-raise","dead-bug","mobility-flow","brisk-walk"],
+        performance:["tempo-run","split-squat","calf-raise","mobility-flow","dead-bug"],
+        deload:["mobility-flow","glute-bridge","calf-raise","brisk-walk","dead-bug"]
+      },
+      strength:{
+        build:["goblet-squat","hip-hinge","floor-press","band-row","dead-bug"],
+        intensification:["rdl","split-squat","bench-press","dumbbell-row","dead-bug"],
+        deload:["tempo-squat","glute-bridge","push-up","prone-swimmer","mobility-flow"]
+      },
+      general:{
+        build:["split-squat","glute-bridge","push-up","band-row","dead-bug"],
+        intensification:["step-up","rdl","floor-press","band-lateral","dead-bug"],
+        deload:["tempo-squat","hip-hinge","prone-swimmer","brisk-walk","mobility-flow"]
+      }
+    };
+    var defaults = {
+      build:["split-squat","glute-bridge","push-up","band-row","dead-bug"],
+      intensification:["step-up","rdl","floor-press","band-lateral","dead-bug"],
+      performance:["snap-down","wall-march","split-squat","calf-raise","dead-bug"],
+      deload:["tempo-squat","hip-hinge","prone-swimmer","brisk-walk","mobility-flow"]
+    };
+    var sportRotation = rotations[sport] || (focus === "muscle" || focus === "strength" ? {
+      build:["goblet-squat","hip-hinge","floor-press","band-row","dead-bug"],
+      intensification:["rdl","split-squat","bench-press","dumbbell-row","dead-bug"],
+      deload:["tempo-squat","glute-bridge","push-up","prone-swimmer","mobility-flow"]
+    } : null);
+    var rotation = (sportRotation && sportRotation[phase.key]) || defaults[phase.key] || baseIds.slice(1);
+    return [baseIds[0]].concat(rotation).filter(function (id, index, ids) {
+      return ids.indexOf(id) === index;
+    });
+  }
+
+  function prescribedSets(focus, profile, week, historyState, phase) {
     var novice = profile.experience === "new" || profile.experience === "not-sure" ||
       profile.consistency === "low" || profile.consistency === "not-sure" ||
       profile.familiarity === "not-sure" || profile.familiarity === "basic";
     var sets = focus === "muscle" ? (novice ? 3 : 4) :
       focus === "strength" ? (novice ? 2 : 4) :
       focus === "power" ? (novice ? 2 : 3) : (novice ? 2 : 3);
-    if (profile.experience === "advanced" && week < 4 &&
+    if (profile.experience === "advanced" && phase && phase.key === "intensification" &&
         (focus === "strength" || focus === "muscle")) sets += 1;
-    if (week === 4) sets -= 1;
+    if (phase && phase.key === "deload") sets -= 1;
     if (historyState.tooHard >= 2 || historyState.lowRecovery) sets -= 1;
     return Math.max(1, Math.min(5, sets));
   }
 
-  function strengthPrescription(focus, profile, week, historyState) {
-    var sets = prescribedSets(focus, profile, week, historyState);
+  function strengthPrescription(focus, profile, week, historyState, phase) {
+    var sets = prescribedSets(focus, profile, week, historyState, phase);
+    var deload = phase && phase.key === "deload";
     if (focus === "strength") {
-      return {sets:sets,reps:"5–6",rest:"2–4 min",
-        effort:week === 4 ? "RPE 5–6" : "RPE 7"};
+      return {sets:sets,reps:phase && phase.key === "intensification" ? "3–5" : "5–6",rest:"2–4 min",
+        effort:deload ? "RPE 5–6" : phase && phase.key === "intensification" ? "RPE 7–8" : "RPE 7"};
     }
     if (focus === "muscle") {
-      return {sets:sets,reps:week === 4 ? "8" : "8–12",rest:"75–120 sec",
-        effort:week === 4 ? "RPE 6" : "RPE 7–8"};
+      return {sets:sets,reps:deload ? "8" : phase && phase.key === "intensification" ? "6–10" : "8–12",
+        rest:"75–120 sec",effort:deload ? "RPE 6" : "RPE 7–8"};
     }
     if (focus === "power") {
       return {sets:sets,reps:"3–5 quality reps",rest:"2–3 min",
-        effort:week === 4 ? "fast, low volume" : "fast; stop before speed drops"};
+        effort:deload ? "fast, low volume" : "fast; stop before speed drops"};
     }
     return {sets:sets,reps:"6–10",rest:"60–90 sec",
-      effort:week === 4 ? "RPE 5–6" : "RPE 6–7"};
+      effort:deload ? "RPE 5–6" : phase && phase.key === "performance" ? "RPE 7" : "RPE 6–7"};
   }
 
   function safeRunMinutes(profile, runSessionCount) {
@@ -261,8 +358,8 @@
     return Math.max(1, Math.floor(target));
   }
 
-  function prescribeExercise(item, focus, profile, week, historyState, runSessionCount) {
-    var prescription = strengthPrescription(focus, profile, week, historyState);
+  function prescribeExercise(item, focus, profile, week, historyState, runSessionCount, phase) {
+    var prescription = strengthPrescription(focus, profile, week, historyState, phase);
     if (item.id === "easy-run") {
       var factors = [1, 1, 1, 0.75];
       var raceFinish = profile.raceDetail && week === 3 ? " + 4 × 20 sec relaxed strides" : "";
@@ -273,24 +370,26 @@
       var interval = /10k|half|marathon/i.test(profile.runDistance || "") ? "3 min controlled" :
         /5k/i.test(profile.runDistance || "") ? "90 sec controlled" : "2 min controlled";
       return {sets:week === 4 ? 3 : 4,reps:interval,rest:"2 min easy",
-        effort:"RPE 6–7; never all-out"};
+         effort:phase && phase.key === "deload" ? "RPE 5–6; never all-out" : "RPE 6–7; never all-out"};
     }
     if (item.qualities.indexOf("endurance") !== -1 && item.movementPattern === "locomotion") {
       return {sets:1,reps:Math.min(30, numeric(profile.duration, 45) - 10) + " min",
         rest:"—",effort:"conversational"};
     }
     if (item.qualities.indexOf("power") !== -1) {
-      return {sets:prescribedSets("power", profile, week, historyState),
+       return {sets:prescribedSets("power", profile, week, historyState, phase),
         reps:"3–5 quality reps",rest:"2–3 min",
-        effort:week === 4 ? "fast, low volume" : "fast; stop before speed drops"};
+         effort:phase && phase.key === "deload" ? "fast, low volume" : "fast; stop before speed drops"};
     }
     if ((focus === "strength" || focus === "muscle") &&
         item.qualities.indexOf(focus) !== -1) return prescription;
     return {
-      sets:Math.min(week === 4 ? 2 : 3, prescribedSets(focus, profile, week, historyState)),
+       sets:Math.min(phase && phase.key === "deload" ? 2 : 3,
+         prescribedSets(focus, profile, week, historyState, phase)),
       reps:item.prescription.reps,
       rest:item.prescription.rest,
-      effort:week === 4 ? "easy, controlled" : "RPE 6–7"
+       effort:phase && phase.key === "deload" ? "easy, controlled" :
+         phase && phase.key === "performance" ? "RPE 7; quality first" : "RPE 6–7"
     };
   }
 
@@ -343,7 +442,7 @@
     var workload = parseWorkload(profile.load);
     var historyState = recentState(context);
     var requestedDays = Math.max(2, Math.min(4, numeric(profile.days, 3)));
-    var impactLimit = profile.limitations ? "low" :
+    var impactLimit = profile.limitations || historyState.pain ? "low" :
       profile.age === "under18" || profile.age === "55plus" ||
       profile.experience === "new" || profile.experience === "not-sure" ? "medium" : "high";
     var conservative = impactLimit !== "high" || profile.consistency === "low" ||
@@ -364,21 +463,24 @@
     var exerciseLimit = numeric(profile.duration, 45) <= 25 ? 2 :
       numeric(profile.duration, 45) <= 35 ? 3 :
       numeric(profile.duration, 45) <= 55 ? 4 : 5;
-    var stableExercises = [];
-    baseExerciseIds(profile, focus).forEach(function (id) {
-      var selected = chooseExercise(id, equipment, impactLimit);
-      if (selected && !stableExercises.some(function (existing) { return existing.id === selected.id; })) {
-        stableExercises.push(selected);
-      }
-    });
-    stableExercises = stableExercises.slice(0, exerciseLimit);
+    var baseIds = baseExerciseIds(profile, focus);
+    var primaryId = baseIds[0];
 
     var weeks = [];
     for (var week = 1; week <= 4; week += 1) {
+      var phase = phaseFor(focus, week);
+      var phaseExercises = [];
+      phaseExerciseIds(profile, focus, phase, baseIds).forEach(function (id) {
+        var selected = chooseExercise(id, equipment, impactLimit);
+        if (selected && !phaseExercises.some(function (existing) { return existing.id === selected.id; })) {
+          phaseExercises.push(selected);
+        }
+      });
+      phaseExercises = phaseExercises.slice(0, exerciseLimit);
       var sessions = trainingDays.map(function (dayIndex, sessionIndex) {
-        var sessionExercises = stableExercises.map(function (item, exerciseIndex) {
+        var sessionExercises = phaseExercises.map(function (item, exerciseIndex) {
           var prescription = prescribeExercise(
-            item, focus, profile, week, historyState, trainingDays.length
+            item, focus, profile, week, historyState, trainingDays.length, phase
           );
           var output = {
             id:item.id,
@@ -403,7 +505,7 @@
             id:tempo.id,name:tempo.name,priority:"primary",
             movementPattern:tempo.movementPattern,impact:tempo.impact
           }, prescribeExercise(
-            tempo, "endurance", profile, week, historyState, trainingDays.length
+            tempo, "endurance", profile, week, historyState, trainingDays.length, phase
           ));
         }
         var fitted = fitSessionDuration(sessionExercises, numeric(profile.duration, 45));
@@ -418,14 +520,21 @@
       });
       weeks.push({
         week:week,
-        label:week === 1 ? "Technique and baseline" :
-          week === 2 ? "Repeat and build" :
-          week === 3 ? "Progress with control" : "Deload and assess",
+        block:1,
+        blockWeek:week,
+        phase:phase.key,
+        phaseLabel:phase.label,
+        primaryMovement:phaseExercises.length ? phaseExercises[0].id : primaryId,
+        emphasis:phase.emphasis,
+        conditioning:phase.conditioning,
+        recovery:phase.recovery,
+        label:phase.label,
         sessions:sessions,
-        progression:week === 1 ? "Keep the key exercises stable and record a baseline." :
-          week === 2 ? "Repeat the same key IDs; add only the prescribed volume when prior effort was appropriate." :
-          week === 3 ? "Use a small load, rep, or running-duration increase only after completed appropriate sessions." :
-          "Keep the same patterns and reduce volume for recovery."
+        progression:phase.reason + " " +
+          (week === 1 ? "Keep the primary movement stable and record a baseline." :
+            week === 2 ? "Support exercises rotate while the primary movement stays familiar." :
+            week === 3 ? "Only completed, appropriate work earns the higher-quality stimulus." :
+            "Use this lower-volume week to recover and reassess.")
       });
     }
 
@@ -496,6 +605,8 @@
           "No activity preference changed the template."},
       history:{input:historyState.logs.length,decision:historyState.tooHard >= 2 ?
         "Repeated too-hard feedback held/reduced upcoming progression." :
+        historyState.pain ?
+          "Pain feedback moved future programming to low-impact exercise choices." :
         historyState.skipped ? "Missed work was not added as catch-up volume." :
           "No history-based reduction was required."},
       readiness:{input:historyState.readiness.length,decision:historyState.lowRecovery ?
@@ -514,13 +625,13 @@
     ];
 
     return {
-      version:3,
+      version:4,
       path:PROGRAM_PATHS[sport] || PROGRAM_PATHS.general,
       name:unknownSport ? "General athletic development" :
         sport === "general" ? "General fitness development" :
           sport.charAt(0).toUpperCase() + sport.slice(1) + " development",
       focus:focus,
-      summary:"A four-week block with repeatable key exercises, enforced constraints, and feedback-led progression.",
+      summary:"A four-week adaptive block: key movements stay measurable while support work, emphasis, and recovery change by phase.",
       profile:profile,
       currentWeek:1,
       first:weeks[0].sessions.length ? clone(weeks[0].sessions[0].exercises) : [],
@@ -613,6 +724,21 @@
     });
   }
 
+  function namespaceContinuationWeeks(weeks, blockNumber, firstWeekNumber) {
+    return clone(weeks).map(function (week, index) {
+      var globalWeek = firstWeekNumber + index;
+      week.week = globalWeek;
+      week.block = blockNumber;
+      week.blockWeek = index + 1;
+      week.sessions = (week.sessions || []).map(function (session) {
+        var dayIndex = DAYS.indexOf(session.day);
+        session.id = "block-" + blockNumber + "-week-" + (index + 1) + "-day-" + dayIndex;
+        return session;
+      });
+      return week;
+    });
+  }
+
   function applyFeedback(plan, feedback) {
     var output = clone(plan);
     output.feedbackHistory = output.feedbackHistory || [];
@@ -677,6 +803,25 @@
           " unlocked at held volume because at least one session was only partially completed.";
       }
       output.currentWeek = currentWeekNumber + 1;
+    } else if (weekHandled && currentWeekNumber === output.weeks.length) {
+      var finalFeedback = output.feedbackHistory.filter(function (item) {
+        return currentSessionIds.indexOf(item.session_id) !== -1;
+      });
+      var finalEarned = finalFeedback.length === currentSessionIds.length &&
+        finalFeedback.every(function (item) {
+          return item.status === "completed" && !item.pain && item.difficulty !== "too-hard";
+        });
+      var nextBlock = generate(output.profile, {workoutLogs:output.feedbackHistory});
+      var blockNumber = Math.max.apply(null, output.weeks.map(function (week) {
+        return numeric(week.block, 1);
+      })) + 1;
+      var nextWeeks = namespaceContinuationWeeks(nextBlock.weeks, blockNumber, currentWeekNumber + 1);
+      if (finalEarned) applyEarnedProgression(nextWeeks[0], output.focus);
+      output.weeks = output.weeks.concat(nextWeeks);
+      output.currentWeek = currentWeekNumber + 1;
+      output.progression = finalEarned ?
+        "A new adaptive block unlocked with an earned progression. Future support work changed while the primary movement remains measurable." :
+        "A new adaptive block unlocked at held volume. Feedback shaped the next phase; skipped or difficult work was not added as catch-up.";
     }
     return output;
   }

@@ -165,6 +165,28 @@ assert.notEqual(profileA.recovery, plan(Object.assign({}, profileA.profile, {loa
   }
 });
 
+// Weekly programming has explicit phases, controlled support rotation, and a stable primary movement.
+assert.deepEqual(
+  profileB.weeks.map((week) => week.phase),
+  ["foundation", "build", "performance", "deload"]
+);
+assert(profileB.weeks.every((week) => week.emphasis && week.progression));
+assert.equal(
+  new Set(profileB.weeks.map((week) => week.sessions[0].exercises[0].id)).size,
+  1,
+  "phase changes must preserve the primary movement"
+);
+assert.notDeepEqual(
+  profileB.weeks[0].sessions[0].exercises.slice(1).map((item) => item.id),
+  profileB.weeks[1].sessions[0].exercises.slice(1).map((item) => item.id),
+  "build phase should rotate support work"
+);
+assert(
+  Number(profileB.weeks[3].sessions[0].exercises[0].sets) <
+  Number(profileB.weeks[2].sessions[0].exercises[0].sets),
+  "deload should reduce volume after the intensification/performance phase"
+);
+
 // One input at a time: equipment changes incompatible movements.
 const withGym = plan({sport:"strength", goals:["strength"], equipment:["gym"], experience:"advanced"});
 const withoutGym = plan({sport:"strength", goals:["strength"], equipment:["bodyweight"], experience:"advanced"});
@@ -358,5 +380,27 @@ partialWeek.weeks[0].sessions.forEach((session, index) => {
 assert.equal(partialWeek.currentWeek, 2);
 assert.equal(Number(partialWeek.weeks[1].sessions[0].exercises[0].sets), partialWeekTwoSets);
 assert(/held volume/i.test(partialWeek.progression));
+
+// Handling the final week creates a namespaced adaptive block without rewriting past snapshots.
+let completedBlock = plan({
+  sport:"strength", goals:["strength"], equipment:["gym"], days:2,
+  experience:"regular", consistency:"steady", familiarity:"confident"
+});
+const finalWeekSnapshot = JSON.parse(JSON.stringify(completedBlock.weeks[3]));
+completedBlock.currentWeek = 4;
+completedBlock.weeks[3].sessions.forEach((session, index) => {
+  completedBlock = engine.applyFeedback(completedBlock, {
+    feedback_id:"final-" + index,
+    session_id:session.id,
+    status:"completed",
+    difficulty:"appropriate"
+  });
+});
+assert.equal(completedBlock.currentWeek, 5);
+assert.equal(completedBlock.weeks.length, 8);
+assert.equal(completedBlock.weeks[4].block, 2);
+assert(completedBlock.weeks[4].sessions[0].id.startsWith("block-2-"));
+assert.deepEqual(completedBlock.weeks[3], finalWeekSnapshot);
+assert(/new adaptive block/i.test(completedBlock.progression));
 
 console.log("training-engine tests passed");

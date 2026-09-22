@@ -53,14 +53,35 @@
     }).join("");
   }
 
-  function weekMarkup(week) {
-    return '<div class="roadmap-week"><div class="session"><b>Week ' + week.week + " · " +
-      escapeHtml(week.label) + '</b><span>' + escapeHtml(week.progression) + "</span></div>" +
+  function currentWeekMarkup(week) {
+    return '<div class="phase-detail"><div class="phase-heading"><div><span class="eyebrow">Week ' +
+      escapeHtml(week.week) + '</span><h3>' + escapeHtml(week.phaseLabel || week.label) +
+      '</h3></div><span class="phase-tag">' + escapeHtml(week.phase || "adaptive") + '</span></div>' +
+      '<p>' + escapeHtml(week.emphasis || week.progression) + '</p>' +
+      '<div class="phase-notes"><span><b>Conditioning</b>' + escapeHtml(week.conditioning || "Goal-specific and controlled") +
+      '</span><span><b>Recovery</b>' + escapeHtml(week.recovery || "Adjust based on readiness") + '</span></div>' +
       (week.sessions || []).map(function (session) {
         return '<div class="session"><b>' + escapeHtml(session.day) + '</b><span>' +
           escapeHtml(session.name + " · " + session.minutes + " min · " +
             session.exercises.length + " movements") + "</span></div>";
-      }).join("") + "</div>";
+      }).join("") + '<p class="review-edit"><b>Why this week changes:</b> ' +
+      escapeHtml(week.progression) + "</p></div>";
+  }
+
+  function futurePhaseMarkup() {
+    var activeWeekNumber = Number(plan.currentWeek) || 1;
+    var future = plan.weeks.filter(function (week) {
+      return Number(week.week) > activeWeekNumber;
+    });
+    if (!future.length) {
+      return '<p class="review-edit">Complete this week and your next adaptive block will be created from your workout feedback.</p>';
+    }
+    return future.map(function (week) {
+      return '<div class="future-phase"><div><b>Week ' + escapeHtml(week.week) + " · " +
+        escapeHtml(week.phaseLabel || week.label) + '</b><span>' +
+        escapeHtml(week.emphasis || week.progression) + '</span></div><small>' +
+        escapeHtml(week.recovery || "Recovery adjusts to readiness.") + "</small></div>";
+    }).join("");
   }
 
   function showMessage(message, isError) {
@@ -106,8 +127,11 @@
       '<div class="field"><label for="sport-extra">Extra sport activity</label><input id="sport-extra" maxlength="120" placeholder="Practice, game, or another hard activity"></div>' +
       '<label class="exercise-check"><input id="pain" type="checkbox"> Pain or discomfort today</label>' +
       '<button class="button" id="adapt" type="button">Adapt today</button></article></div>' +
-      '<article class="plan-card"><span class="eyebrow">Four-week roadmap</span>' +
-      plan.weeks.map(weekMarkup).join("") +
+      '<article class="plan-card"><span class="eyebrow">Current phase</span>' +
+      currentWeekMarkup(currentWeek()) +
+      '<div class="future-preview"><span class="eyebrow">What changes next</span>' +
+      '<p class="review-edit">The primary movement stays recognizable for measurable progress. Support exercises, volume, intensity, conditioning, and recovery change with your goal, readiness, completed work, and feedback.</p>' +
+      futurePhaseMarkup() + "</div>" +
       '<p class="review-edit"><b>Current progression:</b> ' + escapeHtml(plan.progression) +
       '</p><p class="review-edit"><b>Recovery:</b> ' + escapeHtml(plan.recovery) + "</p></article>" +
       '<article class="plan-card"><span class="eyebrow">Finish selected session</span>' +
@@ -266,7 +290,7 @@
         if (log.feedback_id) loggedFeedbackIds[log.feedback_id] = true;
       });
       if (!plans.length) {
-        root.innerHTML = '<h1>Build your plan.</h1><p class="sub">Complete onboarding to create your four-week block.</p><a class="button" href="/Register.html">Start onboarding</a>';
+        root.innerHTML = '<h1>Build your plan.</h1><p class="sub">Complete onboarding to create your adaptive training block.</p><a class="button" href="/Register.html">Start onboarding</a>';
         return;
       }
       record = plans[0];
