@@ -184,6 +184,15 @@
         '<div class="preview-bottom"><span>Progression included</span><a href="/Register.html">Build my plan →</a></div>';
       home.appendChild(preview);
       linkTo(preview.querySelector("a"), "/Register.html");
+      if (window.innerWidth <= 900 || document.documentElement.clientWidth <= 900) {
+        preview.style.setProperty("position", "relative", "important");
+        preview.style.setProperty("right", "auto", "important");
+        preview.style.setProperty("top", "auto", "important");
+        preview.style.setProperty("width", "auto", "important");
+        preview.style.setProperty("margin", "38px 24px 0", "important");
+        preview.style.setProperty("transform", "none", "important");
+        home.style.setProperty("overflow-x", "hidden", "important");
+      }
     }
     function enhanceConversion() {
       var home = document.querySelector("section#home");
