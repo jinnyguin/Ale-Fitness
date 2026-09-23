@@ -39,9 +39,9 @@
     section#home [class*="pulse"],section#home [class*="Pulse"],
     section#home [class*="watermark"],section#home [class*="bg-text"]{display:none!important}
   </style>
-  <meta content="An elite fitness management engine designed for high-performance training, featuring personalized athlete data tracking." name="description"/>
+  <meta content="ALEFIT builds personalized training programs around your goals, schedule, and progress — completely free, with no cost or subscription." name="description"/>
   <meta content="ALEFIT" property="og:title"/>
-  <meta content="An elite fitness management engine designed for high-performance training, featuring personalized athlete data tracking." property="og:description"/>
+  <meta content="ALEFIT builds personalized training programs around your goals, schedule, and progress — completely free, with no cost or subscription." property="og:description"/>
   <meta content="/" property="og:url"/>
   <meta content="website" property="og:type"/>
   <meta content="ALEFIT" property="og:site_name"/>
@@ -63,11 +63,11 @@
     function replaceJoinCopy() {
       var replacements = {
         "Join ALEFIT today and unlock your true potential with expert coaching, state-of-the-art equipment, and a community that drives you forward.":
-          "Your goals. Your schedule. Your program. ALEFIT builds a personalized path and tells you exactly what to do next.",
+          "Your goals. Your schedule. Your program. ALEFIT builds a personalized path and tells you exactly what to do next. Completely free. No cost. No subscription.",
         "Join ALEFIT today and train with a plan built around your goals, schedule, and progress.":
-          "Your goals. Your schedule. Your program. ALEFIT builds a personalized path and tells you exactly what to do next.",
+          "Your goals. Your schedule. Your program. ALEFIT builds a personalized path and tells you exactly what to do next. Completely free. No cost. No subscription.",
         "Stop guessing. Get a clear plan built around your goals, your schedule, and measurable progress.":
-          "Your goals. Your schedule. Your program. ALEFIT builds a personalized path and tells you exactly what to do next."
+          "Your goals. Your schedule. Your program. ALEFIT builds a personalized path and tells you exactly what to do next. Completely free. No cost. No subscription."
       };
       var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       var node;
@@ -182,7 +182,7 @@
       var section = document.createElement("section");
       section.setAttribute("data-alefit-plan-section", "1");
       section.className = "alefit-plan-section";
-      section.innerHTML = '<div class="alefit-plan-layout"><div class="alefit-plan-copy"><div class="plan-rule"></div><span class="plan-eyebrow">The ALEFIT difference</span><h2>Your plan should fit <span>your life.</span></h2><p>Six focused questions turn your goal, experience, equipment, schedule, and recovery needs into an opening block you can actually follow.</p><div class="plan-steps"><div class="plan-step"><b>01</b><div><strong>Tell us what you are training for.</strong><span>Your goal sets the direction.</span></div></div><div class="plan-step"><b>02</b><div><strong>Show us what fits your week.</strong><span>We build around your time and tools.</span></div></div><div class="plan-step"><b>03</b><div><strong>Start with a plan that progresses.</strong><span>Every session has a reason and a next step.</span></div></div></div></div><div class="alefit-plan-preview" data-alefit-plan-preview="1"><div class="preview-top"><span>ALEFIT / Plan preview</span><span class="preview-live">Built for you</span></div><h3>Your week, built around you.</h3><p class="preview-copy">Answer six focused questions. Get the right work, the right rest, and a clear next step.</p><div class="preview-facts"><div class="preview-fact"><span>Your focus</span><b>Goal-driven</b></div><div class="preview-fact"><span>Your rhythm</span><b>Built to fit</b></div></div><div class="preview-session"><span class="preview-session-label">Example opening session</span><strong>Lower Body + Power</strong><div class="preview-movement"><b>Squat pattern</b><span>4 × 6</span></div><div class="preview-movement"><b>Hinge pattern</b><span>3 × 8</span></div><div class="preview-movement"><b>Core + carry</b><span>3 rounds</span></div></div><div class="preview-bottom"><span>Progression included</span><a href="/Register.html">Build my plan →</a></div></div></div>';
+       section.innerHTML = '<div class="alefit-plan-layout"><div class="alefit-plan-copy"><div class="plan-rule"></div><span class="plan-eyebrow">The ALEFIT difference · 100% free</span><h2>Your plan should fit <span>your life.</span></h2><p>Six focused questions turn your goal, experience, equipment, schedule, and recovery needs into an opening block you can actually follow. No cost. No subscription.</p><div class="plan-steps"><div class="plan-step"><b>01</b><div><strong>Tell us what you are training for.</strong><span>Your goal sets the direction.</span></div></div><div class="plan-step"><b>02</b><div><strong>Show us what fits your week.</strong><span>We build around your time and tools.</span></div></div><div class="plan-step"><b>03</b><div><strong>Start with a plan that progresses.</strong><span>Every session has a reason and a next step.</span></div></div></div></div><div class="alefit-plan-preview" data-alefit-plan-preview="1"><div class="preview-top"><span>ALEFIT / Plan preview</span><span class="preview-live">Free to use</span></div><h3>Your week, built around you.</h3><p class="preview-copy">Answer six focused questions. Get the right work, the right rest, and a clear next step.</p><div class="preview-facts"><div class="preview-fact"><span>Your focus</span><b>Goal-driven</b></div><div class="preview-fact"><span>Your rhythm</span><b>Built to fit</b></div></div><div class="preview-session"><span class="preview-session-label">Example opening session</span><strong>Lower Body + Power</strong><div class="preview-movement"><b>Squat pattern</b><span>4 × 6</span></div><div class="preview-movement"><b>Hinge pattern</b><span>3 × 8</span></div><div class="preview-movement"><b>Core + carry</b><span>3 rounds</span></div></div><div class="preview-bottom"><span>No payment required</span><a href="/Register.html">Build my plan →</a></div></div></div>';
       var ticker = Array.prototype.slice.call(home.parentElement.children)
         .find(function (child) { return child.classList && child.classList.contains("bg-lime"); });
       if (ticker) ticker.insertAdjacentElement("afterend", section);
@@ -209,7 +209,7 @@
           var valueStrip = document.createElement("div");
           valueStrip.setAttribute("data-alefit-value-strip", "1");
           valueStrip.style.cssText = "display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:22px;color:rgba(255,255,255,.42);font:700 10px/1.4 Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase";
-          ["Goal-driven", "Progressive", "Precision-built"].forEach(function (label, index) {
+           ["100% Free", "No Cost", "No Subscription"].forEach(function (label, index) {
             var item = document.createElement("span");
             item.textContent = (index ? "◆  " : "") + label;
             item.style.color = index ? "rgba(255,255,255,.42)" : "#d4ff00";
@@ -253,13 +253,13 @@
 
         var copy = document.createElement("div");
         var eyebrow = document.createElement("div");
-        eyebrow.textContent = "Personalized by design";
+         eyebrow.textContent = "Personalized by design · 100% free";
         eyebrow.style.cssText = "font:700 10px/1.4 Arial,sans-serif;letter-spacing:.24em;text-transform:uppercase;color:#d4ff00;margin-bottom:10px";
         var title = document.createElement("h3");
         title.textContent = "Your program. Built around you.";
         title.style.cssText = "font:800 clamp(24px,3vw,38px)/.98 Arial,sans-serif;letter-spacing:-.04em;color:#fff;margin:0";
         var description = document.createElement("p");
-        description.textContent = "Tell us your goal, schedule, and starting point. ALEFIT builds the exercises, volume, rest, and progression around you — so every session has a purpose.";
+         description.textContent = "Tell us your goal, schedule, and starting point. ALEFIT builds the exercises, volume, rest, and progression around you — completely free, with no cost or subscription.";
         description.style.cssText = "font:500 15px/1.55 Arial,sans-serif;max-width:560px;color:rgba(255,255,255,.58);margin:14px 0 0";
         copy.appendChild(eyebrow);
         copy.appendChild(title);
