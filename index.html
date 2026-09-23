@@ -126,6 +126,24 @@
         }
       });
     }
+    function simplifyHomepage() {
+      var home = document.querySelector("section#home");
+      if (!home || !home.parentElement) return;
+      var shell = home.parentElement;
+      Array.prototype.slice.call(shell.children).forEach(function (child) {
+        if (child !== home && child.tagName !== "HEADER") child.remove();
+      });
+      document.querySelectorAll("a,button").forEach(function (el) {
+        var text = (el.textContent || "").trim().toLowerCase();
+        if (text === "athlete tools" && !el.closest("nav,header")) {
+          el.remove();
+        }
+        if (el.closest("nav") &&
+            ["athlete tools", "meal plan", "calories", "shop"].indexOf(text) !== -1) {
+          el.remove();
+        }
+      });
+    }
     function hidePulse() {
       var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       var node;
@@ -135,7 +153,7 @@
         }
       }
     }
-    function run() { replaceJoinCopy(); hidePrograms(); hidePulse(); }
+    function run() { replaceJoinCopy(); hidePrograms(); hidePulse(); simplifyHomepage(); }
     new MutationObserver(run).observe(document.documentElement, {childList:true, subtree:true});
     run();
   }());
