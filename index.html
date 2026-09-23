@@ -164,9 +164,31 @@
         }
       }
     }
+    function addPlanPreview(home) {
+      if (home.querySelector("[data-alefit-plan-preview]")) return;
+      if (!document.getElementById("alefit-plan-preview-style")) {
+        var style = document.createElement("style");
+        style.id = "alefit-plan-preview-style";
+        style.textContent = ".alefit-plan-preview{position:absolute;z-index:12;right:clamp(28px,7vw,110px);top:50%;width:310px;transform:translateY(-43%);padding:22px;background:#171717;border:1px solid rgba(212,255,0,.28);box-shadow:0 24px 70px rgba(0,0,0,.38);color:#fff;font-family:Arial,sans-serif}.alefit-plan-preview .preview-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;color:#d4ff00;font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}.alefit-plan-preview .preview-live{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.45);font-size:8px}.alefit-plan-preview .preview-live:before{content:'';width:5px;height:5px;background:#d4ff00;border-radius:50%}.alefit-plan-preview h3{margin:0;font-size:27px;line-height:.98;letter-spacing:-.05em}.alefit-plan-preview .preview-copy{margin:12px 0 20px;color:rgba(255,255,255,.5);font-size:12px;line-height:1.5}.alefit-plan-preview .preview-facts{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(255,255,255,.08);margin-bottom:18px}.alefit-plan-preview .preview-fact{padding:11px 10px;background:#171717}.alefit-plan-preview .preview-fact span,.alefit-plan-preview .preview-session-label{display:block;color:rgba(255,255,255,.4);font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}.alefit-plan-preview .preview-fact b{display:block;margin-top:5px;color:#fff;font-size:11px;letter-spacing:.04em}.alefit-plan-preview .preview-session{padding:14px 14px 12px;border-left:2px solid #d4ff00;background:#101010}.alefit-plan-preview .preview-session-label{color:#d4ff00}.alefit-plan-preview .preview-session strong{display:block;margin:8px 0 12px;font-size:16px;letter-spacing:-.03em}.alefit-plan-preview .preview-movement{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.62);font-size:10px}.alefit-plan-preview .preview-movement b{color:#fff;font-size:10px}.alefit-plan-preview .preview-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px}.alefit-plan-preview .preview-bottom span{color:rgba(255,255,255,.4);font-size:9px;letter-spacing:.08em;text-transform:uppercase}.alefit-plan-preview a{color:#d4ff00;font-size:10px;font-weight:700;letter-spacing:.1em;text-decoration:none;white-space:nowrap}.alefit-plan-preview a:hover{text-decoration:underline}@media(max-width:900px){.alefit-plan-preview{position:relative;right:auto;top:auto;width:auto;margin:38px 32px 0;transform:none}.alefit-plan-preview h3{font-size:25px}}@media(max-width:480px){.alefit-plan-preview{margin-right:24px;margin-left:24px;padding:20px}.alefit-plan-preview .preview-bottom{align-items:flex-start;flex-direction:column;gap:10px}}";
+        document.head.appendChild(style);
+      }
+      var preview = document.createElement("aside");
+      preview.setAttribute("data-alefit-plan-preview", "1");
+      preview.className = "alefit-plan-preview";
+      preview.innerHTML = '<div class="preview-top"><span>ALEFIT / Plan preview</span><span class="preview-live">Built for you</span></div>' +
+        '<h3>Your week, built around you.</h3>' +
+        '<p class="preview-copy">Answer six focused questions. Get the right work, the right rest, and a clear next step.</p>' +
+        '<div class="preview-facts"><div class="preview-fact"><span>Your focus</span><b>Goal-driven</b></div><div class="preview-fact"><span>Your rhythm</span><b>Built to fit</b></div></div>' +
+        '<div class="preview-session"><span class="preview-session-label">Example opening session</span><strong>Lower Body + Power</strong>' +
+        '<div class="preview-movement"><b>Squat pattern</b><span>4 × 6</span></div><div class="preview-movement"><b>Hinge pattern</b><span>3 × 8</span></div><div class="preview-movement"><b>Core + carry</b><span>3 rounds</span></div></div>' +
+        '<div class="preview-bottom"><span>Progression included</span><a href="/Register.html">Build my plan →</a></div>';
+      home.appendChild(preview);
+      linkTo(preview.querySelector("a"), "/Register.html");
+    }
     function enhanceConversion() {
       var home = document.querySelector("section#home");
       if (!home) return;
+      addPlanPreview(home);
 
       var heroCta = Array.prototype.slice.call(home.querySelectorAll("a,button"))
         .find(function (el) {
