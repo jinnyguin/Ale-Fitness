@@ -130,8 +130,15 @@
       var home = document.querySelector("section#home");
       if (!home || !home.parentElement) return;
       var shell = home.parentElement;
+      var keptFeatureSection = false;
       Array.prototype.slice.call(shell.children).forEach(function (child) {
-        if (child !== home && child.tagName !== "HEADER") child.remove();
+        if (child === home || child.tagName === "HEADER" ||
+            child.classList.contains("bg-lime")) return;
+        if (child.tagName === "SECTION" && !keptFeatureSection) {
+          keptFeatureSection = true;
+          return;
+        }
+        child.remove();
       });
       document.querySelectorAll("a,button").forEach(function (el) {
         var text = (el.textContent || "").trim().toLowerCase();
