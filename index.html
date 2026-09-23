@@ -86,13 +86,21 @@
     }
     function hidePrograms() {
       document.querySelectorAll("section").forEach(function (section) {
+        var sectionText = (section.textContent || "").toLowerCase();
+        if (sectionText.indexOf("16 expert programs") !== -1 ||
+            sectionText.indexOf("most programs guess") !== -1 ||
+            sectionText.indexOf("programs built around goals") !== -1 ||
+            sectionText.indexOf("per program") !== -1) {
+          section.remove();
+          return;
+        }
         if (section.querySelectorAll('a[href*="/programs/"]').length >= 3) {
-          section.style.setProperty("display", "none", "important");
+          section.remove();
         }
       });
       document.querySelectorAll('a[href*="/programs/"]').forEach(function (link) {
         var card = link.closest("article,li");
-        (card || link).style.setProperty("display", "none", "important");
+        (card || link).remove();
       });
       document.querySelectorAll("a,button").forEach(function (el) {
         if (wired.has(el)) return;
@@ -101,6 +109,9 @@
           wired.add(el);
           el.textContent = "My Plan";
           linkTo(el, "/my-plan.html");
+        } else if (text === "explore programs" ||
+                   (text === "programs" && !el.closest("nav,header"))) {
+          (el.closest("article,li") || el).remove();
         } else if (text === "login" || text === "sign in") {
           wired.add(el);
           linkTo(el, "/Login.html");
