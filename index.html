@@ -50,6 +50,23 @@
   <script>
   (function () {
     var wired = new WeakSet();
+    function replaceJoinCopy() {
+      var replacements = {
+        "Join ALEFIT today and unlock your true potential with expert coaching, state-of-the-art equipment, and a community that drives you forward.":
+          "Join ALEFIT today and train with a plan built around your goals, schedule, and progress."
+      };
+      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      var node;
+      while ((node = walker.nextNode())) {
+        var value = (node.nodeValue || "").trim();
+        if (replacements[value]) node.nodeValue = replacements[value];
+      }
+      document.querySelectorAll("a,button").forEach(function (el) {
+        var text = (el.textContent || "").trim().toLowerCase();
+        if (text.indexOf("start your journey") !== -1) el.textContent = "JOIN ALEFIT  →";
+        if (text === "sign up") el.textContent = "JOIN ALEFIT";
+      });
+    }
     function hidePrograms() {
       document.querySelectorAll("section").forEach(function (section) {
         if (section.querySelectorAll('a[href*="/programs/"]').length >= 3) {
@@ -90,7 +107,7 @@
         }
       }
     }
-    function run() { hidePrograms(); hidePulse(); }
+    function run() { replaceJoinCopy(); hidePrograms(); hidePulse(); }
     new MutationObserver(run).observe(document.documentElement, {childList:true, subtree:true});
     run();
   }());
