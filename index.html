@@ -196,21 +196,26 @@
           return section !== home &&
             (section.textContent || "").indexOf("Programs Built Around Goals") !== -1;
         });
+      if (feature) {
+        var featureDecoration = feature.querySelector("div.absolute");
+        if (featureDecoration) featureDecoration.style.display = "none";
+      }
       if (feature && !feature.querySelector("[data-alefit-join-callout]")) {
         var callout = document.createElement("div");
         callout.setAttribute("data-alefit-join-callout", "1");
-        callout.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap;margin:72px 24px 0;padding:34px 38px;background:#d4ff00;color:#0f0f0f";
+        callout.className = "alefit-join-callout";
+        callout.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap;margin:52px 0 0;padding:30px 24px;background:#161616;border:1px solid rgba(212,255,0,.34);border-left:3px solid #d4ff00;color:#fff;position:relative;overflow:hidden";
 
         var copy = document.createElement("div");
         var eyebrow = document.createElement("div");
         eyebrow.textContent = "Your next session starts here";
-        eyebrow.style.cssText = "font:700 10px/1.4 Arial,sans-serif;letter-spacing:.24em;text-transform:uppercase;opacity:.64;margin-bottom:10px";
+        eyebrow.style.cssText = "font:700 10px/1.4 Arial,sans-serif;letter-spacing:.24em;text-transform:uppercase;color:#d4ff00;margin-bottom:10px";
         var title = document.createElement("h3");
         title.textContent = "Ready to train with purpose?";
-        title.style.cssText = "font:800 clamp(24px,3vw,38px)/.98 Arial,sans-serif;letter-spacing:-.04em;margin:0";
+        title.style.cssText = "font:800 clamp(24px,3vw,38px)/.98 Arial,sans-serif;letter-spacing:-.04em;color:#fff;margin:0";
         var description = document.createElement("p");
         description.textContent = "Join ALEFIT and turn your goals into your next workout — no guesswork, no wasted sessions.";
-        description.style.cssText = "font:500 15px/1.55 Arial,sans-serif;max-width:560px;margin:14px 0 0;opacity:.72";
+        description.style.cssText = "font:500 15px/1.55 Arial,sans-serif;max-width:560px;color:rgba(255,255,255,.58);margin:14px 0 0";
         copy.appendChild(eyebrow);
         copy.appendChild(title);
         copy.appendChild(description);
@@ -218,11 +223,12 @@
         var calloutCta = document.createElement("a");
         calloutCta.textContent = "JOIN ALEFIT  →";
         calloutCta.href = "/Register.html";
-        calloutCta.style.cssText = "display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border:1px solid rgba(15,15,15,.7);color:#0f0f0f;font:800 11px/1 Arial,sans-serif;letter-spacing:.16em;text-decoration:none;text-transform:uppercase;white-space:nowrap";
+        calloutCta.style.cssText = "display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:0 22px;background:#d4ff00;color:#0f0f0f;font:800 11px/1 Arial,sans-serif;letter-spacing:.16em;text-decoration:none;text-transform:uppercase;white-space:nowrap";
         linkTo(calloutCta, "/Register.html");
         callout.appendChild(copy);
         callout.appendChild(calloutCta);
-        feature.appendChild(callout);
+        var featureContent = feature.querySelector("div.px-6") || feature;
+        featureContent.appendChild(callout);
       }
     }
     function run() { replaceJoinCopy(); hidePrograms(); hidePulse(); simplifyHomepage(); enhanceConversion(); }
