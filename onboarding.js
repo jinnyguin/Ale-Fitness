@@ -117,14 +117,14 @@
           return tile(item[0], item[1], item[2], p.sport === item[0]);
         }).join("") + "</div>" +
         (p.sport === "basketball" ?
-          '<div class="field"><label for="position">Court role</label><select id="position"><option value="not-sure">Not sure</option><option value="guard">Guard</option><option value="wing">Wing / forward</option><option value="center">Center</option></select></div>' : "") +
+          '<div class="field"><label for="position">Court role</label><select id="position"><option value="not-sure">Not sure</option><option value="guard">Guard</option><option value="wing">Wing</option><option value="center">Center</option></select></div>' : "") +
         ((p.sport === "running" || p.sport === "cross-country") ?
-          '<div class="field"><label for="run-distance">Target distance</label><select id="run-distance"><option value="not-sure">Not sure</option><option value="5K">5K</option><option value="10K">10K</option><option value="half-marathon">Half marathon</option></select></div>' +
-          '<div class="field"><label for="run-volume">Recent weekly running minutes</label><input id="run-volume" type="number" min="0" max="600" placeholder="Enter 0 if you are starting" value="' + esc(p.weeklyRunVolume == null ? "" : p.weeklyRunVolume) + '"></div>' +
-          '<div class="field"><label for="longest-run">Longest comfortable run (minutes)</label><input id="longest-run" type="number" min="0" max="180" placeholder="Enter 0 if not sure" value="' + esc(p.longestRun == null ? "" : p.longestRun) + '"></div>' +
-          '<div class="field"><label for="race-detail">Race date or current pace <span>(optional)</span></label><input id="race-detail" maxlength="80" placeholder="Example: Oct 12 or 10:00 / mile" value="' + esc(p.raceDetail) + '"></div>' : "") +
+          '<div class="field"><label for="run-distance">Target distance</label><select id="run-distance"><option value="not-sure">Not sure</option><option value="5K">5K</option><option value="10K">10K</option><option value="half-marathon">Half Marathon</option><option value="marathon">Marathon</option></select></div>' +
+          '<div class="field"><label for="run-volume">Recent weekly running minutes</label><input id="run-volume" type="number" min="0" max="600" placeholder="Enter 0 if you are starting" value="' + esc(p.weeklyRunVolume || 0) + '"></div>' +
+          '<div class="field"><label for="longest-run">Longest comfortable run (minutes)</label><input id="longest-run" type="number" min="0" max="180" placeholder="Enter 0 if not sure" value="' + esc(p.longestRun || 0) + '"></div>' +
+          '<div class="field"><label for="race-detail">Race date or current pace <span>(optional)</span></label><input id="race-detail" maxlength="80" placeholder="Example: Oct 12 or 10:00 / mile" value="' + esc(p.raceDetail || "") + '"></div>' : "") +
         (p.sport && ["general", "strength", "mobility", "hiit"].indexOf(p.sport) === -1 ?
-          '<div class="field"><label for="season">Season status</label><select id="season"><option value="not-sure">Not sure</option><option value="off-season">Off-season</option><option value="pre-season">Pre-season</option><option value="in-season">In-season</option></select></div>' : ""));
+          '<div class="field"><label for="season">Season status</label><select id="season"><option value="not-sure">Not sure</option><option value="off-season">Off-season</option><option value="preseason">Preseason</option><option value="in-season">In-season</option></select></div>' : ""));
     } else if (state.step === 1) {
       var goals = goalMap[p.sport] || goalMap.general;
       html = question(1, "Choose up to three outcomes.", "Your first choice gets the most emphasis in the opening block.",
@@ -139,12 +139,12 @@
           ["advanced", "Experienced athlete", "Specific, demanding work"],
           ["not-sure", "Not sure", "Start conservatively and learn from feedback"]
         ].map(function (item) { return tile(item[0], item[1], item[2], p.experience === item[0]); }).join("") + "</div>" +
-        '<div class="field"><label for="consistency">Recent training consistency</label><select id="consistency"><option value="not-sure">Not sure</option><option value="low">Less than once most weeks</option><option value="steady">1–3 sessions most weeks</option><option value="high">4+ sessions most weeks</option></select><p class="hint">“Not sure” starts with lower volume and lets your feedback guide progression.</p></div>' +
+        '<div class="field"><label for="consistency">Recent training consistency</label><select id="consistency"><option value="not-sure">Not sure</option><option value="low">Less than once most weeks</option><option value="medium">2–3 times per week</option><option value="high">4+ times per week</option></select></div>' +
         (p.sport === "strength" ?
-          '<div class="field"><label for="familiarity">Basic lift familiarity</label><select id="familiarity"><option value="not-sure">Not sure</option><option value="basic">Learning squat, hinge, and press patterns</option><option value="confident">Confident with the main lifts</option></select></div>' +
-          '<div class="field"><label for="working-weights">Current working weights <span>(optional)</span></label><input id="working-weights" maxlength="100" placeholder="Example: goblet squat 35 lb" value="' + esc(p.workingWeights) + '"></div>' : "") +
+          '<div class="field"><label for="familiarity">Basic lift familiarity</label><select id="familiarity"><option value="not-sure">Not sure</option><option value="basic">Learning squat, hinge, push, pull</option><option value="confident">Comfortable with barbell basics</option><option value="advanced">Experienced with complex variations</option></select></div>' +
+          '<div class="field"><label for="working-weights">Current working weights <span>(optional)</span></label><input id="working-weights" maxlength="100" placeholder="Example: goblet squat 35lb, deadlift 185lb" value="' + esc(p.workingWeights || "") + '"></div>' : "") +
         (p.sport === "general" ?
-          '<div class="field"><label for="activity">Preferred activity</label><select id="activity"><option value="not-sure">Not sure</option><option value="walking">Walking</option><option value="cycling">Cycling</option><option value="mobility">Mobility / yoga</option></select></div>' : ""), "Continue", true);
+          '<div class="field"><label for="activity">Preferred activity</label><select id="activity"><option value="not-sure">Not sure</option><option value="walking">Walking</option><option value="cycling">Cycling</option><option value="swimming">Swimming</option><option value="gym">Gym training</option></select></div>' : ""));
     } else if (state.step === 3) {
       var conflict = p.equipment.indexOf("pool") > -1 && p.sport !== "swimming";
       html = question(3, "What can you train with?", "Select every option you can use. Portable tools stay useful alongside a court, field or pool.",
@@ -155,12 +155,12 @@
       html = question(4, "How much training fits?", "We will protect recovery around your practices and games.",
         '<div class="answers">' + [["2", "2 days / week", "Minimal, focused exposure"], ["3", "3 days / week", "Balanced progress"], ["4", "4 days / week", "Higher capacity"]].map(function (item) {
           return tile(item[0], item[1], item[2], String(p.days) === item[0]);
-        }).join("") + '</div><div class="field"><label for="duration">Minutes per session</label><input id="duration" type="number" min="20" max="120" value="' + esc(p.duration || 45) + '">' +
-        '</div><div class="field"><label for="load">Practice or game load</label><input id="load" maxlength="120" placeholder="Example: practice Tue/Thu, game Saturday" value="' + esc(p.load) + '"></div>', "Continue", true);
+        }).join("") + '</div><div class="field"><label for="duration">Minutes per session</label><input id="duration" type="number" min="20" max="120" value="' + esc(p.duration || 45) + '"></div>' +
+        '<div class="field"><label for="load">Practice or game load</label><input id="load" maxlength="120" placeholder="Example: practice Tue/Thu, game Saturday" value="' + esc(p.load || "") + '"></div>');
     } else if (state.step === 5) {
       html = question(5, "What should we work around?", "Age and limitations help us choose sensible volume. This is training context, not a diagnosis.",
-        '<div class="field"><label for="age">Age range</label><select id="age"><option value="">Choose one</option><option value="under18">Under 18</option><option value="adult">18–54</option><option value="55plus">55+</option></select></div>' +
-        '<div class="field"><label for="limitations">Limitations <span>(optional)</span></label><textarea id="limitations" maxlength="180" placeholder="Example: avoid impact this week"></textarea></div>', "Review my plan", true);
+        '<div class="field"><label for="age">Age range</label><select id="age"><option value="">Choose one</option><option value="under18">Under 18</option><option value="adult">18–54</option><option value="over55">55+</option></select></div>' +
+        '<div class="field"><label for="limitations">Limitations <span>(optional)</span></label><textarea id="limitations" maxlength="180" placeholder="Example: avoid impact this week">' + esc(p.limitations || "") + '</textarea></div>');
     } else {
       html = preview();
     }
@@ -201,10 +201,11 @@
        esc(state.plan.name) + "</h2><p>" + esc(state.plan.summary) + '</p></div><div class="answer-summary">' +
       labels.map(function (x) { return '<div class="summary-row"><div><span class="eyebrow">' + x[0] + '</span><b>' + esc(x[1] || "Not set") + '</b></div><button type="button" class="text-btn edit-answer" data-step="' + x[2] + '">Edit</button></div>'; }).join("") +
       '</div><div class="plan-grid"><article class="plan-card"><span class="eyebrow">First session</span><h3>Start controlled</h3>' +
-       state.plan.first.map(function (x) { return '<div class="exercise"><b>' + esc(x.name || x[0]) + "</b><small>" + esc(x.sets ? x.sets + " × " + x.reps + " · " + x.rest + " · " + x.effort : x[1]) + "</small></div>"; }).join("") +
+       state.plan.first.map(function (x) { return '<div class="exercise"><b>' + esc(x.name || x[0]) + "</b><small>" + esc(x.sets ? x.sets + " × " + x.reps + " · " + x.rest + " · " + x.effort : "") + "</small></div>"; }).join("") +
       '</article><article class="plan-card"><span class="eyebrow">Seven-day rhythm</span><div class="schedule">' +
        state.plan.schedule.map(function (x) { return '<div class="session"><b>' + x.day + "</b><span>" + esc(x.title || x.workout) + "</span></div>"; }).join("") +
-       '</div><p class="review-edit"><b>4-week progression:</b> ' + esc(state.plan.progression) + '</p><p class="review-edit"><b>Recovery:</b> ' + esc(state.plan.recovery) + '</p></article></div><article class="plan-card"><span class="eyebrow">Why this plan</span>' + state.plan.explanations.slice(0,3).map(function(x){return "<p class=\"review-edit\">"+esc(x)+"</p>";}).join("") + '</article>' + footer(token() ? "Save this plan" : "Create account & save plan", true) + "</section>";
+       '</div><p class="review-edit"><b>4-week progression:</b> ' + esc(state.plan.progression) + '</p><p class="review-edit"><b>Recovery:</b> ' + esc(state.plan.recovery) + '</p></article></div>' +
+      '<div class="footer"><button type="button" class="button secondary" id="back">Back</button><button type="button" class="button" id="next">Create account & save</button></div></section>';
   }
 
   function bind() {
@@ -301,9 +302,17 @@
     render();
   }
   function showAccount() {
-    root.innerHTML = '<section class="account"><span class="eyebrow">Account</span><h1>Save my plan and start today.</h1><p class="sub">Your reviewed plan is ready. Create an account to keep it.</p><form id="form"><div class="field"><label for="name">Full name</label><input id="name" minlength="2" maxlength="80" autocomplete="name" required></div><div class="field"><label for="email">Email</label><input id="email" type="email" maxlength="254" autocomplete="email" required></div><div class="field"><label for="password">Password</label><input id="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required><p class="hint">Use at least 8 characters.</p></div><button class="button" id="create">Create account & save plan</button></form><div class="plan-actions"><button type="button" class="text-btn" id="account-back">Back to plan</button><p class="review-edit">Already have an account? <a class="sign-in" href="/Login.html?from_url=%2FRegister.html">Sign in</a></p></div></section>';
+    root.innerHTML = '<section class="account"><span class="eyebrow">Account</span><h1>Save my plan and start today.</h1><p class="sub">Your reviewed plan is ready. Create an account to keep it and access your personalized training experience.</p>' +
+      '<form id="form" novalidate>' +
+      '<div class="field"><label for="name">Full name</label><input id="name" type="text" required minlength="2" maxlength="80" placeholder="Your name"></div>' +
+      '<div class="field"><label for="email">Email</label><input id="email" type="email" required maxlength="254" placeholder="your@email.com"></div>' +
+      '<div class="field"><label for="password">Password</label><input id="password" type="password" required minlength="8" maxlength="128" placeholder="Minimum 8 characters"></div>' +
+      '</form>' +
+      '<div class="footer"><button type="button" class="button secondary" id="account-back">Back</button><button type="button" class="button" id="create">Create account & save plan</button></div>' +
+      '</section>';
     document.getElementById("form").onsubmit = register;
-    document.getElementById("account-back").onclick = render;
+    document.getElementById("account-back").onclick = function() { state.step -= 1; render(); };
+    document.getElementById("create").onclick = register;
   }
   async function register(event) {
     event.preventDefault();

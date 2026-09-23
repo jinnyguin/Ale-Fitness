@@ -385,6 +385,36 @@
      }
    }
 
+    /* The customer experience has one adaptive plan, not a public program library. */
+    var _personalizedPlanEls = new WeakSet();
+    function focusOnPersonalizedPlan(){
+      document.querySelectorAll('section').forEach(function(section){
+        if(section.querySelectorAll('a[href*="/programs/"]').length >= 3){
+          section.style.setProperty('display','none','important');
+        }
+      });
+      document.querySelectorAll('a[href*="/programs/"]').forEach(function(link){
+        var card = link.closest('article, li');
+        (card || link).style.setProperty('display','none','important');
+      });
+      document.querySelectorAll('a, button').forEach(function(el){
+        if(_personalizedPlanEls.has(el)) return;
+        var text = (el.textContent || '').trim().toLowerCase();
+        var inNav = !!el.closest('nav, header');
+        if(inNav && text === 'programs'){
+          _personalizedPlanEls.add(el);
+          el.textContent = 'My Plan';
+          el.setAttribute('href','/today.html?view=plan');
+          return;
+        }
+        if(text.indexOf('explore programs') !== -1 || text.indexOf('view all programs') !== -1){
+          _personalizedPlanEls.add(el);
+          el.textContent = 'Build My Plan';
+          el.setAttribute('href','/Register.html');
+        }
+      });
+    }
+
    /* Intercept SPA auth form submissions at document level (capture phase).
       This fires BEFORE React's capture listener at #root, so we handle auth
       before React can trigger its broken axios call to base44.app. */
@@ -450,6 +480,7 @@
      hideCreateAccountSection();
      wireJourneyButton();
      wireNavButtons();
+      focusOnPersonalizedPlan();
      hidePulseText();
      interceptAuthForms();
    }
@@ -478,23 +509,6 @@
        <li><a href="calorie-tracker.html">Calorie Tracker</a></li>
        <li><a href="ForgotPassword.html">Forgot Password</a></li>
        <li><a href="Login.html">Login</a></li>
-       <li><a href="programs/baseball.html">Program Baseball</a></li>
-       <li><a href="programs/basketball.html">Program Basketball</a></li>
-       <li><a href="programs/crosscountry.html">Program Cross Country</a></li>
-       <li><a href="programs/crossfit.html">Program Crossfit</a></li>
-       <li><a href="programs/football.html">Program Football</a></li>
-       <li><a href="programs/golf.html">Program Golf</a></li>
-       <li><a href="programs/hiit.html">Program HIIT</a></li>
-       <li><a href="programs/mobility.html">Program Mobility</a></li>
-       <li><a href="programs/pilates.html">Program Pilates</a></li>
-       <li><a href="programs/soccer.html">Program Soccer</a></li>
-       <li><a href="programs/strength.html">Program Strength</a></li>
-       <li><a href="programs/swimming.html">Program Swimming</a></li>
-       <li><a href="programs/tennis.html">Program Tennis</a></li>
-       <li><a href="programs/track.html">Program Track</a></li>
-       <li><a href="programs/weightgain.html">Program Weight Gain</a></li>
-       <li><a href="programs/weightloss.html">Program Weight Loss</a></li>
-       <li><a href="programs/vertical-jump.html">Program Vertical Jump</a></li>
        <li><a href="Register.html">Register</a></li>
        <li><a href="ResetPassword.html">Reset Password</a></li>
        <li><a href="meal-plan.html">Meal Plan</a></li>

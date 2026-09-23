@@ -449,6 +449,8 @@ def serve_image(filename):
 def static_files(filename):
     if filename.startswith("api/"):
         abort(404)
+    if filename.startswith("programs/"):
+        return redirect("/Register.html?from_program=1")
 
     filepath = os.path.join(".", filename)
 
