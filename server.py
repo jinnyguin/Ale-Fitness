@@ -717,8 +717,26 @@ def auth_register(app_id):
 @app.route("/api/apps/<app_id>/auth/login", methods=["POST"])
 def auth_login(app_id):
     body = request.get_json(force=True) or {}
-    email = (body.get("email") or "").strip()
+    email = (body.get("email") or "").strip().lower()
     password = body.get("password") or ""
+
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return jsonify({"error": "Please enter a valid email address."}), 400
+    if not password:
+        return jsonify({"error": "Please enter your password."}), 400
+
+    # Prefer accounts created in ALEFIT's local auth store. This keeps sign-in
+    # immediate and reliable when the optional remote auth service is offline.
+    local_user_record = local_user_by_email(email)
+    local_user = local_login(email, password)
+    if local_user:
+        ensure_profile(local_user["id"], local_user["email"], format_user(local_user)["full_name"])
+        return jsonify({
+            "access_token": create_local_token(local_user),
+            "user": format_user(local_user),
+        })
+    if local_user_record:
+        return jsonify({"error": "Invalid email or password."}), 401
 
     status, data = supabase_auth("POST", "/auth/v1/token?grant_type=password", {
         "email": email,
@@ -730,20 +748,10 @@ def auth_login(app_id):
         ensure_profile(user.get("id"), email)
         return jsonify({"access_token": data["access_token"], "user": format_user(user)})
 
-    # Try the local account store as a fallback both when Supabase is down
-    # and for accounts created during a previous outage.
-    local_user = local_login(email, password)
-    if local_user:
-        ensure_profile(local_user["id"], local_user["email"], format_user(local_user)["full_name"])
-        return jsonify({
-            "access_token": create_local_token(local_user),
-            "user": format_user(local_user),
-        })
-
     if status == 503:
-        if local_user_by_email(email):
-            return jsonify({"error": "Invalid email or password."}), 401
-        return jsonify({"error": "Login is temporarily unavailable. Please try again."}), 503
+        return jsonify({
+            "error": "We couldn't verify that email right now. Create an ALEFIT account to start a local sign-in."
+        }), 401
 
     err = data.get("error_description") or data.get("msg") or data.get("error") or "Invalid email or password"
     return jsonify({"error": err}), 401

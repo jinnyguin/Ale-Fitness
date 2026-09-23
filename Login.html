@@ -126,7 +126,14 @@
     .links-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
     .links a { color: var(--lime); text-decoration: none; font-weight: 700; }
     .links a:hover { text-decoration: underline; }
-    .links-row a:last-child { color: #dfe7e0; }
+    .links-row a:last-child {
+      color: #dfe7e0;
+      border: 1px solid rgba(212,255,0,.35);
+      border-radius: .45rem;
+      padding: .55rem .7rem;
+      background: rgba(212,255,0,.06);
+    }
+    .links-row a:last-child:hover { border-color: var(--lime); background: rgba(212,255,0,.12); text-decoration: none; }
     .links-row a:last-child::after { content: "  →"; color: var(--lime); }
     @media (max-width: 700px) {
       body { align-items: flex-start; padding: 1rem; }
