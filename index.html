@@ -98,6 +98,13 @@
             }
           });
         }
+        if (section.querySelectorAll('a[href*="/programs/"]').length >= 3) {
+          section.remove();
+        }
+      });
+      document.querySelectorAll('a[href*="/programs/"]').forEach(function (link) {
+        var card = link.closest("article,li");
+        (card || link).remove();
       });
       document.querySelectorAll("a,button").forEach(function (el) {
         if (wired.has(el)) return;
@@ -106,6 +113,9 @@
           wired.add(el);
           el.textContent = "My Plan";
           linkTo(el, "/my-plan.html");
+        } else if (text === "explore programs" ||
+                   (text === "programs" && !el.closest("nav,header"))) {
+          (el.closest("article,li") || el).remove();
         } else if (text === "login" || text === "sign in") {
           wired.add(el);
           linkTo(el, "/Login.html");
