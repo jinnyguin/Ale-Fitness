@@ -137,7 +137,8 @@
       var keptFeatureSection = false;
       Array.prototype.slice.call(shell.children).forEach(function (child) {
         if (child === home || child.tagName === "HEADER" ||
-            child.classList.contains("bg-lime")) return;
+            child.classList.contains("bg-lime") ||
+            child.hasAttribute("data-alefit-plan-section")) return;
         if (child.tagName === "SECTION" && !keptFeatureSection) {
           keptFeatureSection = true;
           return;
