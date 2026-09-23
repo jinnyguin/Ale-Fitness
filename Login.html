@@ -144,13 +144,27 @@
   </style>
 </head>
 <body>
-<div class="card">
-  <div class="logo">
-    <img src="/images/alefit-logo.png" alt="AleFit" style="height:56px;width:auto;margin-bottom:.5rem">
-    <p>Elite Performance Training</p>
+<main class="auth-page">
+<div class="auth-shell">
+  <aside class="auth-aside">
+    <a class="brand-lockup" href="/" aria-label="ALEFIT home">
+      <img src="/images/alefit-logo.png" alt="ALEFIT">
+      <div><strong>ALEFIT</strong><span>Performance training</span></div>
+    </a>
+    <div class="aside-copy">
+      <span class="eyebrow">Your next block starts here</span>
+      <h1>Train<br><em>with intent.</em></h1>
+      <p>Sign in to pick up your personalized plan, track today’s work, and keep your progress moving forward.</p>
+    </div>
+    <div class="aside-foot"><b>●</b> Adaptive training for real athletes</div>
+  </aside>
+  <section class="card" aria-labelledby="login-title">
+  <div class="form-intro">
+    <span class="eyebrow">Member access</span>
+    <h2 id="login-title">Welcome back.</h2>
+    <p>Enter your details to continue training.</p>
   </div>
-  <h2>Sign In</h2>
-  <div class="error-msg" id="errorMsg"></div>
+  <div class="error-msg" id="errorMsg" role="alert"></div>
 
   <form id="loginForm">
     <div class="field">
@@ -169,7 +183,9 @@
       <a href="/Register.html">Create account</a>
     </div>
   </div>
+  </section>
 </div>
+</main>
 <script>
 (function() {
   var APP_ID = '6a1f3d189ebdbe71fa7d256c';
