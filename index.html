@@ -33,7 +33,6 @@
   <style>
     img[alt="Athlete gripping a barbell with chalk on hands"],
     img[src*="bbcf3126a_generated_52fdbe43"]{display:none!important;visibility:hidden!important;opacity:0!important}
-    header a:has(> img[alt="AleFit"]){display:none!important}
     section#home>div:first-child{display:none!important}
     section#home{justify-content:center!important}
     section#home>div:nth-child(2){width:100%!important;max-width:860px!important;padding-left:3rem!important;padding-right:3rem!important}
@@ -88,19 +87,17 @@
       document.querySelectorAll("section").forEach(function (section) {
         var sectionText = (section.textContent || "").toLowerCase();
         if (sectionText.indexOf("16 expert programs") !== -1 ||
-            sectionText.indexOf("most programs guess") !== -1 ||
-            sectionText.indexOf("programs built around goals") !== -1 ||
             sectionText.indexOf("per program") !== -1) {
-          section.remove();
-          return;
+          section.querySelectorAll("div").forEach(function (candidate) {
+            var candidateText = (candidate.textContent || "").toLowerCase();
+            if (candidateText.indexOf("16") !== -1 &&
+                candidateText.indexOf("6 wks") !== -1 &&
+                candidateText.indexOf("junk volume") !== -1 &&
+                candidate.children.length === 4) {
+              candidate.remove();
+            }
+          });
         }
-        if (section.querySelectorAll('a[href*="/programs/"]').length >= 3) {
-          section.remove();
-        }
-      });
-      document.querySelectorAll('a[href*="/programs/"]').forEach(function (link) {
-        var card = link.closest("article,li");
-        (card || link).remove();
       });
       document.querySelectorAll("a,button").forEach(function (el) {
         if (wired.has(el)) return;
@@ -109,9 +106,6 @@
           wired.add(el);
           el.textContent = "My Plan";
           linkTo(el, "/my-plan.html");
-        } else if (text === "explore programs" ||
-                   (text === "programs" && !el.closest("nav,header"))) {
-          (el.closest("article,li") || el).remove();
         } else if (text === "login" || text === "sign in") {
           wired.add(el);
           linkTo(el, "/Login.html");
