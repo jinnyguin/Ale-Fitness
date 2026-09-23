@@ -50,6 +50,16 @@
   <script>
   (function () {
     var wired = new WeakSet();
+    function linkTo(el, path) {
+      el.setAttribute("href", path);
+      if (el.dataset.alefitRouteWired) return;
+      el.dataset.alefitRouteWired = "1";
+      el.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        window.location.assign(path);
+      }, true);
+    }
     function replaceJoinCopy() {
       var replacements = {
         "Join ALEFIT today and unlock your true potential with expert coaching, state-of-the-art equipment, and a community that drives you forward.":
@@ -63,8 +73,14 @@
       }
       document.querySelectorAll("a,button").forEach(function (el) {
         var text = (el.textContent || "").trim().toLowerCase();
-        if (text.indexOf("start your journey") !== -1) el.textContent = "JOIN ALEFIT  →";
-        if (text === "sign up") el.textContent = "JOIN ALEFIT";
+        if (text.indexOf("start your journey") !== -1) {
+          el.textContent = "JOIN ALEFIT  →";
+          linkTo(el, "/Register.html");
+        }
+        if (text === "sign up") {
+          el.textContent = "JOIN ALEFIT";
+          linkTo(el, "/Register.html");
+        }
       });
     }
     function hidePrograms() {
@@ -83,13 +99,14 @@
         if (el.closest("nav,header") && text === "programs") {
           wired.add(el);
           el.textContent = "My Plan";
-          el.setAttribute("href", "/my-plan.html");
+          linkTo(el, "/my-plan.html");
         } else if (text === "login" || text === "sign in") {
           wired.add(el);
-          el.setAttribute("href", "/Login.html");
-        } else if (text === "sign up" || text === "signup" || text === "register") {
+          linkTo(el, "/Login.html");
+        } else if (text === "sign up" || text === "signup" || text === "register" ||
+                   text.indexOf("join alefit") !== -1) {
           wired.add(el);
-          el.setAttribute("href", "/Register.html");
+          linkTo(el, "/Register.html");
         }
       });
     }
