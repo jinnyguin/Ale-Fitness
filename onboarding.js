@@ -364,7 +364,7 @@
       if (response.status === 401) return returnToSignIn();
       if (!response.ok) throw new Error("Plan save failed.");
       sessionStorage.removeItem(DRAFT);
-      window.location.replace("/my-plan.html");
+       window.location.replace("/today.html");
     } catch (error) {
       button.dataset.saving = "false";
       button.disabled = false;

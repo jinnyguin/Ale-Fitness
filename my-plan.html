@@ -3,28 +3,37 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>My Plan | ALEFIT</title>
+  <title>Today | ALEFIT</title>
   <link rel="icon" href="/images/alefit-logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/onboarding.css">
-  <link rel="stylesheet" href="/my-plan.css">
+  <link rel="stylesheet" href="/app-shell.css">
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <a class="brand" href="/" aria-label="ALEFIT home">
-        <img src="/images/alefit-logo.png" alt="ALEFIT">
-      </a>
-      <a class="sign-in" href="/">Home</a>
+  <div class="app-frame">
+    <header class="app-header">
+      <a class="brand" href="/today.html" aria-label="ALEFIT Today"><img src="/images/alefit-logo.png" alt="ALEFIT"></a>
+      <nav class="desktop-nav" aria-label="Main navigation">
+        <a data-view="today" href="/today.html">Today</a>
+        <a data-view="plan" href="/today.html?view=plan">My Plan</a>
+        <a data-view="progress" href="/today.html?view=progress">Progress</a>
+        <a data-view="coach" href="/today.html?view=coach">Coach</a>
+        <a data-view="profile" href="/today.html?view=profile">Profile</a>
+      </nav>
+      <div class="header-right"><a class="avatar" href="/today.html?view=profile">A</a></div>
     </header>
-    <section class="onboarding preview" id="plan" aria-live="polite">
-      <span class="eyebrow">Your plan</span>
-      <h1>Loading your plan.</h1>
-    </section>
-  </main>
+    <main class="app-main" id="app" aria-live="polite"><div class="loading">Loading your coaching space…</div></main>
+    <nav class="mobile-nav" aria-label="Mobile navigation">
+      <a data-view="today" href="/today.html"><span>●</span>Today</a>
+      <a data-view="plan" href="/today.html?view=plan"><span>▦</span>Plan</a>
+      <a data-view="progress" href="/today.html?view=progress"><span>↗</span>Progress</a>
+      <a data-view="coach" href="/today.html?view=coach"><span>✦</span>Coach</a>
+      <a data-view="profile" href="/today.html?view=profile"><span>○</span>Profile</a>
+    </nav>
+  </div>
   <script src="/training-engine.js"></script>
-  <script src="/my-plan.js"></script>
+  <script src="/analytics.js"></script>
+  <script src="/today.js"></script>
 </body>
 </html>

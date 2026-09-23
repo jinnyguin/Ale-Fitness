@@ -152,7 +152,8 @@
       });
       var data = await resp.json();
       if (resp.ok && data.access_token) {
-        await saveSession(data);
+         if (window.trackEvent) window.trackEvent('login_succeeded', {source: 'login'});
+         await saveSession(data);
       } else {
         showError(data.error || data.message || 'Login failed. Check your email and password.');
         submitBtn.disabled = false;
