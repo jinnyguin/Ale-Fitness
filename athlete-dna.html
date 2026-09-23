@@ -65,8 +65,8 @@ canvas#radar{display:block}
 .attr-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;color:var(--lime)}
 .attr-bar{height:4px;background:#222;border-radius:2px;overflow:hidden}
 .attr-fill{height:100%;border-radius:2px;background:var(--lime);transition:width 1s ease}
-.programs-rec{margin-top:2rem;grid-column:span 2}
-.programs-rec h3{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:1.5rem;color:rgba(255,255,255,.6)}
+.plan-focus{margin-top:2rem;grid-column:span 2}
+.plan-focus h3{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:1.5rem;color:rgba(255,255,255,.6)}
 .rec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
 .rec-card{background:var(--card);border:1px solid var(--border);padding:1.5rem;cursor:pointer;transition:border-color .2s}
 .rec-card:hover{border-color:rgba(212,255,0,.35)}
@@ -220,8 +220,8 @@ canvas#radar{display:block}
       <canvas id="radar" width="260" height="260"></canvas>
     </div>
     <div class="attrs-wrap" id="attrsWrap"></div>
-    <div class="programs-rec">
-      <h3>— Recommended Focus for Your Plan</h3>
+    <div class="plan-focus">
+      <h3>— Focus for Your Personalized Plan</h3>
       <div class="rec-grid" id="recGrid"></div>
     </div>
   </div>
@@ -268,8 +268,8 @@ function viewSaved(){
   setTimeout(function(){document.querySelectorAll('.attr-fill').forEach(function(el){el.style.width=el.dataset.w;});},50);
   drawRadar(norm);
   var rg=document.getElementById('recGrid');rg.innerHTML='';
-  at.programs.forEach(function(p,i){
-    rg.innerHTML+='<div class="rec-card"><div class="rec-rank">'+['🥇 Best Match','🥈 Great Fit','🥉 Strong Option'][i]+'</div><div class="rec-name">'+p+'</div><div class="rec-why">'+['Perfectly matches your dominant profile','High compatibility with your attributes','Excellent for developing your secondary traits'][i]+'</div></div>';
+   at.focus.forEach(function(p,i){
+     rg.innerHTML+='<div class="rec-card"><div class="rec-rank">'+['01 Primary Focus','02 Supporting Focus','03 Progression Focus'][i]+'</div><div class="rec-name">'+p+'</div><div class="rec-why">'+['Shapes the opening block around your profile','Supports the week without adding noise','Adjusts as your logged work develops'][i]+'</div></div>';
   });
   document.getElementById('quizWrap').style.display='none';
   document.getElementById('resultSection').classList.add('show');
@@ -283,11 +283,11 @@ const answers = new Array(8).fill(null);
 const TOTAL = 8;
 
 const ARCHETYPES = [
-  {name:'The Power Athlete',title:'Power<br>Athlete',desc:'You were built to move heavy things fast. Explosive, dominant, and built for force — your body thrives on strength and power training.',top:['strength','power'],programs:['Football','CrossFit','Weight Gain']},
-  {name:'The Speed Demon',title:'Speed<br>Demon',desc:'Quickness is your weapon. You excel in reactive sports that demand fast-twitch dominance, cutting speed, and explosive bursts.',top:['speed','agility'],programs:['Basketball','Soccer','Track']},
-  {name:'The Endurance Machine',title:'Endurance<br>Machine',desc:'You run forever. Your aerobic engine is exceptional — you thrive on volume, pacing, and the slow grind of sustained effort.',top:['endurance','recovery'],programs:['Cross Country','Swimming','Weight Loss']},
-  {name:'The Hybrid Athlete',title:'Hybrid<br>Athlete',desc:'You can do it all. Balanced across every attribute, you adapt to any sport and any training style. The most dangerous kind.',top:['speed','strength'],programs:['CrossFit','HIIT','Football']},
-  {name:'The Agile Competitor',title:'Agile<br>Competitor',desc:'Direction changes are your weapon. You move in ways others can\'t — reading the field, reacting instantly, owning space.',top:['agility','speed'],programs:['Basketball','Tennis','Soccer']},
+  {name:'The Power Athlete',title:'Power<br>Athlete',desc:'You were built to move heavy things fast. Your personalized plan will prioritize strength, power, and controlled progression.',top:['strength','power'],focus:['Power foundation','Strength progression','Explosive support']},
+  {name:'The Speed Demon',title:'Speed<br>Demon',desc:'Quickness is your weapon. Your personalized plan will prioritize reactive speed, agility, and controlled bursts.',top:['speed','agility'],focus:['Speed foundation','Agility progression','Reactive support']},
+  {name:'The Endurance Machine',title:'Endurance<br>Machine',desc:'Your aerobic engine is exceptional. Your personalized plan will prioritize pacing, sustainable volume, and recovery.',top:['endurance','recovery'],focus:['Aerobic foundation','Pacing progression','Recovery support']},
+  {name:'The Hybrid Athlete',title:'Hybrid<br>Athlete',desc:'You can do it all. Your personalized plan will balance strength, speed, and conditioning around your week.',top:['speed','strength'],focus:['Balanced foundation','Strength progression','Conditioning support']},
+  {name:'The Agile Competitor',title:'Agile<br>Competitor',desc:'Direction changes are your weapon. Your personalized plan will prioritize agility, speed, and controlled movement.',top:['agility','speed'],focus:['Agility foundation','Speed progression','Movement support']},
 ];
 
 function getArchetype(){
@@ -384,11 +384,11 @@ function showResult(){
 
   // Recs
   const rg=document.getElementById('recGrid');rg.innerHTML='';
-  at.programs.forEach((p,i)=>{
+   at.focus.forEach((p,i)=>{
     rg.innerHTML+=`<div class="rec-card">
-      <div class="rec-rank">${['🥇 Best Match','🥈 Great Fit','🥉 Strong Option'][i]}</div>
+       <div class="rec-rank">${['01 Primary Focus','02 Supporting Focus','03 Progression Focus'][i]}</div>
       <div class="rec-name">${p}</div>
-      <div class="rec-why">${['Perfectly matches your dominant profile','High compatibility with your attributes','Excellent for developing your secondary traits'][i]}</div>
+       <div class="rec-why">${['Shapes the opening block around your profile','Supports the week without adding noise','Adjusts as your logged work develops'][i]}</div>
     </div>`;
   });
 }
