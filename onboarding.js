@@ -22,6 +22,10 @@
   state.prefs.goals = Array.isArray(state.prefs.goals) ? state.prefs.goals : [];
   state.prefs.equipment = Array.isArray(state.prefs.equipment) ? state.prefs.equipment :
     (state.prefs.equipment ? [state.prefs.equipment] : []);
+  if (!sessionStorage.getItem("alefit_onboarding_analytics_started")) {
+    sessionStorage.setItem("alefit_onboarding_analytics_started", "1");
+    if (window.trackEvent) window.trackEvent("onboarding_started", { source: "register" });
+  }
 
   var sports = [
     ["basketball", "Basketball", "Jump, cut and defend"],
@@ -318,6 +322,7 @@
       localStorage.setItem("base44_access_token", data.access_token);
       localStorage.setItem("token", data.access_token);
       if (data.user) localStorage.setItem("alefit_user", JSON.stringify(data.user));
+      if (window.trackEvent) window.trackEvent("account_created", { source: "onboarding" });
       savePlan();
     } catch (error) {
       button.disabled = false;
@@ -364,7 +369,10 @@
       if (response.status === 401) return returnToSignIn();
       if (!response.ok) throw new Error("Plan save failed.");
       sessionStorage.removeItem(DRAFT);
-       window.location.replace("/today.html");
+      if (window.trackEvent) window.trackEvent("plan_created", {
+        days: Number(state.prefs.days || 0)
+      });
+      window.location.replace("/today.html");
     } catch (error) {
       button.dataset.saving = "false";
       button.disabled = false;

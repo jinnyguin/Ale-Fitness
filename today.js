@@ -207,9 +207,7 @@
       if (!response.ok) throw new Error("readiness save failed");
       readiness.unshift(checkin);
       if (window.trackEvent) window.trackEvent("readiness_check_saved", {
-        adapted: true,
-        pain_flagged: !!checkin.pain,
-        extra_activity: !!checkin.extraSportActivity
+        adapted: true
       });
       render();
       flash(adaptedSession.adaptation, false);
@@ -325,6 +323,7 @@
     var question = input.value.trim();
     if (!question) return;
     input.disabled = true;
+    if (window.trackEvent) window.trackEvent("coach_question_asked", { source: "coach_view" });
     chat.push({ role: "user", text: question });
     coachView();
     var message = document.getElementById("coach-message");
@@ -374,7 +373,7 @@
       if (response.status === 401) return goLogin();
       if (!response.ok) throw new Error();
       user = await response.json();
-      if (window.trackEvent) window.trackEvent("profile_updated", { calorie_goal_set: Number(document.getElementById("calories").value || 0) > 0 });
+      if (window.trackEvent) window.trackEvent("profile_updated", { success: true });
       renderShell();
       message.textContent = "Profile saved.";
     } catch (error) { message.textContent = "Profile could not be saved. Retry when connected."; message.className = "error"; }
