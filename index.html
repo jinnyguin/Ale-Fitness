@@ -63,9 +63,11 @@
     function replaceJoinCopy() {
       var replacements = {
         "Join ALEFIT today and unlock your true potential with expert coaching, state-of-the-art equipment, and a community that drives you forward.":
-          "Stop guessing. Get a clear plan built around your goals, your schedule, and measurable progress.",
+          "Your goals. Your schedule. Your program. ALEFIT builds a personalized path and tells you exactly what to do next.",
         "Join ALEFIT today and train with a plan built around your goals, schedule, and progress.":
-          "Stop guessing. Get a clear plan built around your goals, your schedule, and measurable progress."
+          "Your goals. Your schedule. Your program. ALEFIT builds a personalized path and tells you exactly what to do next.",
+        "Stop guessing. Get a clear plan built around your goals, your schedule, and measurable progress.":
+          "Your goals. Your schedule. Your program. ALEFIT builds a personalized path and tells you exactly what to do next."
       };
       var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       var node;
@@ -199,6 +201,23 @@
       if (feature) {
         var featureDecoration = feature.querySelector("div.absolute");
         if (featureDecoration) featureDecoration.style.display = "none";
+        if (!feature.hasAttribute("data-alefit-personalized-copy")) {
+          feature.setAttribute("data-alefit-personalized-copy", "1");
+          var featureHeading = feature.querySelector("h2");
+          if (featureHeading) {
+            featureHeading.innerHTML = 'ONE-SIZE-FITS-ALL <br><span style="color:#d4ff00">DOESN’T WORK.</span>';
+          }
+          var featureIntro = feature.querySelector("h2 + p");
+          if (featureIntro) {
+            featureIntro.textContent = "Tell ALEFIT what you want, where you are starting, and how you train. Your plan turns that information into the right work, rest, and progression for you.";
+          }
+          var featureCards = feature.querySelectorAll("h3");
+          if (featureCards[0]) featureCards[0].textContent = "Built Around Your Goal";
+          if (featureCards[1]) featureCards[1].textContent = "Progression You Can Follow";
+          var featureCardCopy = feature.querySelectorAll("h3 + p");
+          if (featureCardCopy[0]) featureCardCopy[0].textContent = "Fat loss, strength, mobility, or all three — your target sets the direction, and every week builds on it.";
+          if (featureCardCopy[1]) featureCardCopy[1].textContent = "Your plan increases the right variable at the right time, so you always know what to do next.";
+        }
       }
       if (feature && !feature.querySelector("[data-alefit-join-callout]")) {
         var callout = document.createElement("div");
@@ -208,20 +227,20 @@
 
         var copy = document.createElement("div");
         var eyebrow = document.createElement("div");
-        eyebrow.textContent = "Your next session starts here";
+        eyebrow.textContent = "Personalized by design";
         eyebrow.style.cssText = "font:700 10px/1.4 Arial,sans-serif;letter-spacing:.24em;text-transform:uppercase;color:#d4ff00;margin-bottom:10px";
         var title = document.createElement("h3");
-        title.textContent = "Ready to train with purpose?";
+        title.textContent = "Your program. Built around you.";
         title.style.cssText = "font:800 clamp(24px,3vw,38px)/.98 Arial,sans-serif;letter-spacing:-.04em;color:#fff;margin:0";
         var description = document.createElement("p");
-        description.textContent = "Join ALEFIT and turn your goals into your next workout — no guesswork, no wasted sessions.";
+        description.textContent = "Tell us your goal, schedule, and starting point. ALEFIT builds the exercises, volume, rest, and progression around you — so every session has a purpose.";
         description.style.cssText = "font:500 15px/1.55 Arial,sans-serif;max-width:560px;color:rgba(255,255,255,.58);margin:14px 0 0";
         copy.appendChild(eyebrow);
         copy.appendChild(title);
         copy.appendChild(description);
 
         var calloutCta = document.createElement("a");
-        calloutCta.textContent = "JOIN ALEFIT  →";
+        calloutCta.textContent = "GET MY PERSONALIZED PROGRAM  →";
         calloutCta.href = "/Register.html";
         calloutCta.style.cssText = "display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:0 22px;background:#d4ff00;color:#0f0f0f;font:800 11px/1 Arial,sans-serif;letter-spacing:.16em;text-decoration:none;text-transform:uppercase;white-space:nowrap";
         linkTo(calloutCta, "/Register.html");
