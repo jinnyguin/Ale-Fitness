@@ -6,7 +6,12 @@
     ["monday", "mon"], ["tuesday", "tue"], ["wednesday", "wed"],
     ["thursday", "thu"], ["friday", "fri"], ["saturday", "sat"], ["sunday", "sun"]
   ];
-  var SUPPORTED_SPORTS = ["basketball", "running", "cross-country", "strength", "general"];
+  var SUPPORTED_SPORTS = [
+    "basketball", "football", "soccer", "baseball", "swimming", "track",
+    "running", "cross-country", "volleyball", "tennis", "rugby", "lacrosse",
+    "hockey", "golf", "cycling", "rowing", "combat-sports", "strength",
+    "hiit", "mobility", "general"
+  ];
   var PROGRAM_PATHS = {
     basketball: "/programs/basketball.html",
     football: "/programs/football.html",
@@ -19,7 +24,20 @@
     strength: "/programs/strength.html",
     hiit: "/programs/hiit.html",
     mobility: "/programs/mobility.html",
-    general: "/programs/strength.html"
+    general: "/programs/strength.html",
+    volleyball: "/my-plan.html",
+    tennis: "/my-plan.html",
+    rugby: "/my-plan.html",
+    lacrosse: "/my-plan.html",
+    hockey: "/my-plan.html",
+    golf: "/my-plan.html",
+    cycling: "/my-plan.html",
+    rowing: "/my-plan.html",
+    "combat-sports": "/my-plan.html"
+  };
+  var SPORT_LABELS = {
+    "cross-country":"Cross country",
+    "combat-sports":"Combat sports"
   };
 
   function exercise(config) {
@@ -40,6 +58,7 @@
     exercise({id:"push-up",name:"Incline push-up",movementPattern:"push",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["strength","muscle"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,4],reps:"6–15",rest:"60–90 sec"}}),
     exercise({id:"dumbbell-row",name:"Dumbbell row",movementPattern:"pull",requiredEquipment:["dumbbells","gym"],difficulty:"beginner",prerequisites:["supported hinge"],qualities:["strength","muscle"],impact:"low",fatigue:"medium",alternatives:["band-row","prone-swimmer"],prescription:{sets:[2,4],reps:"8–12",rest:"75–120 sec"}}),
     exercise({id:"band-row",name:"Band row",movementPattern:"pull",requiredEquipment:["bands"],difficulty:"beginner",prerequisites:["safe anchor"],qualities:["muscle","durability"],impact:"low",fatigue:"low",alternatives:["prone-swimmer"],prescription:{sets:[2,4],reps:"10–15",rest:"60–90 sec"}}),
+    exercise({id:"band-rotation",name:"Standing band rotation",movementPattern:"rotation",requiredEquipment:["bands"],difficulty:"beginner",prerequisites:["safe anchor"],qualities:["sport","strength","durability"],impact:"low",fatigue:"low",alternatives:["dead-bug"],prescription:{sets:[2,3],reps:"8–12 / side",rest:"45–60 sec"}}),
     exercise({id:"band-press",name:"Band press",movementPattern:"push",requiredEquipment:["bands"],difficulty:"beginner",prerequisites:["safe anchor"],qualities:["muscle","strength"],impact:"low",fatigue:"low",alternatives:["push-up"],prescription:{sets:[2,4],reps:"10–15",rest:"60–90 sec"}}),
     exercise({id:"prone-swimmer",name:"Prone swimmer",movementPattern:"pull",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["mobility","durability"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,3],reps:"8–12",rest:"45–60 sec"}}),
     exercise({id:"snap-down",name:"Snap-down to stick",movementPattern:"landing",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:["pain-free landing"],qualities:["power","sport"],impact:"medium",fatigue:"low",alternatives:["calf-raise"],prescription:{sets:[2,4],reps:"3–6",rest:"90–120 sec"}}),
@@ -51,7 +70,8 @@
     exercise({id:"calf-raise",name:"Calf raise",movementPattern:"calf",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["endurance","durability"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,4],reps:"12–25",rest:"45–75 sec"}}),
     exercise({id:"easy-run",name:"Easy run / run-walk",movementPattern:"locomotion",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:["comfortable walking"],qualities:["endurance"],impact:"medium",fatigue:"medium",alternatives:["easy-cycle","brisk-walk"],prescription:{sets:[1,1],reps:"10–60 min",rest:"—"}}),
     exercise({id:"tempo-run",name:"Controlled tempo intervals",movementPattern:"locomotion",requiredEquipment:["field"],difficulty:"intermediate",prerequisites:["consistent easy running"],qualities:["endurance","speed"],impact:"medium",fatigue:"medium",alternatives:["easy-run"],prescription:{sets:[4,8],reps:"1–3 min",rest:"1–2 min easy"}}),
-    exercise({id:"easy-cycle",name:"Easy cycle",movementPattern:"conditioning",requiredEquipment:["gym"],difficulty:"beginner",prerequisites:[],qualities:["endurance"],impact:"low",fatigue:"low",alternatives:["brisk-walk"],prescription:{sets:[1,1],reps:"15–45 min",rest:"—"}}),
+    exercise({id:"easy-cycle",name:"Easy cycle",movementPattern:"conditioning",requiredEquipment:["bike","gym"],difficulty:"beginner",prerequisites:[],qualities:["endurance"],impact:"low",fatigue:"low",alternatives:["brisk-walk"],prescription:{sets:[1,1],reps:"15–45 min",rest:"—"}}),
+    exercise({id:"easy-row",name:"Steady rowing machine",movementPattern:"conditioning",requiredEquipment:["rower"],difficulty:"beginner",prerequisites:[],qualities:["endurance","sport"],impact:"low",fatigue:"medium",alternatives:["dumbbell-row","easy-cycle","brisk-walk"],prescription:{sets:[1,1],reps:"10–30 min",rest:"—"}}),
     exercise({id:"brisk-walk",name:"Brisk walk",movementPattern:"locomotion",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["endurance","recovery"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[1,1],reps:"10–40 min",rest:"—"}}),
     exercise({id:"dead-bug",name:"Dead bug",movementPattern:"core",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["movement","durability"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,3],reps:"6–12 / side",rest:"45–60 sec"}}),
     exercise({id:"mobility-flow",name:"Gentle mobility flow",movementPattern:"mobility",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["mobility","recovery"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[1,2],reps:"6–10 min",rest:"as needed"}}),
@@ -182,6 +202,20 @@
       ids = ["goblet-squat", "split-squat", "snap-down", "dumbbell-row", "dead-bug"];
     } else if (sport === "basketball") {
       ids = ["snap-down", "acceleration", "split-squat", "dumbbell-row", "dead-bug"];
+    } else if (sport === "volleyball") {
+      ids = ["snap-down", "lateral-step", "split-squat", "band-rotation", "dead-bug"];
+    } else if (sport === "tennis") {
+      ids = ["lateral-step", "acceleration", "band-rotation", "split-squat", "dead-bug"];
+    } else if (["rugby", "lacrosse", "hockey"].indexOf(sport) !== -1) {
+      ids = ["acceleration", "lateral-step", "split-squat", "dumbbell-row", "dead-bug"];
+    } else if (sport === "golf") {
+      ids = ["mobility-flow", "band-rotation", "hip-hinge", "split-squat", "dead-bug"];
+    } else if (sport === "cycling") {
+      ids = ["easy-cycle", "split-squat", "rdl", "calf-raise", "dead-bug"];
+    } else if (sport === "rowing") {
+      ids = ["easy-row", "dumbbell-row", "split-squat", "dead-bug", "mobility-flow"];
+    } else if (sport === "combat-sports") {
+      ids = ["lateral-step", "snap-down", "split-squat", "push-up", "dead-bug"];
     } else if (sport === "running" || sport === "cross-country") {
       ids = numeric(profile.weeklyRunVolume, 0) < 10 ?
         ["brisk-walk", "split-squat", "calf-raise", "dead-bug", "mobility-flow"] :
@@ -372,8 +406,10 @@
       return {sets:week === 4 ? 3 : 4,reps:interval,rest:"2 min easy",
          effort:phase && phase.key === "deload" ? "RPE 5–6; never all-out" : "RPE 6–7; never all-out"};
     }
-    if (item.qualities.indexOf("endurance") !== -1 && item.movementPattern === "locomotion") {
-      return {sets:1,reps:Math.min(30, numeric(profile.duration, 45) - 10) + " min",
+    if (item.qualities.indexOf("endurance") !== -1 &&
+        (item.movementPattern === "locomotion" ||
+         ["easy-cycle", "easy-row", "swim-technique"].indexOf(item.id) !== -1)) {
+      return {sets:1,reps:Math.max(10, Math.min(30, numeric(profile.duration, 45) - 10)) + " min",
         rest:"—",effort:"conversational"};
     }
     if (item.qualities.indexOf("power") !== -1) {
@@ -629,7 +665,7 @@
       path:PROGRAM_PATHS[sport] || PROGRAM_PATHS.general,
       name:unknownSport ? "General athletic development" :
         sport === "general" ? "General fitness development" :
-          sport.charAt(0).toUpperCase() + sport.slice(1) + " development",
+          (SPORT_LABELS[sport] || sport.charAt(0).toUpperCase() + sport.slice(1)) + " development",
       focus:focus,
       summary:"A four-week adaptive block: key movements stay measurable while support work, emphasis, and recovery change by phase.",
       profile:profile,

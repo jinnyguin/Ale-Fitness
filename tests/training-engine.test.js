@@ -235,6 +235,52 @@ assert.notDeepEqual(
   firstIds(plan({sport:"strength", goals:["strength", "conditioning"], equipment:["gym"]}))
 );
 
+// Every focus offered by the builder is recognized by the generator.
+const builderSports = [
+  "basketball", "football", "soccer", "baseball", "swimming", "track",
+  "running", "cross-country", "volleyball", "tennis", "rugby", "lacrosse",
+  "hockey", "golf", "cycling", "rowing", "combat-sports",
+  "strength", "hiit", "mobility", "general"
+];
+builderSports.forEach((sport) => {
+  const result = plan({sport});
+  assert(
+    !/general athletic-development rules/i.test(result.decisionTrace.sport.decision),
+    `${sport} should be recognized as a supported training focus`
+  );
+});
+
+// New sports use sport-relevant starting movements, equipment, and plan routing.
+const expandedSportCases = [
+  {sport:"volleyball", goal:"jump", equipment:["bodyweight"], primary:"snap-down", label:"Volleyball"},
+  {sport:"tennis", goal:"speed", equipment:["field", "bands"], primary:"lateral-step", label:"Tennis"},
+  {sport:"rugby", goal:"power", equipment:["field"], primary:"acceleration", label:"Rugby"},
+  {sport:"lacrosse", goal:"agility", equipment:["field"], primary:"acceleration", label:"Lacrosse"},
+  {sport:"hockey", goal:"speed", equipment:["field"], primary:"acceleration", label:"Hockey"},
+  {sport:"golf", goal:"mobility", equipment:["bands"], primary:"mobility-flow", label:"Golf"},
+  {sport:"cycling", goal:"conditioning", equipment:["bike"], primary:"easy-cycle", label:"Cycling"},
+  {sport:"rowing", goal:"conditioning", equipment:["rower", "bands"], primary:"easy-row", label:"Rowing"},
+  {sport:"combat-sports", goal:"conditioning", equipment:["bodyweight"], primary:"lateral-step", label:"Combat sports"}
+];
+expandedSportCases.forEach((item) => {
+  const result = plan({
+    sport:item.sport,
+    goals:[item.goal],
+    equipment:item.equipment,
+    days:2
+  });
+  assert(firstIds(result).includes(item.primary), `${item.sport} should use its relevant primary exercise`);
+  assert.equal(result.name, `${item.label} development`);
+  assert.equal(result.path, "/my-plan.html");
+  assertAllEquipmentAllowed(result, item.equipment);
+});
+assert(
+  plan({sport:"cycling", goals:["conditioning"], equipment:["bike"]}).first[0].effort === "conversational"
+);
+assert(
+  plan({sport:"rowing", goals:["conditioning"], equipment:["rower"]}).first[0].effort === "conversational"
+);
+
 // Running distance, volume, longest run, and race detail alter prescriptions.
 const runnerBase = {
   sport:"running", goals:["conditioning"], equipment:["field"], days:2,

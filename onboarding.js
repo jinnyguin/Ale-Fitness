@@ -36,6 +36,15 @@
     ["track", "Track", "Speed and force"],
     ["running", "Running", "Build toward your distance"],
     ["cross-country", "Cross country", "Aerobic durability"],
+    ["volleyball", "Volleyball", "Jumping, landing and court movement"],
+    ["tennis", "Tennis", "First-step speed and lateral control"],
+    ["rugby", "Rugby", "Acceleration, power and contact strength"],
+    ["lacrosse", "Lacrosse", "Change of direction and repeat effort"],
+    ["hockey", "Hockey", "Quick shifts, speed and durability"],
+    ["golf", "Golf", "Mobility, rotation and control"],
+    ["cycling", "Cycling", "Build riding endurance and leg strength"],
+    ["rowing", "Rowing", "Pulling strength and aerobic capacity"],
+    ["combat-sports", "Combat sports", "Power, movement and round endurance"],
     ["strength", "Strength", "Build the big lifts"],
     ["hiit", "HIIT", "Work capacity and control"],
     ["mobility", "Mobility", "Move with more range"],
@@ -50,6 +59,15 @@
     track: [["speed", "Sprint speed"], ["power", "Force production"], ["conditioning", "Race conditioning"]],
     "cross-country": [["conditioning", "Aerobic base"], ["durability", "Durable running"], ["speed", "Finish speed"]],
     running: [["conditioning", "Build endurance"], ["durability", "Run comfortably"], ["speed", "Improve pace"]],
+    volleyball: [["jump", "Jump higher"], ["quickness", "Court movement"], ["durability", "Shoulder resilience"]],
+    tennis: [["speed", "First-step speed"], ["agility", "Court movement"], ["durability", "Shoulder resilience"]],
+    rugby: [["speed", "Acceleration"], ["power", "Explosive power"], ["strength", "Contact strength"]],
+    lacrosse: [["speed", "First-step speed"], ["agility", "Change direction"], ["conditioning", "Match endurance"]],
+    hockey: [["speed", "First-step speed"], ["conditioning", "Shift endurance"], ["durability", "Lower-body durability"]],
+    golf: [["mobility", "Hip and trunk mobility"], ["power", "Swing power"], ["strength", "Build strength"]],
+    cycling: [["conditioning", "Ride endurance"], ["durability", "Leg durability"], ["power", "Climbing power"]],
+    rowing: [["conditioning", "Rowing endurance"], ["strength", "Pulling strength"], ["durability", "Back and hip durability"]],
+    "combat-sports": [["power", "Explosive strength"], ["conditioning", "Round endurance"], ["mobility", "Mobility and control"]],
     strength: [["strength", "Build strength"], ["muscle", "Build muscle"], ["conditioning", "Work capacity"]],
     hiit: [["conditioning", "Work capacity"], ["fitness", "General fitness"], ["movement", "Move better"]],
     mobility: [["mobility", "More range"], ["durability", "Move comfortably"], ["movement", "Better control"]],
@@ -61,7 +79,9 @@
     ["bands", "Resistance bands", "Anchored or loop bands"],
     ["bodyweight", "Bodyweight", "No external load"],
     ["field", "Court / field", "Outdoor or sport space"],
-    ["pool", "Pool", "Access to a swimming pool"]
+    ["pool", "Pool", "Access to a swimming pool"],
+    ["bike", "Bike", "Road or stationary bicycle"],
+    ["rower", "Rowing machine", "Indoor rower or erg"]
   ];
   function persist() {
     sessionStorage.setItem(DRAFT, JSON.stringify(state));

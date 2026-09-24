@@ -1008,14 +1008,16 @@ def save_onboarding_plan(app_id):
 
     allowed_sports = {
         "basketball", "football", "soccer", "baseball", "swimming", "track",
-        "running", "cross-country", "strength", "hiit", "mobility", "general",
+        "running", "cross-country", "volleyball", "tennis", "rugby", "lacrosse",
+        "hockey", "golf", "cycling", "rowing", "combat-sports", "strength",
+        "hiit", "mobility", "general",
     }
     allowed_paths = {
         "/programs/baseball.html", "/programs/basketball.html",
         "/programs/crosscountry.html", "/programs/football.html",
         "/programs/hiit.html", "/programs/mobility.html",
         "/programs/soccer.html", "/programs/strength.html",
-        "/programs/swimming.html", "/programs/track.html",
+        "/programs/swimming.html", "/programs/track.html", "/my-plan.html",
     }
     if preferences.get("sport") not in allowed_sports:
         return jsonify({"error": "Choose a supported training focus."}), 400
