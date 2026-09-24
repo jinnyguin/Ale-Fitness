@@ -190,7 +190,7 @@
       if (!document.getElementById("alefit-plan-font-style")) {
         var fontStyle = document.createElement("style");
         fontStyle.id = "alefit-plan-font-style";
-        fontStyle.textContent = ".alefit-plan-copy h2{font-family:var(--font-heading,'Space Grotesk',sans-serif)!important;font-weight:700!important;line-height:.94!important;letter-spacing:-.035em!important;text-transform:uppercase!important}.alefit-plan-copy h2 span{display:block}";
+        fontStyle.textContent = ".alefit-plan-copy h2{font-family:var(--font-heading,'Space Grotesk',sans-serif)!important;font-weight:700!important;line-height:.94!important;letter-spacing:-.035em!important;text-transform:uppercase!important}.alefit-plan-copy h2 span{display:block}@media(max-width:480px){.alefit-plan-copy h2{font-size:clamp(32px,9.5vw,38px)!important;line-height:1!important}}";
         document.head.appendChild(fontStyle);
       }
       var section = document.createElement("section");
@@ -199,8 +199,8 @@
        section.innerHTML = '<div class="alefit-plan-layout"><div class="alefit-plan-copy"><div class="plan-rule"></div><span class="plan-eyebrow">The ALEFIT difference · 100% free</span><h2>Your plan should fit <span>your life.</span></h2><p>Six focused questions turn your goal, experience, equipment, schedule, and recovery needs into an opening block you can actually follow. No cost. No subscription.</p><div class="plan-steps"><div class="plan-step"><b>01</b><div><strong>Tell us what you are training for.</strong><span>Your goal sets the direction.</span></div></div><div class="plan-step"><b>02</b><div><strong>Show us what fits your week.</strong><span>We build around your time and tools.</span></div></div><div class="plan-step"><b>03</b><div><strong>Start with a plan that progresses.</strong><span>Every session has a reason and a next step.</span></div></div></div></div><div class="alefit-plan-preview" data-alefit-plan-preview="1"><div class="preview-top"><span>ALEFIT / Plan preview</span><span class="preview-live">Free to use</span></div><h3>Your week, built around you.</h3><p class="preview-copy">Answer six focused questions. Get the right work, the right rest, and a clear next step.</p><div class="preview-facts"><div class="preview-fact"><span>Your focus</span><b>Goal-driven</b></div><div class="preview-fact"><span>Your rhythm</span><b>Built to fit</b></div></div><div class="preview-session"><span class="preview-session-label">Example opening session</span><strong>Lower Body + Power</strong><div class="preview-movement"><b>Squat pattern</b><span>4 × 6</span></div><div class="preview-movement"><b>Hinge pattern</b><span>3 × 8</span></div><div class="preview-movement"><b>Core + carry</b><span>3 rounds</span></div></div><div class="preview-bottom"><span>No payment required</span><a href="/Register.html">Build my plan →</a></div></div></div>';
       var planHeading = section.querySelector(".alefit-plan-copy h2");
       if (planHeading) {
-        planHeading.innerHTML = 'A PLAN FOR <span>REAL LIFE.</span>';
-        planHeading.setAttribute("aria-label", "A plan for real life.");
+        planHeading.innerHTML = 'SMARTER<br>PROGRAMMING.<span>STRONGER RESULTS.</span>';
+        planHeading.setAttribute("aria-label", "Smarter programming. Stronger results.");
       }
       var ticker = Array.prototype.slice.call(home.parentElement.children)
         .find(function (child) { return child.classList && child.classList.contains("bg-lime"); });
