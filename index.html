@@ -187,6 +187,12 @@
         mobileStyle.textContent = "@media(max-width:480px){.alefit-plan-section{padding:48px 14px 54px}.alefit-plan-layout{gap:24px}.alefit-plan-preview{box-sizing:border-box;padding:18px}.alefit-plan-preview h3{font-size:24px;line-height:1.05}.alefit-plan-preview .preview-copy{margin:10px 0 16px}.alefit-plan-preview .preview-facts{margin-bottom:14px}.alefit-plan-preview .preview-session{padding:12px 12px 10px}.alefit-plan-preview .preview-movement{padding:6px 0}.alefit-plan-preview .preview-bottom{margin-top:14px}}";
         document.head.appendChild(mobileStyle);
       }
+      if (!document.getElementById("alefit-plan-fit-style")) {
+        var fitStyle = document.createElement("style");
+        fitStyle.id = "alefit-plan-fit-style";
+        fitStyle.textContent = ".alefit-plan-preview{box-sizing:border-box;width:100%;max-width:100%}@media(max-width:480px){.alefit-plan-section{padding:42px 14px 48px}.alefit-plan-layout{gap:20px}.alefit-plan-preview{padding:16px}.alefit-plan-preview .preview-top{gap:10px;margin-bottom:14px}.alefit-plan-preview .preview-copy{margin:8px 0 12px;line-height:1.4}.alefit-plan-preview .preview-facts{margin-bottom:12px}.alefit-plan-preview .preview-fact{padding:8px}.alefit-plan-preview .preview-session{padding:10px 10px 8px}.alefit-plan-preview .preview-session strong{margin:6px 0 8px;font-size:15px}.alefit-plan-preview .preview-movement{padding:5px 0}.alefit-plan-preview .preview-bottom{gap:8px;margin-top:12px}}@media(max-width:360px){.alefit-plan-section{padding-right:12px;padding-left:12px}.alefit-plan-preview{padding:14px}.alefit-plan-preview .preview-bottom{align-items:flex-start;flex-direction:column;gap:8px}}";
+        document.head.appendChild(fitStyle);
+      }
       if (!document.getElementById("alefit-plan-font-style")) {
         var fontStyle = document.createElement("style");
         fontStyle.id = "alefit-plan-font-style";
