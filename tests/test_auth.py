@@ -90,6 +90,77 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(response.get_json()["access_token"], "local.signed.token")
         auth_call.assert_not_called()
 
+    def test_wrong_local_password_is_rejected_without_remote_fallback(self):
+        with (
+            patch.object(server, "local_user_by_email", return_value=LOCAL_USER),
+            patch.object(server, "local_login", return_value=None),
+            patch.object(server, "supabase_auth") as auth_call,
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/login",
+                json={"email": "athlete@example.test", "password": "wrong-password"},
+            )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.get_json()["error"], "Invalid email or password.")
+        auth_call.assert_not_called()
+
+    def test_local_duplicate_signup_is_reported_as_conflict(self):
+        with (
+            patch.object(server, "SUPABASE_SERVICE_KEY", ""),
+            patch.object(server, "LOCAL_AUTH_SECRET", "test-session-secret"),
+            patch.object(server, "supabase_auth", return_value=(503, {"error": "unavailable"})),
+            patch.object(server, "ensure_local_auth_table", return_value=True),
+            patch.object(server, "local_user_by_email", return_value=LOCAL_USER),
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/register",
+                json={
+                    "full_name": "Test Athlete",
+                    "email": "athlete@example.test",
+                    "password": "correct horse battery",
+                },
+            )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("already exists", response.get_json()["error"].lower())
+
+    def test_remote_duplicate_signup_is_reported_as_conflict(self):
+        with (
+            patch.object(server, "SUPABASE_SERVICE_KEY", ""),
+            patch.object(
+                server,
+                "supabase_auth",
+                return_value=(422, {"msg": "User already registered"}),
+            ),
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/register",
+                json={
+                    "full_name": "Test Athlete",
+                    "email": "athlete@example.test",
+                    "password": "correct horse battery",
+                },
+            )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("already exists", response.get_json()["error"].lower())
+
+    def test_weak_signup_password_is_rejected_before_provider_call(self):
+        with patch.object(server, "supabase_auth") as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/register",
+                json={
+                    "full_name": "Test Athlete",
+                    "email": "athlete@example.test",
+                    "password": "short",
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("8 characters", response.get_json()["error"])
+        auth_call.assert_not_called()
+
     def test_remote_outage_returns_retryable_status(self):
         with (
             patch.object(server, "local_user_by_email", return_value=None),
@@ -129,6 +200,24 @@ class AuthRouteTests(unittest.TestCase):
 
         self.assertEqual(status, 503)
         self.assertEqual(data, {"error": "Auth service unavailable."})
+
+    def test_admin_auth_does_not_fall_back_to_public_key(self):
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "SUPABASE_SERVICE_KEY", ""),
+            patch("server.urllib.request.urlopen") as urlopen,
+        ):
+            status, data = server.supabase_admin("POST", "/auth/v1/admin/users", {})
+
+        self.assertEqual(status, 503)
+        self.assertEqual(data, {"error": "Auth service unavailable."})
+        urlopen.assert_not_called()
+
+    def test_local_token_creation_fails_closed_without_session_secret(self):
+        with patch.object(server, "LOCAL_AUTH_SECRET", ""):
+            with self.assertRaises(RuntimeError):
+                server.create_local_token(LOCAL_USER)
 
     def test_local_auth_table_setup_retries_after_temporary_database_failure(self):
         class FakeCursor:

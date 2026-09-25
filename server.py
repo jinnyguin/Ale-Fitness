@@ -772,6 +772,8 @@ def auth_register(app_id):
         }), 201
 
     err = data.get("msg") or data.get("message") or data.get("error") or "Registration failed"
+    if status in (409, 422) or "already" in str(err).lower():
+        return jsonify({"error": "An account with this email already exists. Please log in."}), 409
     return jsonify({"error": err}), status
 
 
