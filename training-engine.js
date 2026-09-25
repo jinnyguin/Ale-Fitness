@@ -39,6 +39,76 @@
     "cross-country":"Cross country",
     "combat-sports":"Combat sports"
   };
+  var SPORT_GUIDANCE = {
+    basketball:{
+      demand:"jumping, first-step acceleration, lateral control, and controlled landings",
+      conditioning:"Use short court-like efforts; practices and games already count as hard conditioning."
+    },
+    football:{
+      demand:"acceleration, total-body force, and short-area change of direction",
+      conditioning:"Keep added acceleration work brief; practices and games provide most high-intensity conditioning."
+    },
+    soccer:{
+      demand:"repeat-sprint ability, lateral change of direction, and single-leg capacity",
+      conditioning:"Use controlled repeat efforts; practices and matches are the main conditioning load."
+    },
+    baseball:{
+      demand:"rotational control, single-leg strength, and shoulder-supporting pulls",
+      conditioning:"Keep added running brief; throwing, practice, and games are separate workload."
+    },
+    swimming:{
+      demand:"pulling capacity, shoulder control, and relaxed aerobic work",
+      conditioning:"Favor easy, technique-focused pool work over extra hard intervals."
+    },
+    track:{
+      demand:"acceleration, elastic power, and event-neutral lower-body strength",
+      conditioning:"Match conditioning to the selected goal; no track event was specified."
+    },
+    running:{
+      demand:"gradual run-volume development, calf capacity, and comfortable pacing",
+      conditioning:"Keep most running conversational and cap it by recent volume and longest comfortable run."
+    },
+    "cross-country":{
+      demand:"aerobic durability, gradual run-volume development, and comfortable pacing",
+      conditioning:"Keep most running conversational and cap it by recent volume and longest comfortable run."
+    },
+    volleyball:{
+      demand:"repeat-jump quality, landing control, lateral movement, and shoulder balance",
+      conditioning:"Use short, controlled court efforts; avoid adding fatigue to jump practice."
+    },
+    tennis:{
+      demand:"first-step acceleration, lateral control, and rotational strength",
+      conditioning:"Use brief court-style efforts; match play already adds repeated high-intensity work."
+    },
+    rugby:{
+      demand:"acceleration, lower-body force, and controlled contact preparation",
+      conditioning:"Keep added conditioning brief when practices and matches are already demanding."
+    },
+    lacrosse:{
+      demand:"repeated acceleration, lateral changes, and repeat-effort capacity",
+      conditioning:"Use controlled repeat efforts; practices and matches count toward the weekly load."
+    },
+    hockey:{
+      demand:"short-burst acceleration, lateral control, and shift endurance",
+      conditioning:"Keep extra conditioning brief; practices and games supply repeated hard efforts."
+    },
+    golf:{
+      demand:"hip and trunk mobility, rotational control, and single-leg balance",
+      conditioning:"Favor easy movement and mobility over conditioning that interferes with practice."
+    },
+    cycling:{
+      demand:"leg strength, lower-body durability, and sustainable riding capacity",
+      conditioning:"Keep added riding conversational and account for regular bike volume."
+    },
+    rowing:{
+      demand:"hip-hinge strength, pulling capacity, and aerobic durability",
+      conditioning:"Keep rowing conversational unless the selected goal calls for controlled quality work."
+    },
+    "combat-sports":{
+      demand:"footwork, rotational control, and repeatable round endurance",
+      conditioning:"Use brief controlled rounds; sparring and technical practice count toward hard workload."
+    }
+  };
 
   function exercise(config) {
     return config;
@@ -58,7 +128,8 @@
     exercise({id:"push-up",name:"Incline push-up",movementPattern:"push",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["strength","muscle"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,4],reps:"6–15",rest:"60–90 sec"}}),
     exercise({id:"dumbbell-row",name:"Dumbbell row",movementPattern:"pull",requiredEquipment:["dumbbells","gym"],difficulty:"beginner",prerequisites:["supported hinge"],qualities:["strength","muscle"],impact:"low",fatigue:"medium",alternatives:["band-row","prone-swimmer"],prescription:{sets:[2,4],reps:"8–12",rest:"75–120 sec"}}),
     exercise({id:"band-row",name:"Band row",movementPattern:"pull",requiredEquipment:["bands"],difficulty:"beginner",prerequisites:["safe anchor"],qualities:["muscle","durability"],impact:"low",fatigue:"low",alternatives:["prone-swimmer"],prescription:{sets:[2,4],reps:"10–15",rest:"60–90 sec"}}),
-    exercise({id:"band-rotation",name:"Standing band rotation",movementPattern:"rotation",requiredEquipment:["bands"],difficulty:"beginner",prerequisites:["safe anchor"],qualities:["sport","strength","durability"],impact:"low",fatigue:"low",alternatives:["dead-bug"],prescription:{sets:[2,3],reps:"8–12 / side",rest:"45–60 sec"}}),
+    exercise({id:"band-rotation",name:"Standing band rotation",movementPattern:"rotation",requiredEquipment:["bands"],difficulty:"beginner",prerequisites:["safe anchor"],qualities:["sport","strength","power","durability"],impact:"low",fatigue:"low",alternatives:["standing-rotation","dead-bug"],prescription:{sets:[2,3],reps:"8–12 / side",rest:"45–60 sec"}}),
+    exercise({id:"standing-rotation",name:"Standing hip-turn practice",movementPattern:"rotation",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["sport","power","movement"],impact:"low",fatigue:"low",alternatives:["dead-bug"],prescription:{sets:[2,3],reps:"6–10 / side",rest:"45–60 sec"}}),
     exercise({id:"band-press",name:"Band press",movementPattern:"push",requiredEquipment:["bands"],difficulty:"beginner",prerequisites:["safe anchor"],qualities:["muscle","strength"],impact:"low",fatigue:"low",alternatives:["push-up"],prescription:{sets:[2,4],reps:"10–15",rest:"60–90 sec"}}),
     exercise({id:"prone-swimmer",name:"Prone swimmer",movementPattern:"pull",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["mobility","durability"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,3],reps:"8–12",rest:"45–60 sec"}}),
     exercise({id:"snap-down",name:"Snap-down to stick",movementPattern:"landing",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:["pain-free landing"],qualities:["power","sport"],impact:"medium",fatigue:"low",alternatives:["calf-raise"],prescription:{sets:[2,4],reps:"3–6",rest:"90–120 sec"}}),
@@ -140,7 +211,7 @@
     if (primary === "conditioning" || primary === "fitness" ||
         profile.sport === "running" || profile.sport === "cross-country") return "endurance";
     if (primary === "power" || primary === "jump" || primary === "quickness" ||
-        primary === "speed") return "power";
+        primary === "speed" || primary === "agility") return "power";
     if (primary === "mobility" || primary === "movement") return "movement";
     return profile.sport && profile.sport !== "general" ? "sport" : "strength";
   }
@@ -202,6 +273,14 @@
       ids = ["goblet-squat", "split-squat", "snap-down", "dumbbell-row", "dead-bug"];
     } else if (sport === "basketball") {
       ids = ["snap-down", "acceleration", "split-squat", "dumbbell-row", "dead-bug"];
+    } else if (sport === "football") {
+      ids = ["acceleration", "broad-jump", "split-squat", "dumbbell-row", "dead-bug"];
+    } else if (sport === "soccer") {
+      ids = ["lateral-step", "acceleration", "split-squat", "calf-raise", "dead-bug"];
+    } else if (sport === "baseball") {
+      ids = ["band-rotation", "step-up", "band-row", "prone-swimmer", "dead-bug"];
+    } else if (sport === "track") {
+      ids = ["acceleration", "broad-jump", "split-squat", "calf-raise", "dead-bug"];
     } else if (sport === "volleyball") {
       ids = ["snap-down", "lateral-step", "split-squat", "band-rotation", "dead-bug"];
     } else if (sport === "tennis") {
@@ -254,9 +333,10 @@
     return ids;
   }
 
-  function phaseFor(focus, week) {
+  function phaseFor(focus, week, sport, season) {
+    var phase;
     if (week === 1) {
-      return {
+      phase = {
         key:"foundation",
         label:"Foundation",
         emphasis:"Technique, baseline capacity, and repeatable movement quality",
@@ -264,9 +344,8 @@
         recovery:"Leave room to recover and record how the work feels",
         reason:"Establish a repeatable baseline before adding stress."
       };
-    }
-    if (week === 2) {
-      return {
+    } else if (week === 2) {
+      phase = {
         key:"build",
         label:"Build",
         emphasis:"Progressive volume and support-work capacity",
@@ -274,9 +353,8 @@
         recovery:"Keep at least one easy day between demanding sessions",
         reason:"Build volume gradually while keeping the key pattern familiar."
       };
-    }
-    if (week === 3) {
-      return {
+    } else if (week === 3) {
+      phase = {
         key:focus === "power" || focus === "endurance" ? "performance" : "intensification",
         label:focus === "power" || focus === "endurance" ? "Performance" : "Intensification",
         emphasis:focus === "power" ?
@@ -290,15 +368,35 @@
         recovery:"Protect sleep and keep non-training activity easy",
         reason:"Use the strongest stimulus of the block only after the earlier work is earned."
       };
+    } else {
+      phase = {
+        key:"deload",
+        label:"Deload / Recovery",
+        emphasis:"Reduce fatigue while keeping the movement patterns fresh",
+        conditioning:"Easy movement, walking, or gentle mobility",
+        recovery:"Prioritize recovery and reassess readiness before the next block",
+        reason:"Reduce volume for recovery, then use your feedback to shape the next block."
+      };
     }
-    return {
-      key:"deload",
-      label:"Deload / Recovery",
-      emphasis:"Reduce fatigue while keeping the movement patterns fresh",
-      conditioning:"Easy movement, walking, or gentle mobility",
-      recovery:"Prioritize recovery and reassess readiness before the next block",
-      reason:"Reduce volume for recovery, then use your feedback to shape the next block."
-    };
+    var guidance = SPORT_GUIDANCE[sport];
+    if (guidance) {
+      var phaseCue = phase.key === "foundation" ?
+        "Establish a repeatable base for " + guidance.demand :
+        phase.key === "build" ?
+          "Build support capacity for " + guidance.demand :
+          phase.key === "deload" ?
+            "Keep patterns for " + guidance.demand + " fresh while reducing fatigue" :
+            "Apply " + guidance.demand + " with crisp, controlled efforts";
+      phase.emphasis += ". Sport-specific priority: " + phaseCue + ".";
+      phase.conditioning = guidance.conditioning;
+      if (season === "in-season") {
+        phase.emphasis += " Keep added training supportive of practices and competition.";
+        phase.conditioning = "Sport practices and games remain the main conditioning load. " +
+          guidance.conditioning;
+        phase.recovery = "Keep competition-adjacent days easy and account for total sport and gym workload.";
+      }
+    }
+    return phase;
   }
 
   function phaseExerciseIds(profile, focus, phase, baseIds) {
@@ -309,6 +407,26 @@
         performance:["broad-jump","acceleration","split-squat","dumbbell-row","dead-bug"],
         deload:["wall-march","lateral-step","glute-bridge","prone-swimmer","mobility-flow"]
       },
+      football:{
+        build:["broad-jump","split-squat","dumbbell-row","dead-bug"],
+        performance:["acceleration","broad-jump","split-squat","dumbbell-row","dead-bug"],
+        deload:["wall-march","glute-bridge","prone-swimmer","mobility-flow","dead-bug"]
+      },
+      soccer:{
+        build:["lateral-step","split-squat","calf-raise","dead-bug","brisk-walk"],
+        performance:["acceleration","lateral-step","split-squat","calf-raise","dead-bug"],
+        deload:["wall-march","glute-bridge","calf-raise","brisk-walk","mobility-flow"]
+      },
+      baseball:{
+        build:["band-rotation","step-up","band-row","prone-swimmer","dead-bug"],
+        performance:["band-rotation","acceleration","split-squat","band-row","prone-swimmer"],
+        deload:["mobility-flow","hip-hinge","prone-swimmer","glute-bridge","dead-bug"]
+      },
+      track:{
+        build:["broad-jump","split-squat","calf-raise","mobility-flow","dead-bug"],
+        performance:["broad-jump","acceleration","split-squat","calf-raise","dead-bug"],
+        deload:["wall-march","glute-bridge","calf-raise","brisk-walk","mobility-flow"]
+      },
       running:{
         build:["split-squat","calf-raise","dead-bug","mobility-flow","brisk-walk"],
         performance:["tempo-run","split-squat","calf-raise","mobility-flow","dead-bug"],
@@ -318,6 +436,56 @@
         build:["split-squat","calf-raise","dead-bug","mobility-flow","brisk-walk"],
         performance:["tempo-run","split-squat","calf-raise","mobility-flow","dead-bug"],
         deload:["mobility-flow","glute-bridge","calf-raise","brisk-walk","dead-bug"]
+      },
+      swimming:{
+        build:["dumbbell-row","band-row","prone-swimmer","split-squat","mobility-flow"],
+        performance:["swim-technique","dumbbell-row","band-rotation","prone-swimmer","dead-bug"],
+        deload:["mobility-flow","prone-swimmer","band-row","glute-bridge","dead-bug"]
+      },
+      volleyball:{
+        build:["snap-down","lateral-step","split-squat","band-rotation","dead-bug"],
+        performance:["broad-jump","snap-down","lateral-step","dumbbell-row","dead-bug"],
+        deload:["wall-march","lateral-step","glute-bridge","prone-swimmer","mobility-flow"]
+      },
+      tennis:{
+        build:["lateral-step","split-squat","band-rotation","calf-raise","dead-bug"],
+        performance:["acceleration","lateral-step","band-rotation","split-squat","dead-bug"],
+        deload:["wall-march","mobility-flow","hip-hinge","prone-swimmer","dead-bug"]
+      },
+      rugby:{
+        build:["acceleration","split-squat","goblet-squat","dumbbell-row","dead-bug"],
+        performance:["broad-jump","acceleration","split-squat","dumbbell-row","dead-bug"],
+        deload:["wall-march","glute-bridge","band-row","mobility-flow","dead-bug"]
+      },
+      lacrosse:{
+        build:["acceleration","lateral-step","split-squat","calf-raise","dead-bug"],
+        performance:["acceleration","broad-jump","lateral-step","split-squat","dead-bug"],
+        deload:["wall-march","glute-bridge","calf-raise","brisk-walk","mobility-flow"]
+      },
+      hockey:{
+        build:["lateral-step","acceleration","split-squat","calf-raise","dead-bug"],
+        performance:["acceleration","lateral-step","broad-jump","split-squat","dead-bug"],
+        deload:["wall-march","glute-bridge","calf-raise","mobility-flow","dead-bug"]
+      },
+      golf:{
+        build:["band-rotation","hip-hinge","split-squat","prone-swimmer","dead-bug"],
+        performance:["band-rotation","step-up","hip-hinge","split-squat","dead-bug"],
+        deload:["mobility-flow","hip-hinge","glute-bridge","prone-swimmer","dead-bug"]
+      },
+      cycling:{
+        build:["split-squat","rdl","calf-raise","dead-bug","mobility-flow"],
+        performance:["easy-cycle","split-squat","calf-raise","hip-hinge","dead-bug"],
+        deload:["brisk-walk","glute-bridge","calf-raise","mobility-flow","dead-bug"]
+      },
+      rowing:{
+        build:["dumbbell-row","rdl","split-squat","prone-swimmer","dead-bug"],
+        performance:["easy-row","dumbbell-row","hip-hinge","split-squat","dead-bug"],
+        deload:["mobility-flow","glute-bridge","prone-swimmer","band-row","dead-bug"]
+      },
+      "combat-sports":{
+        build:["lateral-step","split-squat","band-rotation","push-up","dead-bug"],
+        performance:["snap-down","lateral-step","acceleration","split-squat","dead-bug"],
+        deload:["wall-march","mobility-flow","glute-bridge","prone-swimmer","dead-bug"]
       },
       strength:{
         build:["goblet-squat","hip-hinge","floor-press","band-row","dead-bug"],
@@ -473,6 +641,8 @@
     profile = clone(profile || {});
     context = context || {};
     var sport = profile.sport || "general";
+    var sportGuidance = SPORT_GUIDANCE[sport];
+    var sportInSeason = profile.season === "in-season" && !!sportGuidance;
     var equipment = normalizeEquipment(profile.equipment);
     var focus = focusFor(profile);
     var workload = parseWorkload(profile.load);
@@ -499,13 +669,14 @@
     var exerciseLimit = numeric(profile.duration, 45) <= 25 ? 2 :
       numeric(profile.duration, 45) <= 35 ? 3 :
       numeric(profile.duration, 45) <= 55 ? 4 : 5;
+    if (sportInSeason) exerciseLimit = Math.min(exerciseLimit, 3);
     var baseIds = baseExerciseIds(profile, focus);
     var primaryId = baseIds[0];
 
     var weeks = [];
     var highConsistencySetAdded = false;
     for (var week = 1; week <= 4; week += 1) {
-      var phase = phaseFor(focus, week);
+      var phase = phaseFor(focus, week, sport, profile.season);
       var phaseExercises = [];
       phaseExerciseIds(profile, focus, phase, baseIds).forEach(function (id) {
         var selected = chooseExercise(id, equipment, impactLimit);
@@ -550,7 +721,8 @@
         var timeBasedPrimary = primary &&
           (primary.movementPattern === "conditioning" ||
            /min/i.test(String(primary.reps || "")));
-        if (primary && profile.consistency === "high" && phase.key !== "deload" &&
+        if (primary && profile.consistency === "high" && !sportInSeason &&
+            phase.key !== "deload" &&
             !timeBasedPrimary && !profile.limitations && !historyState.pain &&
             !historyState.lowRecovery && historyState.tooHard < 2 &&
             numeric(primary.sets, 0) < 5) {
@@ -616,22 +788,30 @@
       (/guard|point|center|forward|wing/.test(role));
     var unknownSport = sport !== "general" && SUPPORTED_SPORTS.indexOf(sport) === -1;
     var decisionTrace = {
-      sport:{input:sport,decision:unknownSport ?
-        "Used honest general athletic-development rules; no expert-specific claim." :
-        "Selected the supported " + sport + " training template."},
+      sport:{input:sport,demand:sportGuidance ? sportGuidance.demand : null,
+        decision:unknownSport ?
+          "Used honest general athletic-development rules; no expert-specific claim." :
+          sportGuidance ?
+            "Prioritized " + sportGuidance.demand +
+              " through sport-specific primary movements and phase support rotations." :
+            "Selected the supported " + sport + " training template."},
       goals:{input:profile.goals || [],decision:"The first goal set " + focus +
         " prescriptions; later goals changed support exercise selection."},
       positionOrEvent:{input:profile.position || "not provided",decision:recognizedRole ?
         "Recognized basketball role changed the drill and strength emphasis." :
         "Unknown or optional role used the general template without guessing."},
-      season:{input:profile.season || "not sure",decision:profile.season === "in-season" ?
-        "Capped ALEFIT work at two days around sport demand." :
-        "Used the requested safe frequency."},
+      season:{input:profile.season || "not sure",decision:sportInSeason ?
+        "Capped ALEFIT work at two days and three movements for in-season maintenance, and held extra progression." :
+        profile.season === "in-season" ?
+          "Capped ALEFIT work at two days around sport demand." :
+          "Used the requested safe frequency."},
       experience:{input:profile.experience || "not sure",decision:conservative ?
         "Started with lower volume/impact." : "Used standard starting volume."},
       consistency:{input:profile.consistency || "not sure",decision:
         highConsistencySetAdded ?
           "Added one set to the primary movement where it fit without cutting support work; the deload stays lower." :
+          sportInSeason && profile.consistency === "high" ?
+            "Kept volume at an in-season maintenance level; practices and games already add training load." :
           profile.consistency === "high" && (historyState.tooHard >= 2 ||
             historyState.lowRecovery || historyState.pain || profile.limitations) ?
             "Recovery or limitation signals held back the high-consistency volume increase." :
@@ -680,7 +860,8 @@
     };
 
     var explanations = [
-      "Your top goal sets " + focus + " work, including its sets, effort, and rest.",
+      "Your top goal sets " + focus + " work, including its sets, effort, and rest." +
+        (sportGuidance ? " Sport-specific work prioritizes " + sportGuidance.demand + "." : ""),
       Object.keys(workload).length ?
         "Existing sport days count as hard workload, so ALEFIT sessions were placed on open days." :
         "ALEFIT sessions are spaced across open days so recovery remains part of the plan.",
@@ -690,13 +871,16 @@
     ];
 
     return {
-      version:4,
+      version:5,
       path:PROGRAM_PATHS[sport] || PROGRAM_PATHS.general,
       name:unknownSport ? "General athletic development" :
         sport === "general" ? "General fitness development" :
           (SPORT_LABELS[sport] || sport.charAt(0).toUpperCase() + sport.slice(1)) + " development",
       focus:focus,
-      summary:"A four-week adaptive block: key movements stay measurable while support work, emphasis, and recovery change by phase.",
+      summary:sportGuidance ?
+        "A four-week adaptive block centered on " + sportGuidance.demand +
+          ". The primary movement stays measurable while support work rotates by phase." :
+        "A four-week adaptive block: key movements stay measurable while support work, emphasis, and recovery change by phase.",
       profile:profile,
       currentWeek:1,
       first:weeks[0].sessions.length ? clone(weeks[0].sessions[0].exercises) : [],
@@ -769,7 +953,8 @@
     return output;
   }
 
-  function applyEarnedProgression(week, focus) {
+  function applyEarnedProgression(week, focus, profile) {
+    if (profile && profile.season === "in-season" && SPORT_GUIDANCE[profile.sport]) return;
     week.sessions.forEach(function (session) {
       session.exercises.forEach(function (item) {
         if (item.id === "easy-run") {
@@ -806,6 +991,8 @@
 
   function applyFeedback(plan, feedback) {
     var output = clone(plan);
+    var sportInSeason = output.profile && output.profile.season === "in-season" &&
+      !!SPORT_GUIDANCE[output.profile.sport];
     output.feedbackHistory = output.feedbackHistory || [];
     output.appliedFeedbackIds = output.appliedFeedbackIds || [];
     output.completedSessionIds = output.completedSessionIds || [];
@@ -856,10 +1043,13 @@
         currentFeedback.every(function (item) {
           return item.status === "completed" && !item.pain && item.difficulty !== "too-hard";
         });
-      if (earned) {
-        applyEarnedProgression(output.weeks[currentWeekNumber], output.focus);
+      if (earned && !sportInSeason) {
+        applyEarnedProgression(output.weeks[currentWeekNumber], output.focus, output.profile);
         output.progression = "Week " + (currentWeekNumber + 1) +
           " unlocked with a small earned progression from completed, appropriate work.";
+      } else if (earned && sportInSeason) {
+        output.progression = "Week " + (currentWeekNumber + 1) +
+          " unlocked at in-season maintenance volume; sport workload was not increased.";
       } else if (currentFeedback.some(function (item) { return item.status === "skipped"; })) {
         output.progression = "Week " + (currentWeekNumber + 1) +
           " unlocked at held volume; skipped work was not added as catch-up.";
@@ -881,11 +1071,15 @@
         return numeric(week.block, 1);
       })) + 1;
       var nextWeeks = namespaceContinuationWeeks(nextBlock.weeks, blockNumber, currentWeekNumber + 1);
-      if (finalEarned) applyEarnedProgression(nextWeeks[0], output.focus);
+      if (finalEarned && !sportInSeason) {
+        applyEarnedProgression(nextWeeks[0], output.focus, output.profile);
+      }
       output.weeks = output.weeks.concat(nextWeeks);
       output.currentWeek = currentWeekNumber + 1;
       output.progression = finalEarned ?
-        "A new adaptive block unlocked with an earned progression. Future support work changed while the primary movement remains measurable." :
+        sportInSeason ?
+          "A new adaptive block unlocked at in-season maintenance volume; future support work changed while the primary movement remains measurable." :
+          "A new adaptive block unlocked with an earned progression. Future support work changed while the primary movement remains measurable." :
         "A new adaptive block unlocked at held volume. Feedback shaped the next phase; skipped or difficult work was not added as catch-up.";
     }
     return output;

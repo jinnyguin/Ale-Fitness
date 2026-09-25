@@ -348,6 +348,13 @@
           (firstExercise ? firstExercise.name : "the primary movement") + "."
       });
     }
+    if (trace.sport && trace.sport.demand) {
+      reasons.push({
+        label: "Sport demands",
+        text: "Movement selection and phase emphasis target " + trace.sport.demand +
+          ", while the primary movement stays measurable across the block."
+      });
+    }
 
     if (trace.positionOrEvent &&
         /Recognized basketball role changed/.test(trace.positionOrEvent.decision || "")) {
@@ -403,11 +410,11 @@
 
     var requestedDays = Number(p.days || 3);
     var actualDays = firstWeekSessions.length;
-    if (p.season === "in-season" && requestedDays > actualDays) {
+    if (p.season === "in-season" && trace.season && trace.season.decision) {
       reasons.push({
         label: "In season",
-        text: "The in-season rule caps ALEFIT work at " + actualDays +
-          " days per week around your sport load."
+        text: trace.season.decision + (requestedDays > actualDays ?
+          " Your requested " + requestedDays + " days were reduced to " + actualDays + "." : "")
       });
     }
 

@@ -306,6 +306,10 @@ builderSports.forEach((sport) => {
 // New sports use sport-relevant starting movements, equipment, and plan routing.
 const expandedSportCases = [
   {sport:"volleyball", goal:"jump", equipment:["bodyweight"], primary:"snap-down", label:"Volleyball"},
+  {sport:"football", goal:"power", equipment:["field", "gym"], primary:"acceleration", label:"Football", path:"/programs/football.html"},
+  {sport:"soccer", goal:"agility", equipment:["bodyweight"], primary:"lateral-step", label:"Soccer", path:"/programs/soccer.html"},
+  {sport:"baseball", goal:"power", equipment:["bodyweight"], primary:"standing-rotation", label:"Baseball", path:"/programs/baseball.html"},
+  {sport:"track", goal:"speed", equipment:["field"], primary:"acceleration", label:"Track", path:"/programs/track.html"},
   {sport:"tennis", goal:"speed", equipment:["field", "bands"], primary:"lateral-step", label:"Tennis"},
   {sport:"rugby", goal:"power", equipment:["field"], primary:"acceleration", label:"Rugby"},
   {sport:"lacrosse", goal:"agility", equipment:["field"], primary:"acceleration", label:"Lacrosse"},
@@ -324,8 +328,20 @@ expandedSportCases.forEach((item) => {
   });
   assert(firstIds(result).includes(item.primary), `${item.sport} should use its relevant primary exercise`);
   assert.equal(result.name, `${item.label} development`);
-  assert.equal(result.path, "/my-plan.html");
+  assert.equal(result.path, item.path || "/my-plan.html");
   assertAllEquipmentAllowed(result, item.equipment);
+});
+expandedSportCases.forEach((item) => {
+  const result = plan({sport:item.sport, goals:[item.goal], equipment:item.equipment});
+  assert(result.decisionTrace.sport.demand, `${item.sport} should explain its sport-specific needs`);
+  assert(
+    result.weeks[0].emphasis.includes("Sport-specific priority"),
+    `${item.sport} should carry its priorities into the phase plan`
+  );
+  assert(
+    result.summary.includes(result.decisionTrace.sport.demand),
+    `${item.sport} should explain its focus in the plan summary`
+  );
 });
 assert(
   plan({sport:"cycling", goals:["conditioning"], equipment:["bike"]}).first[0].effort === "conversational"
@@ -333,6 +349,39 @@ assert(
 assert(
   plan({sport:"rowing", goals:["conditioning"], equipment:["rower"]}).first[0].effort === "conversational"
 );
+assert.equal(plan({sport:"soccer", goals:["agility"]}).focus, "power");
+
+// In-season plans reduce session count and total movement volume, then hold earned progression at maintenance.
+const inSeasonSoccer = plan({
+  sport:"soccer", goals:["speed"], equipment:["field", "gym"], season:"in-season",
+  days:4, duration:60, experience:"regular", consistency:"high"
+});
+const offSeasonSoccer = plan({
+  sport:"soccer", goals:["speed"], equipment:["field", "gym"], season:"off-season",
+  days:4, duration:60, experience:"regular", consistency:"high"
+});
+assert.equal(inSeasonSoccer.weeks[0].sessions.length, 2);
+assert.equal(offSeasonSoccer.weeks[0].sessions.length, 4);
+assert(inSeasonSoccer.weeks[0].sessions.every((session) => session.exercises.length <= 3));
+assert(
+  inSeasonSoccer.first.reduce((total, item) => total + Number(item.sets), 0) <
+    offSeasonSoccer.first.reduce((total, item) => total + Number(item.sets), 0),
+  "in-season sessions should use less total movement volume"
+);
+assert(/in-season maintenance/i.test(inSeasonSoccer.decisionTrace.season.decision));
+const inSeasonWeekTwoSets = Number(inSeasonSoccer.weeks[1].sessions[0].exercises[0].sets);
+let inSeasonUnlocked = inSeasonSoccer;
+inSeasonSoccer.weeks[0].sessions.forEach((session, index) => {
+  inSeasonUnlocked = engine.applyFeedback(inSeasonUnlocked, {
+    feedback_id:"in-season-" + index,
+    session_id:session.id,
+    status:"completed",
+    difficulty:"appropriate"
+  });
+});
+assert.equal(inSeasonUnlocked.currentWeek, 2);
+assert.equal(Number(inSeasonUnlocked.weeks[1].sessions[0].exercises[0].sets), inSeasonWeekTwoSets);
+assert(/in-season maintenance volume/i.test(inSeasonUnlocked.progression));
 
 // Running distance, volume, longest run, and race detail alter prescriptions.
 const runnerBase = {
