@@ -16,9 +16,11 @@
     prefs: saved.prefs || { goals: [], equipment: [] },
     plan: saved.plan || null,
     existingId: saved.existingId || null,
+    sportAnswers: saved.sportAnswers || {},
     onboardingId: saved.onboardingId || (window.crypto && window.crypto.randomUUID ?
       window.crypto.randomUUID() : "onboarding-" + Date.now() + "-" + Math.random().toString(36).slice(2))
   };
+  state.showSports = false;
   state.prefs.goals = Array.isArray(state.prefs.goals) ? state.prefs.goals : [];
   state.prefs.equipment = Array.isArray(state.prefs.equipment) ? state.prefs.equipment :
     (state.prefs.equipment ? [state.prefs.equipment] : []);
@@ -122,29 +124,124 @@
   }
   function question(step, title, sub, body, next, back) {
     return '<span class="eyebrow">Plan build <b class="step-count">0' + (step + 1) +
-      " / 06</b></span><h1>" + title + "</h1><p class=\"sub\">" + sub + "</p>" +
+      " / 06</b></span><h1 tabindex=\"-1\">" + title + "</h1><p class=\"sub\">" + sub + "</p>" +
       body + footer(next || "Continue", back);
+  }
+
+  function listLabel(list, value, fallback) {
+    var match = (list || []).filter(function (item) { return item[0] === value; })[0];
+    return match ? match[1] : (fallback || value || "Not set");
+  }
+
+  function sportFields(p) {
+    var snapshot = { goals: Array.isArray(p.goals) ? p.goals.slice() : [] };
+    ["position", "season", "runDistance", "weeklyRunVolume", "longestRun",
+      "raceDetail", "familiarity", "workingWeights", "activity"].forEach(function (key) {
+      if (p[key] !== undefined) snapshot[key] = p[key];
+    });
+    return snapshot;
+  }
+
+  function selectSport(value) {
+    var p = state.prefs;
+    if (p.sport && p.sport !== value) {
+      captureCurrentInputs();
+      state.sportAnswers[p.sport] = sportFields(p);
+      ["goals", "position", "season", "runDistance", "weeklyRunVolume",
+        "longestRun", "raceDetail", "familiarity", "workingWeights", "activity"].forEach(function (key) {
+        delete p[key];
+      });
+      var remembered = state.sportAnswers[value];
+      p.goals = remembered && Array.isArray(remembered.goals) ? remembered.goals.slice() : [];
+      if (remembered) {
+        ["position", "season", "runDistance", "weeklyRunVolume", "longestRun",
+          "raceDetail", "familiarity", "workingWeights", "activity"].forEach(function (key) {
+          if (remembered[key] !== undefined) p[key] = remembered[key];
+        });
+      }
+    }
+    p.sport = value;
+    state.showSports = false;
+  }
+
+  function sportStepBody(p) {
+    var selected = sports.filter(function (item) { return item[0] === p.sport; })[0];
+    var pickerVisible = !p.sport || state.showSports;
+    var html = "";
+    if (selected) {
+      html += '<div class="selected-sport"><div><span class="eyebrow">Selected sport</span><strong>' +
+        esc(selected[1]) + '</strong><small>' + esc(selected[2]) + '</small></div>' +
+        '<button type="button" class="button secondary change-sport" id="change-sport" aria-expanded="' +
+        (pickerVisible ? "true" : "false") + '" aria-controls="sport-list">' +
+        (pickerVisible ? "Keep this sport" : "Change sport") + "</button></div>";
+    } else {
+      html += '<p class="picker-instruction">Choose one sport or training focus. All 21 options are available.</p>';
+    }
+    html += '<div class="sport-picker' + (pickerVisible ? "" : " is-collapsed") +
+      '" id="sport-list" aria-label="Available sports"' + (pickerVisible ? "" : " hidden") + '><div class="answers">' +
+      sports.map(function (item) {
+        return tile(item[0], item[1], item[2], p.sport === item[0]);
+      }).join("") + "</div></div>";
+
+    if (selected) {
+      var fields = "";
+      if (p.sport === "basketball") {
+        fields += '<div class="field"><label for="position">Court role</label><select id="position">' +
+          '<option value="not-sure">Not sure</option><option value="guard">Guard</option>' +
+          '<option value="wing">Wing</option><option value="center">Center</option></select></div>';
+      }
+      if (p.sport === "running" || p.sport === "cross-country") {
+        fields += '<div class="field"><label for="run-distance">Target distance</label><select id="run-distance">' +
+          '<option value="not-sure">Not sure</option><option value="5K">5K</option><option value="10K">10K</option>' +
+          '<option value="half-marathon">Half Marathon</option><option value="marathon">Marathon</option></select></div>' +
+          '<div class="field"><label for="run-volume">Recent weekly running minutes</label><input id="run-volume" type="number" min="0" max="600" placeholder="Enter 0 if you are starting" value="' +
+          esc(p.weeklyRunVolume || 0) + '"></div>' +
+          '<div class="field"><label for="longest-run">Longest comfortable run (minutes)</label><input id="longest-run" type="number" min="0" max="180" placeholder="Enter 0 if not sure" value="' +
+          esc(p.longestRun || 0) + '"></div>' +
+          '<div class="field"><label for="race-detail">Race date or current pace <span>(optional)</span></label><input id="race-detail" maxlength="80" placeholder="Example: Oct 12 or 10:00 / mile" value="' +
+          esc(p.raceDetail || "") + '"></div>';
+      }
+      if (p.sport && ["general", "strength", "mobility", "hiit"].indexOf(p.sport) === -1) {
+        fields += '<div class="field"><label for="season">Season status</label><select id="season">' +
+          '<option value="not-sure">Not sure</option><option value="off-season">Off-season</option>' +
+          '<option value="preseason">Preseason</option><option value="in-season">In-season</option></select></div>';
+      }
+      html += '<div class="sport-followups" id="sport-followups" aria-live="polite">' +
+        '<h2>Details for ' + esc(selected[1]) + '</h2>' +
+        (fields || '<p>No extra details for this focus. Continue to choose your outcomes.</p>') +
+        "</div>";
+    }
+    return html;
+  }
+
+  function focusHeading() {
+    var heading = root.querySelector("h1");
+    if (heading) {
+      heading.setAttribute("tabindex", "-1");
+      heading.focus({ preventScroll: true });
+    }
+    var progressWrap = document.querySelector(".progress-wrap");
+    if (progressWrap) progressWrap.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   function render() {
     persist();
-    progress.style.width = ((Math.min(state.step, 6) + 1) / 7 * 100) + "%";
+    var progressPercent = Math.round((Math.min(state.step, 6) + 1) / 7 * 100);
+    progress.style.width = progressPercent + "%";
+    var progressWrap = document.querySelector(".progress-wrap");
+    if (progressWrap) {
+      progressWrap.setAttribute("aria-valuenow", String(progressPercent));
+      progressWrap.setAttribute("aria-valuetext", state.step === 6 ?
+        "Plan review" : "Step " + (state.step + 1) + " of 6");
+    }
+    var progressLabel = document.getElementById("progress-label");
+    if (progressLabel) progressLabel.textContent = state.step === 6 ?
+      "Plan review · 7 of 7" : "Step " + (state.step + 1) + " of 6";
     var p = state.prefs;
     var html = "";
     if (state.step === 0) {
       html = question(0, "What are you training for?", "Your plan starts with the demands you actually need to meet.",
-        '<div class="answers">' + sports.map(function (item) {
-          return tile(item[0], item[1], item[2], p.sport === item[0]);
-        }).join("") + "</div>" +
-        (p.sport === "basketball" ?
-          '<div class="field"><label for="position">Court role</label><select id="position"><option value="not-sure">Not sure</option><option value="guard">Guard</option><option value="wing">Wing</option><option value="center">Center</option></select></div>' : "") +
-        ((p.sport === "running" || p.sport === "cross-country") ?
-          '<div class="field"><label for="run-distance">Target distance</label><select id="run-distance"><option value="not-sure">Not sure</option><option value="5K">5K</option><option value="10K">10K</option><option value="half-marathon">Half Marathon</option><option value="marathon">Marathon</option></select></div>' +
-          '<div class="field"><label for="run-volume">Recent weekly running minutes</label><input id="run-volume" type="number" min="0" max="600" placeholder="Enter 0 if you are starting" value="' + esc(p.weeklyRunVolume || 0) + '"></div>' +
-          '<div class="field"><label for="longest-run">Longest comfortable run (minutes)</label><input id="longest-run" type="number" min="0" max="180" placeholder="Enter 0 if not sure" value="' + esc(p.longestRun || 0) + '"></div>' +
-          '<div class="field"><label for="race-detail">Race date or current pace <span>(optional)</span></label><input id="race-detail" maxlength="80" placeholder="Example: Oct 12 or 10:00 / mile" value="' + esc(p.raceDetail || "") + '"></div>' : "") +
-        (p.sport && ["general", "strength", "mobility", "hiit"].indexOf(p.sport) === -1 ?
-          '<div class="field"><label for="season">Season status</label><select id="season"><option value="not-sure">Not sure</option><option value="off-season">Off-season</option><option value="preseason">Preseason</option><option value="in-season">In-season</option></select></div>' : ""));
+        sportStepBody(p));
     } else if (state.step === 1) {
       var goals = goalMap[p.sport] || goalMap.general;
       html = question(1, "Choose up to three outcomes.", "Your first choice gets the most emphasis in the opening block.",
@@ -207,40 +304,259 @@
     return window.ALEFITTrainingEngine.generate(state.prefs, state.context || {});
   }
 
+  function focusLabel(value) {
+    return {
+      power: "power and speed",
+      strength: "strength",
+      muscle: "muscle building",
+      endurance: "conditioning",
+      movement: "mobility and movement",
+      sport: "sport-specific support"
+    }[value] || "balanced training";
+  }
+
+  function formatList(values) {
+    if (!values.length) return "";
+    if (values.length === 1) return values[0];
+    if (values.length === 2) return values[0] + " and " + values[1];
+    return values.slice(0, -1).join(", ") + ", and " + values[values.length - 1];
+  }
+
+  function effortLabel(value) {
+    var effort = String(value || "");
+    if (/^RPE 5.?6$/i.test(effort)) return "Easy-to-moderate effort";
+    if (/^RPE 6.?7$/i.test(effort)) return "Moderate effort";
+    if (/^RPE 7.?8$/i.test(effort)) return "Hard but controlled";
+    if (/^RPE 7$/i.test(effort)) return "Hard, controlled effort";
+    if (/^RPE 6$/i.test(effort)) return "Moderate effort";
+    if (/^fast/i.test(effort)) return "Fast, controlled reps";
+    if (/conversational/i.test(effort)) return "Easy conversational pace";
+    return effort ? effort.charAt(0).toUpperCase() + effort.slice(1) : "";
+  }
+
+  function personalizationReasons(plan, p) {
+    var reasons = [];
+    var trace = plan.decisionTrace || {};
+    var firstExercise = (plan.first || [])[0];
+    var firstGoal = (p.goals || [])[0];
+    if (firstGoal) {
+      var goal = listLabel(goalMap[p.sport] || goalMap.general, firstGoal, firstGoal);
+      reasons.push({
+        label: "Main goal",
+        text: goal + " leads the block, setting a " + focusLabel(plan.focus) +
+          " emphasis. The first session starts with " +
+          (firstExercise ? firstExercise.name : "the primary movement") + "."
+      });
+    }
+
+    if (trace.positionOrEvent &&
+        /Recognized basketball role changed/.test(trace.positionOrEvent.decision || "")) {
+      var role = listLabel([
+        ["guard", "guard"], ["wing", "wing"], ["center", "center"]
+      ], String(p.position || "").toLowerCase(), "basketball");
+      var roleMoves = (plan.first || []).filter(function (item) {
+        return ["acceleration", "lateral-step", "goblet-squat", "snap-down"].indexOf(item.id) > -1;
+      }).map(function (item) { return item.name; });
+      reasons.push({
+        label: "Court role",
+        text: "The " + role + " profile changes the basketball template" +
+          (roleMoves.length ? "; this session includes " + formatList(roleMoves.slice(0, 2)) + "." : ".")
+      });
+    }
+
+    var exerciseDatabase = window.ALEFITTrainingEngine.exerciseDatabase || [];
+    var usedEquipment = {};
+    (plan.first || []).forEach(function (item) {
+      var source = exerciseDatabase.filter(function (entry) { return entry.id === item.id; })[0];
+      if (!source) return;
+      var matchingEquipment = (source.requiredEquipment || []).filter(function (required) {
+        return required !== "bodyweight" && p.equipment.indexOf(required) > -1;
+      })[0];
+      if (matchingEquipment) {
+        usedEquipment[matchingEquipment] = usedEquipment[matchingEquipment] || [];
+        usedEquipment[matchingEquipment].push(item.name);
+      }
+    });
+    var equipmentReasons = Object.keys(usedEquipment).map(function (key) {
+      return listLabel(equipment, key, key) + " access supports " +
+        formatList(usedEquipment[key].slice(0, 2));
+    });
+    if (equipmentReasons.length) {
+      reasons.push({ label: "Equipment", text: equipmentReasons.join("; ") + "." });
+    }
+
+    var schedule = plan.schedule || [];
+    var sportDays = schedule.filter(function (item) { return item.type === "sport"; });
+    var trainingDays = schedule.filter(function (item) { return item.type === "training"; });
+    var firstWeekSessions = plan.weeks && plan.weeks[0] ? plan.weeks[0].sessions : [];
+    if (sportDays.length) {
+      var eventText = sportDays.map(function (item) {
+        return item.day + (item.title ? " (" + item.title + ")" : "");
+      });
+      var trainingText = trainingDays.map(function (item) { return item.day; });
+      reasons.push({
+        label: "Weekly rhythm",
+        text: "Your sport commitments fall on " + formatList(eventText) +
+          "; ALEFIT sessions are scheduled on " + formatList(trainingText) + "."
+      });
+    }
+
+    var requestedDays = Number(p.days || 3);
+    var actualDays = firstWeekSessions.length;
+    if (p.season === "in-season" && requestedDays > actualDays) {
+      reasons.push({
+        label: "In season",
+        text: "The in-season rule caps ALEFIT work at " + actualDays +
+          " days per week around your sport load."
+      });
+    }
+
+    var openingSession = firstWeekSessions[0];
+    if (openingSession) {
+      var movementCount = openingSession.exercises.length;
+      var estimated = Number(openingSession.estimatedMinutes || 0);
+      reasons.push({
+        label: "Session length",
+        text: Number(p.duration || 45) + " minutes allows up to " +
+          (Number(p.duration || 45) <= 25 ? 2 : Number(p.duration || 45) <= 35 ? 3 :
+            Number(p.duration || 45) <= 55 ? 4 : 5) +
+          " movements. The first session uses " + movementCount +
+          (estimated ? " and is estimated at " + estimated + " minutes." : ".")
+      });
+    }
+
+    if (trace.consistency && /Added one set/.test(trace.consistency.decision || "")) {
+      reasons.push({
+        label: "Consistency",
+        text: "Where session time allows, high consistency adds one set to the primary movement in weeks 1–3; week 4 remains a deload."
+      });
+    } else if (trace.consistency &&
+        /held back the high-consistency volume increase/i.test(trace.consistency.decision || "")) {
+      reasons.push({
+        label: "Recovery",
+        text: "Recovery or limitation signals took priority, so the extra set was held back."
+      });
+    }
+
+    if (p.experience === "new" || p.experience === "not-sure" ||
+        p.consistency === "low" || p.consistency === "not-sure") {
+      reasons.push({
+        label: "Starting point",
+        text: "An unfamiliar or inconsistent training base starts with fewer sets and more conservative exercise choices."
+      });
+    }
+    if (p.age === "under18" || p.age === "over55" || p.age === "55plus") {
+      reasons.push({
+        label: "Age range",
+        text: (p.age === "under18" ? "Under 18" : "Age 55+") +
+          " sets a more conservative impact limit for exercise selection."
+      });
+    }
+    if (p.limitations) {
+      reasons.push({
+        label: "Limitations",
+        text: "Your note is treated as a low-impact constraint, not as a diagnosis or treatment recommendation."
+      });
+    }
+    return reasons;
+  }
+
   function preview() {
     state.plan = buildPlan();
     persist();
     var p = state.prefs;
-    var labels = [
-      ["Focus", p.sport, 0], ["Goals", p.goals.join(", "), 1], ["Experience", p.experience, 2],
-      ["Equipment", p.equipment.join(", "), 3], ["Schedule", p.days + " days, " + p.duration + " min", 4],
-      ["Considerations", p.age + (p.limitations ? " · " + p.limitations : ""), 5]
+    var experienceLabels = [
+      ["new", "New to structured training"], ["regular", "Training regularly"],
+      ["advanced", "Experienced athlete"], ["not-sure", "Not sure"]
     ];
-    return '<section class="preview"><span class="eyebrow">Plan review <b class="step-count">PREVIEW</b></span><h1>This is your opening block.</h1>' +
-      '<p class="sub">Review every answer before creating your account. Edit any group without restarting.</p><div class="plan-banner"><span class="eyebrow">Recommended path</span><h2>' +
-       esc(state.plan.name) + "</h2><p>" + esc(state.plan.summary) + '</p></div><div class="answer-summary">' +
-      labels.map(function (x) { return '<div class="summary-row"><div><span class="eyebrow">' + x[0] + '</span><b>' + esc(x[1] || "Not set") + '</b></div><button type="button" class="text-btn edit-answer" data-step="' + x[2] + '">Edit</button></div>'; }).join("") +
-      '</div><div class="plan-grid"><article class="plan-card"><span class="eyebrow">First session</span><h3>Start controlled</h3>' +
-       state.plan.first.map(function (x) { return '<div class="exercise"><b>' + esc(x.name || x[0]) + "</b><small>" + esc(x.sets ? x.sets + " × " + x.reps + " · " + x.rest + " · " + x.effort : "") + "</small></div>"; }).join("") +
-      '</article><article class="plan-card"><span class="eyebrow">Seven-day rhythm</span><div class="schedule">' +
-       state.plan.schedule.map(function (x) { return '<div class="session"><b>' + x.day + "</b><span>" + esc(x.title || x.workout) + "</span></div>"; }).join("") +
-       '</div><p class="review-edit"><b>4-week progression:</b> ' + esc(state.plan.progression) + '</p><p class="review-edit"><b>Recovery:</b> ' + esc(state.plan.recovery) + '</p></article></div>' +
-      '<div class="footer"><button type="button" class="button secondary" id="back">Back</button><button type="button" class="button" id="next">Create account & save</button></div></section>';
+    var consistencyLabels = [
+      ["low", "Less than once most weeks"], ["medium", "2–3 times per week"],
+      ["high", "4+ times per week"], ["not-sure", "Not sure"]
+    ];
+    var ageLabels = [
+      ["under18", "Under 18"], ["adult", "18–54"], ["over55", "55+"]
+    ];
+    var goalLabels = (p.goals || []).map(function (value) {
+      return listLabel(goalMap[p.sport] || goalMap.general, value, value);
+    });
+    var equipmentLabels = (p.equipment || []).map(function (value) {
+      return listLabel(equipment, value, value);
+    });
+    var labels = [
+      ["Sport", listLabel(sports, p.sport, p.sport), 0],
+      ["Goals", goalLabels.join(", "), 1],
+      ["Starting point", listLabel(experienceLabels, p.experience, "Not set") + " · " +
+        listLabel(consistencyLabels, p.consistency, "Consistency not set"), 2],
+      ["Equipment", equipmentLabels.join(", "), 3],
+      ["Weekly plan", Number(p.days || 3) + " days · " + Number(p.duration || 45) + " min per session", 4],
+      ["Age & limitations", listLabel(ageLabels, p.age, "Not set") +
+        (p.limitations ? " · Note added" : " · No limitations noted"), 5]
+    ];
+    var reasons = personalizationReasons(state.plan, p);
+    var firstSession = state.plan.weeks && state.plan.weeks[0] && state.plan.weeks[0].sessions[0];
+    var exercises = firstSession ? firstSession.exercises : (state.plan.first || []);
+    var schedule = state.plan.schedule || [];
+    var weeks = state.plan.weeks || [];
+    return '<section class="preview" aria-labelledby="preview-title"><span class="eyebrow">Plan review <b class="step-count">PREVIEW</b></span>' +
+      '<h1 id="preview-title" tabindex="-1">Your opening block.</h1>' +
+      '<p class="sub">Review the plan and the reasons behind it. Edit any answer before creating your account.</p>' +
+      '<div class="plan-banner"><div><span class="eyebrow">Your 4-week start</span><h2>' +
+      esc(state.plan.name) + "</h2><p>" + esc(state.plan.summary) + '</p></div><div class="plan-banner-meta">' +
+      '<span>' + esc(focusLabel(state.plan.focus)) + '</span><span>' +
+      esc(String(firstSession ? firstSession.exercises.length : 0) + " movements in session one") +
+      '</span></div></div>' +
+      '<section class="personalization-card" aria-labelledby="personalization-title"><div class="section-heading">' +
+      '<span class="eyebrow">How your answers shape this plan</span><h2 id="personalization-title">Why this plan fits</h2></div>' +
+      '<div class="reason-grid">' + reasons.map(function (item) {
+        return '<article class="reason-item"><span>' + esc(item.label) + '</span><p>' + esc(item.text) + '</p></article>';
+      }).join("") + '</div></section>' +
+      '<section class="answer-review" aria-labelledby="answer-review-title"><div class="section-heading">' +
+      '<span class="eyebrow">Your inputs</span><h2 id="answer-review-title">Check your answers</h2></div><div class="answer-summary">' +
+      labels.map(function (item) {
+        return '<div class="summary-row"><div><span class="eyebrow">' + esc(item[0]) + '</span><b>' +
+          esc(item[1] || "Not set") + '</b></div><button type="button" class="text-btn edit-answer" data-step="' +
+          item[2] + '" aria-label="Edit ' + esc(item[0]) + ' answers">Edit</button></div>';
+      }).join("") + '</div></section>' +
+      '<div class="plan-grid"><article class="plan-card"><span class="eyebrow">First session · Week 1</span>' +
+      '<h3>' + esc(firstSession ? firstSession.name : "Opening session") + '</h3><p class="session-time">' +
+      (firstSession ? esc(String(firstSession.estimatedMinutes || firstSession.minutes) + " minute estimate") : "") + '</p>' +
+      exercises.map(function (item, index) {
+        var prescription = [];
+        if (item.sets) prescription.push(item.sets + " sets");
+        if (item.reps) prescription.push(item.reps);
+        if (item.rest) prescription.push(item.rest + " rest");
+        var effort = effortLabel(item.effort);
+        if (effort) prescription.push(effort);
+        return '<div class="exercise"><span class="exercise-index">0' + (index + 1) + '</span><div><b>' +
+          esc(item.name || item[0]) + '</b><small>' + esc(prescription.join(" · ")) + '</small></div></div>';
+      }).join("") + '</article><article class="plan-card"><span class="eyebrow">Seven-day rhythm</span>' +
+      '<h3>Training around your week</h3><div class="schedule">' +
+      schedule.map(function (item) {
+        var type = item.type === "training" ? "ALEFIT" :
+          item.type === "sport" ? "SPORT" : "RECOVERY";
+        return '<div class="session session-' + esc(item.type || "recovery") + '"><span class="session-day">' +
+          esc(item.day) + '</span><div><small>' + type + '</small><b>' +
+          esc(item.title || item.workout || "Rest") + '</b></div></div>';
+      }).join("") + '</div></article></div>' +
+      '<section class="progression-card"><div class="section-heading"><span class="eyebrow">What happens next</span>' +
+      '<h2>Four-week progression</h2></div><div class="week-steps">' +
+      weeks.slice(0, 4).map(function (week) {
+        return '<article class="week-step"><span>Week ' + esc(week.week) + '</span><b>' +
+          esc(week.phaseLabel || week.label || "Training") + '</b><p>' +
+          esc(week.emphasis || week.progression || "") + '</p></article>';
+      }).join("") + '</div><p class="recovery-note"><b>Recovery:</b> ' +
+      esc(state.plan.recovery || "Rest and lower-intensity days are included in the weekly rhythm.") + '</p></section>' +
+      '<div class="footer"><button type="button" class="button secondary" id="back">Back</button>' +
+      '<button type="button" class="button" id="next">Create account &amp; save</button></div></section>';
   }
 
   function bind() {
     root.querySelectorAll(".tile").forEach(function (button) {
       button.onclick = function () {
         var value = button.dataset.value;
+        var clickedStep = state.step;
         if (state.step === 0) {
-          if (state.prefs.sport !== value) {
-            state.prefs.goals = [];
-            ["position", "season", "runDistance", "weeklyRunVolume", "longestRun", "raceDetail",
-              "familiarity", "workingWeights", "activity"].forEach(function (key) {
-              delete state.prefs[key];
-            });
-          }
-          state.prefs.sport = value;
+          selectSport(value);
         }
         if (state.step === 1) {
           var index = state.prefs.goals.indexOf(value);
@@ -256,8 +572,29 @@
         if (state.step === 4) state.prefs.days = value;
         persist();
         render();
+        if (clickedStep === 0) {
+          window.requestAnimationFrame(function () {
+            var followups = document.getElementById("sport-followups");
+            if (followups) followups.scrollIntoView({ block: "start", behavior: "smooth" });
+          });
+        } else {
+          var selectedTile = Array.prototype.slice.call(root.querySelectorAll(".tile"))
+            .find(function (item) { return item.dataset.value === value; });
+          if (selectedTile) selectedTile.focus({ preventScroll: true });
+        }
       };
     });
+    var changeSport = document.getElementById("change-sport");
+    if (changeSport) changeSport.onclick = function () {
+      captureCurrentInputs();
+      state.showSports = !state.showSports;
+      render();
+      window.requestAnimationFrame(function () {
+        var target = state.showSports ? document.getElementById("sport-list") :
+          document.getElementById("sport-followups");
+        if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    };
     var next = document.getElementById("next");
     if (next) next.onclick = nextStep;
     var back = document.getElementById("back");
@@ -265,9 +602,14 @@
       captureCurrentInputs();
       state.step -= 1;
       render();
+      focusHeading();
     };
     root.querySelectorAll(".edit-answer").forEach(function (button) {
-      button.onclick = function () { state.step = Number(button.dataset.step); render(); };
+      button.onclick = function () {
+        state.step = Number(button.dataset.step);
+        render();
+        focusHeading();
+      };
     });
   }
   function captureCurrentInputs() {
@@ -320,6 +662,7 @@
     if (state.step === 6) return token() ? checkExisting() : showAccount();
     state.step += 1;
     render();
+    focusHeading();
   }
   function showAccount() {
     root.innerHTML = '<section class="account"><span class="eyebrow">Account</span><h1>Save my plan and start today.</h1><p class="sub">Your reviewed plan is ready. Create an account to keep it and access your personalized training experience.</p>' +
@@ -330,9 +673,21 @@
       '</form>' +
       '<div class="footer"><button type="button" class="button secondary" id="account-back">Back</button><button type="button" class="button" id="create">Create account & save plan</button></div>' +
       '</section>';
+    var progressWrap = document.querySelector(".progress-wrap");
+    if (progressWrap) {
+      progressWrap.setAttribute("aria-valuenow", "100");
+      progressWrap.setAttribute("aria-valuetext", "Account setup");
+    }
+    var progressLabel = document.getElementById("progress-label");
+    if (progressLabel) progressLabel.textContent = "Account setup · Plan reviewed";
     document.getElementById("form").onsubmit = register;
-    document.getElementById("account-back").onclick = function() { state.step -= 1; render(); };
+    document.getElementById("account-back").onclick = function() {
+      state.step -= 1;
+      render();
+      focusHeading();
+    };
     document.getElementById("create").onclick = register;
+    focusHeading();
   }
   async function register(event) {
     event.preventDefault();

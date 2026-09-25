@@ -226,6 +226,59 @@ assert(
   firstSets(plan({sport:"strength", goals:["strength"], consistency:"high"})) >
   firstSets(plan({sport:"strength", goals:["strength"], consistency:"low"}))
 );
+const consistentStrength = plan({
+  sport:"strength", goals:["strength"], equipment:["gym"], days:3, duration:90,
+  experience:"regular", familiarity:"confident", consistency:"medium"
+});
+const highlyConsistentStrength = plan({
+  sport:"strength", goals:["strength"], equipment:["gym"], days:3, duration:90,
+  experience:"regular", familiarity:"confident", consistency:"high"
+});
+assert.equal(
+  Number(highlyConsistentStrength.weeks[0].sessions[0].exercises[0].sets),
+  Number(consistentStrength.weeks[0].sessions[0].exercises[0].sets) + 1,
+  "high consistency should add one set to the primary movement"
+);
+assert.deepEqual(
+  highlyConsistentStrength.weeks[0].sessions[0].exercises.slice(1).map((item) => item.sets),
+  consistentStrength.weeks[0].sessions[0].exercises.slice(1).map((item) => item.sets),
+  "the high-consistency increase should not inflate support work"
+);
+assert.equal(
+  Number(highlyConsistentStrength.weeks[3].sessions[0].exercises[0].sets),
+  Number(consistentStrength.weeks[3].sessions[0].exercises[0].sets),
+  "the deload week should not receive the extra set"
+);
+assert(/Added one set to the primary movement/i.test(
+  highlyConsistentStrength.decisionTrace.consistency.decision
+));
+const consistentGuard = plan({
+  sport:"basketball", position:"guard", goals:["jump", "quickness"],
+  equipment:["gym", "field"], days:3, duration:60, experience:"regular",
+  consistency:"medium", season:"off-season", load:"practice Tue, practice Thu, game Saturday",
+  age:"under18"
+});
+const highlyConsistentGuard = plan({
+  sport:"basketball", position:"guard", goals:["jump", "quickness"],
+  equipment:["gym", "field"], days:3, duration:60, experience:"regular",
+  consistency:"high", season:"off-season", load:"practice Tue, practice Thu, game Saturday",
+  age:"under18"
+});
+assert.equal(highlyConsistentGuard.first[0].id, "wall-march");
+assert.equal(
+  Number(highlyConsistentGuard.first[0].sets),
+  Number(consistentGuard.first[0].sets) + 1,
+  "a low-impact, seconds-based primary movement should accept the measured increase"
+);
+const highConsistencyLowRecovery = engine.generate(highlyConsistentStrength.profile, {
+  readiness:[{energy:"low", soreness:"high", score:40}]
+});
+assert(/held back/i.test(highConsistencyLowRecovery.decisionTrace.consistency.decision));
+assert(
+  Number(highConsistencyLowRecovery.weeks[0].sessions[0].exercises[0].sets) <
+  Number(highlyConsistentStrength.weeks[0].sessions[0].exercises[0].sets),
+  "low recovery should suppress the high-consistency volume increase"
+);
 assert.notDeepEqual(
   firstIds(plan({sport:"general", activity:"cycling", equipment:["gym"]})),
   firstIds(plan({sport:"general", activity:"mobility", equipment:["gym"]}))
@@ -323,6 +376,12 @@ const limitedPlan = plan({sport:"basketball", goals:["power"], equipment:["field
 assert(impactPlan.first.some((item) => item.impact === "high"));
 assert(limitedPlan.first.every((item) => item.impact === "low"));
 assert(/no diagnosis/i.test(limitedPlan.decisionTrace.limitations.decision));
+const olderPlan = plan({
+  sport:"basketball", goals:["power"], equipment:["field", "gym"],
+  experience:"advanced", age:"over55"
+});
+assert(olderPlan.first.every((item) => item.impact !== "high"),
+  "the onboarding value for age 55+ should apply the intended impact limit");
 
 // Existing workout/readiness history changes the starting state.
 const hardHistory = {

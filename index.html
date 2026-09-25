@@ -43,8 +43,24 @@
     @media(max-width:900px){
       section#home{min-height:auto!important;height:auto!important;justify-content:flex-start!important;padding-bottom:0!important}
       section#home>div:nth-child(2){padding-bottom:32px!important}
-      section#home>div:nth-child(2)>div.relative.z-10{margin-top:-60px!important}
+      section#home>div:nth-child(2)>div.relative.z-10{margin-top:-32px!important}
       section#home .absolute.bottom-10{display:none!important}
+    }
+    .alefit-plan-section{padding:clamp(48px,6vw,72px) 24px 0!important;border-top:1px solid rgba(212,255,0,.1)}
+    .alefit-plan-preview{display:block!important;min-height:0!important;height:auto!important}
+    section[data-alefit-personalized-copy]{padding-top:0!important;padding-bottom:76px!important}
+    section[data-alefit-personalized-copy] [style*="opacity"]{opacity:1!important}
+    section[data-alefit-personalized-copy] [style*="transform"]{transform:none!important}
+    @media(max-width:900px){
+      .alefit-plan-section{padding:48px 20px 0!important}
+      section[data-alefit-personalized-copy]{padding-top:0!important;padding-bottom:64px!important}
+    }
+    @media(max-width:480px){
+      .alefit-plan-section{padding:38px 14px 12px!important}
+      .alefit-plan-layout{gap:24px!important}
+      .alefit-plan-preview{padding:16px!important}
+      .alefit-plan-preview .preview-bottom{align-items:flex-start;flex-direction:column;gap:8px}
+      section[data-alefit-personalized-copy]{padding-top:12px!important;padding-bottom:50px!important}
     }
   </style>
   <meta content="ALEFIT builds personalized training programs around your goals, schedule, and progress — completely free, with no cost or subscription." name="description"/>
@@ -142,16 +158,19 @@
       var home = document.querySelector("section#home");
       if (!home || !home.parentElement) return;
       var shell = home.parentElement;
-      var keptFeatureSection = false;
+      var feature = Array.prototype.slice.call(shell.querySelectorAll("section"))
+        .find(function (section) {
+          return section !== home &&
+            (section.textContent || "").indexOf("Programs Built Around Goals") !== -1;
+        });
+      if (!feature) return;
+      var ticker = Array.prototype.slice.call(shell.children)
+        .find(function (child) { return child.classList && child.classList.contains("bg-lime"); });
       Array.prototype.slice.call(shell.children).forEach(function (child) {
-        if (child === home || child.tagName === "HEADER" ||
-            child.classList.contains("bg-lime") ||
+        if (child === home || child === feature || child === ticker ||
+            child.tagName === "HEADER" || child.tagName === "FOOTER" ||
             child.hasAttribute("data-alefit-plan-section")) return;
-        if (child.tagName === "SECTION" && !keptFeatureSection) {
-          keptFeatureSection = true;
-          return;
-        }
-        child.remove();
+        if (child.tagName === "SECTION") child.remove();
       });
       document.querySelectorAll("a,button").forEach(function (el) {
         var text = (el.textContent || "").trim().toLowerCase();
@@ -159,7 +178,7 @@
           el.remove();
         }
         if (el.closest("nav") &&
-            ["athlete tools", "meal plan", "calories", "shop"].indexOf(text) !== -1) {
+            ["athlete tools", "meal plan", "shop"].indexOf(text) !== -1) {
           el.remove();
         }
       });
@@ -255,6 +274,7 @@
             (section.textContent || "").indexOf("Programs Built Around Goals") !== -1;
         });
       if (feature) {
+        feature.classList.add("alefit-personalized-feature");
         var featureDecoration = feature.querySelector("div.absolute");
         if (featureDecoration) featureDecoration.style.display = "none";
         if (!feature.hasAttribute("data-alefit-personalized-copy")) {
@@ -307,7 +327,16 @@
       }
     }
     function run() { replaceJoinCopy(); hidePrograms(); hidePulse(); simplifyHomepage(); enhanceConversion(); }
-    new MutationObserver(run).observe(document.documentElement, {childList:true, subtree:true});
+    var updateQueued = false;
+    function queueRun() {
+      if (updateQueued) return;
+      updateQueued = true;
+      window.requestAnimationFrame(function () {
+        updateQueued = false;
+        run();
+      });
+    }
+    new MutationObserver(queueRun).observe(document.documentElement, {childList:true, subtree:true});
     run();
   }());
   </script>

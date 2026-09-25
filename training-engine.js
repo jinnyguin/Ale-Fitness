@@ -479,7 +479,7 @@
     var historyState = recentState(context);
     var requestedDays = Math.max(2, Math.min(4, numeric(profile.days, 3)));
     var impactLimit = profile.limitations || historyState.pain ? "low" :
-      profile.age === "under18" || profile.age === "55plus" ||
+      profile.age === "under18" || profile.age === "over55" || profile.age === "55plus" ||
       profile.experience === "new" || profile.experience === "not-sure" ? "medium" : "high";
     var conservative = impactLimit !== "high" || profile.consistency === "low" ||
       profile.consistency === "not-sure" || profile.familiarity === "not-sure" ||
@@ -503,6 +503,7 @@
     var primaryId = baseIds[0];
 
     var weeks = [];
+    var highConsistencySetAdded = false;
     for (var week = 1; week <= 4; week += 1) {
       var phase = phaseFor(focus, week);
       var phaseExercises = [];
@@ -545,6 +546,27 @@
           ));
         }
         var fitted = fitSessionDuration(sessionExercises, numeric(profile.duration, 45));
+        var primary = fitted.exercises[0];
+        var timeBasedPrimary = primary &&
+          (primary.movementPattern === "conditioning" ||
+           /min/i.test(String(primary.reps || "")));
+        if (primary && profile.consistency === "high" && phase.key !== "deload" &&
+            !timeBasedPrimary && !profile.limitations && !historyState.pain &&
+            !historyState.lowRecovery && historyState.tooHard < 2 &&
+            numeric(primary.sets, 0) < 5) {
+          var candidateExercises = clone(fitted.exercises);
+          candidateExercises[0].sets = numeric(candidateExercises[0].sets, 0) + 1;
+          var candidateFit = fitSessionDuration(candidateExercises, numeric(profile.duration, 45));
+          var extraSetFitsWithoutCuttingSupport = candidateFit.exercises.length === fitted.exercises.length &&
+            candidateFit.exercises.every(function (item, index) {
+              return item.id === fitted.exercises[index].id &&
+                numeric(item.sets, 0) === numeric(fitted.exercises[index].sets, 0) + (index === 0 ? 1 : 0);
+            });
+          if (extraSetFitsWithoutCuttingSupport) {
+            fitted = candidateFit;
+            highConsistencySetAdded = true;
+          }
+        }
         return {
           id:"week-" + week + "-day-" + dayIndex,
           day:DAYS[dayIndex],
@@ -608,9 +630,16 @@
       experience:{input:profile.experience || "not sure",decision:conservative ?
         "Started with lower volume/impact." : "Used standard starting volume."},
       consistency:{input:profile.consistency || "not sure",decision:
-        profile.consistency === "low" || profile.consistency === "not-sure" ?
-          "Reduced starting volume because recent consistency is uncertain." :
-          "Allowed measured week-to-week progression."},
+        highConsistencySetAdded ?
+          "Added one set to the primary movement where it fit without cutting support work; the deload stays lower." :
+          profile.consistency === "high" && (historyState.tooHard >= 2 ||
+            historyState.lowRecovery || historyState.pain || profile.limitations) ?
+            "Recovery or limitation signals held back the high-consistency volume increase." :
+            profile.consistency === "high" ?
+              "No extra set was added because the primary is time-based, at its set cap, or an increase would force support work out to meet the session limit." :
+              profile.consistency === "low" || profile.consistency === "not-sure" ?
+                "Reduced starting volume because recent consistency is uncertain." :
+                "Used standard starting volume; high consistency is the only level that adds primary-movement volume."},
       equipment:{input:equipment,decision:"Every exercise passed required-equipment filtering; unavailable movements used explicit alternatives."},
       schedule:{input:{days:requestedDays,duration:profile.duration || 45},decision:
         "Placed " + trainingDays.length + " sessions and capped each at " +

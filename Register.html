@@ -16,7 +16,10 @@
       <a href="/" class="brand" aria-label="ALEFIT home"><img src="/images/alefit-logo.png" alt="ALEFIT"/></a>
       <a class="sign-in" href="/Login.html?from_url=%2FRegister.html">Sign in</a>
     </header>
-    <div class="progress-wrap" aria-label="Onboarding progress"><div class="progress" id="progress"></div></div>
+    <div class="progress-wrap" role="progressbar" aria-label="Plan builder progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="14" aria-valuetext="Step 1 of 6">
+      <div class="progress" id="progress"></div>
+    </div>
+    <div class="progress-caption"><span id="progress-label" aria-live="polite">Step 1 of 6</span><span>6 questions · preview before account</span></div>
     <section class="onboarding" id="onboarding" aria-live="polite"></section>
   </main>
   <script src="/training-engine.js"></script>
