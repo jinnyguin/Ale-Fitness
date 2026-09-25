@@ -42,8 +42,32 @@ def now_iso():
 # Supabase Auth helpers
 # ---------------------------------------------------------------------------
 
+def _supabase_http_error(error):
+    raw = error.read()
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = {"error": "Authentication provider returned an invalid response."}
+    message = json.dumps(data).lower()
+    if error.code in (401, 403) and any(marker in message for marker in (
+        "invalid api key", "invalid_api_key", "no api key found", "api key is invalid"
+    )):
+        app.logger.warning("Supabase Auth rejected its configured API key.")
+        return 503, {"error": "Auth service unavailable."}
+    app.logger.warning("Supabase Auth returned HTTP %s.", error.code)
+    return error.code, data
+
+
+def _supabase_transport_error(error):
+    reason = getattr(error, "reason", None)
+    category = type(reason).__name__ if reason is not None else type(error).__name__
+    app.logger.warning("Supabase Auth connection failed (%s).", category)
+    return 503, {"error": "Auth service unavailable."}
+
+
 def supabase_auth(method, path, body=None, token=None):
     if not SUPABASE_URL or not SUPABASE_KEY:
+        app.logger.warning("Supabase Auth configuration is incomplete.")
         return 503, {"error": "Auth service unavailable."}
     url = f"{SUPABASE_URL.rstrip('/')}{path}"
     headers = {
@@ -58,18 +82,11 @@ def supabase_auth(method, path, body=None, token=None):
             raw = resp.read()
             return resp.status, json.loads(raw) if raw else {}
     except urllib.error.HTTPError as e:
-        raw = e.read()
-        try:
-            data = json.loads(raw)
-        except Exception:
-            data = {"error": "Authentication provider returned an invalid response."}
-        message = json.dumps(data).lower()
-        if e.code in (401, 403) and any(marker in message for marker in (
-            "invalid api key", "invalid_api_key", "no api key found", "api key is invalid"
-        )):
-            return 503, {"error": "Auth service unavailable."}
-        return e.code, data
-    except Exception:
+        return _supabase_http_error(e)
+    except urllib.error.URLError as e:
+        return _supabase_transport_error(e)
+    except Exception as e:
+        app.logger.warning("Supabase Auth request failed (%s).", type(e).__name__)
         return 503, {"error": "Auth service unavailable."}
 
 
@@ -77,6 +94,7 @@ def supabase_admin(method, path, body=None):
     """Call Supabase admin API using the service role key."""
     key = SUPABASE_SERVICE_KEY
     if not SUPABASE_URL or not key:
+        app.logger.warning("Supabase Auth admin configuration is incomplete.")
         return 503, {"error": "Auth service unavailable."}
     url = f"{SUPABASE_URL.rstrip('/')}{path}"
     headers = {
@@ -91,18 +109,11 @@ def supabase_admin(method, path, body=None):
             raw = resp.read()
             return resp.status, json.loads(raw) if raw else {}
     except urllib.error.HTTPError as e:
-        raw = e.read()
-        try:
-            data = json.loads(raw)
-        except Exception:
-            data = {"error": "Authentication provider returned an invalid response."}
-        message = json.dumps(data).lower()
-        if e.code in (401, 403) and any(marker in message for marker in (
-            "invalid api key", "invalid_api_key", "no api key found", "api key is invalid"
-        )):
-            return 503, {"error": "Auth service unavailable."}
-        return e.code, data
-    except Exception:
+        return _supabase_http_error(e)
+    except urllib.error.URLError as e:
+        return _supabase_transport_error(e)
+    except Exception as e:
+        app.logger.warning("Supabase Auth admin request failed (%s).", type(e).__name__)
         return 503, {"error": "Auth service unavailable."}
 
 
