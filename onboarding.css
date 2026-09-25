@@ -2,6 +2,7 @@
 
 .progress-caption{display:flex;justify-content:space-between;gap:12px;margin-top:8px;color:var(--muted);font-size:.72rem}
 .progress-caption span:first-child{color:var(--white);font-weight:700}
+.topbar{min-height:0;justify-content:flex-end}
 .onboarding{min-width:0;margin-top:clamp(34px,7vh,68px)}
 .onboarding h1{overflow-wrap:anywhere}
 .sport-step-body{margin-top:26px}
