@@ -696,6 +696,23 @@
     document.getElementById("create").onclick = register;
     focusHeading();
   }
+  function showAccountNextStep(title, message, returnMessage) {
+    persist();
+    root.innerHTML = '<section class="account"><span class="eyebrow">Account created</span>' +
+      '<h1>' + esc(title) + '</h1><p class="sub">' + esc(message) + '</p>' +
+      '<p class="sub">' + esc(returnMessage) + '</p>' +
+      '<div class="footer"><button type="button" class="button secondary" id="confirmation-back">Back to plan</button>' +
+      '<button type="button" class="button" id="confirmation-login">Go to sign in</button></div></section>';
+    document.getElementById("confirmation-back").onclick = function() {
+      state.step = 6;
+      render();
+      focusHeading();
+    };
+    document.getElementById("confirmation-login").onclick = function() {
+      window.location.href = "/Login.html?from_url=" + encodeURIComponent("/Register.html");
+    };
+    focusHeading();
+  }
   async function register(event) {
     event.preventDefault();
     var button = document.getElementById("create");
@@ -709,6 +726,22 @@
         body: JSON.stringify({ full_name: document.getElementById("name").value.trim(), email: document.getElementById("email").value.trim(), password: document.getElementById("password").value })
       });
       var data = await response.json();
+      if (data.confirmation_required) {
+        showAccountNextStep(
+          "Check your email.",
+          data.message || "Your account was created. Confirm your email to return to your plan.",
+          "Your reviewed plan is still saved in this browser. After you confirm your email, return here to save it."
+        );
+        return;
+      }
+      if (data.account_created) {
+        showAccountNextStep(
+          "Your account is ready.",
+          data.message || "Sign in to save your plan.",
+          "Your reviewed plan is still saved in this browser. Sign in and return here to save it to your account."
+        );
+        return;
+      }
       if (!response.ok || !data.access_token) throw new Error(data.error || data.message || "Account could not be created.");
       localStorage.setItem("base44_access_token", data.access_token);
       localStorage.setItem("token", data.access_token);

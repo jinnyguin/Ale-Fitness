@@ -17,14 +17,12 @@ app = Flask(__name__, static_folder=".")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
-# A database password is not a Supabase service-role key. Only use the
-# explicitly named secret for admin auth calls.
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
-LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET") or APP_ID
+LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET", "")
 
 # ---------------------------------------------------------------------------
 # Postgres helpers (Replit DB for entity storage)
@@ -45,7 +43,9 @@ def now_iso():
 # ---------------------------------------------------------------------------
 
 def supabase_auth(method, path, body=None, token=None):
-    url = f"{SUPABASE_URL}{path}"
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return 503, {"error": "Auth service unavailable."}
+    url = f"{SUPABASE_URL.rstrip('/')}{path}"
     headers = {
         "apikey": SUPABASE_KEY,
         "Content-Type": "application/json",
@@ -60,17 +60,25 @@ def supabase_auth(method, path, body=None, token=None):
     except urllib.error.HTTPError as e:
         raw = e.read()
         try:
-            return e.code, json.loads(raw)
+            data = json.loads(raw)
         except Exception:
-            return e.code, {"error": raw.decode()}
-    except Exception as e:
-        return 503, {"error": f"Auth service unavailable: {str(e)}"}
+            data = {"error": "Authentication provider returned an invalid response."}
+        message = json.dumps(data).lower()
+        if e.code in (401, 403) and any(marker in message for marker in (
+            "invalid api key", "invalid_api_key", "no api key found", "api key is invalid"
+        )):
+            return 503, {"error": "Auth service unavailable."}
+        return e.code, data
+    except Exception:
+        return 503, {"error": "Auth service unavailable."}
 
 
 def supabase_admin(method, path, body=None):
     """Call Supabase admin API using the service role key."""
-    key = SUPABASE_SERVICE_KEY or SUPABASE_KEY
-    url = f"{SUPABASE_URL}{path}"
+    key = SUPABASE_SERVICE_KEY
+    if not SUPABASE_URL or not key:
+        return 503, {"error": "Auth service unavailable."}
+    url = f"{SUPABASE_URL.rstrip('/')}{path}"
     headers = {
         "apikey": key,
         "Content-Type": "application/json",
@@ -85,11 +93,17 @@ def supabase_admin(method, path, body=None):
     except urllib.error.HTTPError as e:
         raw = e.read()
         try:
-            return e.code, json.loads(raw)
+            data = json.loads(raw)
         except Exception:
-            return e.code, {"error": raw.decode()}
-    except Exception as e:
-        return 503, {"error": f"Auth service unavailable: {str(e)}"}
+            data = {"error": "Authentication provider returned an invalid response."}
+        message = json.dumps(data).lower()
+        if e.code in (401, 403) and any(marker in message for marker in (
+            "invalid api key", "invalid_api_key", "no api key found", "api key is invalid"
+        )):
+            return 503, {"error": "Auth service unavailable."}
+        return e.code, data
+    except Exception:
+        return 503, {"error": "Auth service unavailable."}
 
 
 def get_supabase_user(token):
@@ -190,29 +204,43 @@ def local_user_to_auth_user(row):
 
 def ensure_local_auth_table():
     """Create the local auth store used when the remote auth service is down."""
+    global _LOCAL_AUTH_TABLE_READY
+    if _LOCAL_AUTH_TABLE_READY:
+        return True
+    conn = None
     try:
         conn = get_db()
-        cur = conn.cursor()
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS auth_users (
-                id TEXT PRIMARY KEY,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                full_name TEXT NOT NULL DEFAULT '',
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS auth_users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    full_name TEXT NOT NULL DEFAULT '',
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
             )
-            """
-        )
-        conn.close()
+        finally:
+            conn.close()
+        _LOCAL_AUTH_TABLE_READY = True
+        return True
     except Exception as exc:
         # The application can still serve public pages if the database is
         # temporarily unavailable; auth endpoints report the real issue.
         print("Local auth table setup failed:", type(exc).__name__)
+        return False
+
+
+_LOCAL_AUTH_TABLE_READY = False
 
 
 def local_user_by_email(email):
+    if not ensure_local_auth_table():
+        return None
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -225,6 +253,8 @@ def local_user_by_email(email):
 
 
 def local_user_by_id(user_id):
+    if not ensure_local_auth_table():
+        return None
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -237,6 +267,8 @@ def local_user_by_id(user_id):
 
 
 def create_local_token(user):
+    if not LOCAL_AUTH_SECRET:
+        raise RuntimeError("Local authentication is not configured.")
     payload = {
         "sub": user["id"],
         "email": user["email"],
@@ -251,6 +283,8 @@ def create_local_token(user):
 
 def local_user_from_token(token):
     try:
+        if not LOCAL_AUTH_SECRET:
+            return None
         prefix, encoded, signature = token.split(".", 2)
         if prefix != "local":
             return None
@@ -269,6 +303,13 @@ def local_user_from_token(token):
 
 def local_register(email, password, full_name):
     email = email.strip().lower()
+    if not LOCAL_AUTH_SECRET:
+        return None, (jsonify({"error": "Account sign-in is not configured."}), 503)
+    if not ensure_local_auth_table():
+        return None, (
+            jsonify({"error": "Account storage is temporarily unavailable. Please try again."}),
+            503,
+        )
     if len(password) < 8:
         return None, (jsonify({"error": "Password must be at least 8 characters."}), 400)
     if local_user_by_email(email):
@@ -626,10 +667,15 @@ def alias_scan_food(app_id):
 
 @app.route("/api/apps/<app_id>/auth/register", methods=["POST"])
 def auth_register(app_id):
-    body = request.get_json(force=True) or {}
-    email = (body.get("email") or "").strip().lower()
-    password = body.get("password") or ""
-    full_name = (body.get("full_name") or body.get("name") or "").strip()
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Please submit a valid account form."}), 400
+    email_value = body.get("email")
+    password_value = body.get("password")
+    name_value = body.get("full_name") or body.get("name")
+    email = email_value.strip().lower() if isinstance(email_value, str) else ""
+    password = password_value if isinstance(password_value, str) else ""
+    full_name = name_value.strip() if isinstance(name_value, str) else ""
 
     if not full_name or len(full_name) < 2:
         return jsonify({"error": "Please enter your full name."}), 400
@@ -663,7 +709,10 @@ def auth_register(app_id):
             if login_status == 200 and login_data.get("access_token"):
                 user = login_data.get("user", {})
                 return jsonify({"access_token": login_data["access_token"], "user": format_user(user)}), 201
-            return jsonify({"error": "Account created! Please log in."}), 400
+            return jsonify({
+                "account_created": True,
+                "message": "Your account is ready. Sign in to save your plan.",
+            }), 202
         err = data.get("msg") or data.get("message") or data.get("error") or "Registration failed"
         # Handle duplicate email
         if "already" in str(err).lower() or status == 422:
@@ -679,7 +728,9 @@ def auth_register(app_id):
         return jsonify({"error": err}), status
 
     # Fallback: regular signup (may require email confirmation)
-    status, data = supabase_auth("POST", "/auth/v1/signup", {
+    callback_url = request.host_url.rstrip("/") + "/auth/callback?from_url=%2FRegister.html"
+    signup_path = "/auth/v1/signup?redirect_to=" + urllib.parse.quote(callback_url, safe="")
+    status, data = supabase_auth("POST", signup_path, {
         "email": email,
         "password": password,
         "data": {"full_name": full_name},
@@ -687,16 +738,15 @@ def auth_register(app_id):
 
     if status in (200, 201):
         if not data.get("access_token"):
-            # Email confirmation required — attempt immediate login
-            login_status, login_data = supabase_auth("POST", "/auth/v1/token?grant_type=password", {
-                "email": email,
-                "password": password,
-            })
-            if login_status == 200 and login_data.get("access_token"):
-                user = login_data.get("user", {})
-                ensure_profile(user.get("id"), email, full_name)
-                return jsonify({"access_token": login_data["access_token"], "user": format_user(user)}), 201
-            return jsonify({"error": "Account created! Check your email to confirm, then log in."}), 400
+            # Supabase email confirmation is a successful account-creation
+            # state, not a failed registration. The browser keeps the plan
+            # draft while the user confirms and signs in.
+            user = data.get("user") or (data if data.get("id") else {})
+            ensure_profile(user.get("id"), email, full_name)
+            return jsonify({
+                "confirmation_required": True,
+                "message": "Your account was created. Confirm your email to return to your plan.",
+            }), 202
         user = data.get("user", {})
         ensure_profile(user.get("id"), email, full_name)
         return jsonify({"access_token": data["access_token"], "user": format_user(user)}), 201
@@ -716,9 +766,13 @@ def auth_register(app_id):
 
 @app.route("/api/apps/<app_id>/auth/login", methods=["POST"])
 def auth_login(app_id):
-    body = request.get_json(force=True) or {}
-    email = (body.get("email") or "").strip().lower()
-    password = body.get("password") or ""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Please submit a valid sign-in form."}), 400
+    email_value = body.get("email")
+    password_value = body.get("password")
+    email = email_value.strip().lower() if isinstance(email_value, str) else ""
+    password = password_value if isinstance(password_value, str) else ""
 
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
         return jsonify({"error": "Please enter a valid email address."}), 400
@@ -730,6 +784,8 @@ def auth_login(app_id):
     local_user_record = local_user_by_email(email)
     local_user = local_login(email, password)
     if local_user:
+        if not LOCAL_AUTH_SECRET:
+            return jsonify({"error": "Local sign-in is not configured. Please contact support."}), 503
         ensure_profile(local_user["id"], local_user["email"], format_user(local_user)["full_name"])
         return jsonify({
             "access_token": create_local_token(local_user),
@@ -750,8 +806,8 @@ def auth_login(app_id):
 
     if status == 503:
         return jsonify({
-            "error": "We couldn't verify that email right now. Create an ALEFIT account to start a local sign-in."
-        }), 401
+            "error": "Sign-in is temporarily unavailable. Please try again in a moment."
+        }), 503
 
     err = data.get("error_description") or data.get("msg") or data.get("error") or "Invalid email or password"
     return jsonify({"error": err}), 401
