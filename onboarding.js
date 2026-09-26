@@ -1023,7 +1023,15 @@
     }
     var progressLabel = document.getElementById("progress-label");
     if (progressLabel) progressLabel.textContent = "Account setup · Plan reviewed";
-    document.getElementById("form").onsubmit = register;
+    var form = document.getElementById("form");
+    form.onsubmit = register;
+    form.addEventListener("input", function (event) {
+      if (event.target && event.target.hasAttribute("aria-invalid")) {
+        event.target.removeAttribute("aria-invalid");
+      }
+      var error = root.querySelector(".error");
+      if (error) error.remove();
+    });
     document.getElementById("account-back").onclick = function() {
       state.step -= 1;
       render();
@@ -1049,11 +1057,46 @@
     };
     focusHeading();
   }
+  function validateRegistrationForm(form) {
+    var name = form.querySelector("#name");
+    var email = form.querySelector("#email");
+    var password = form.querySelector("#password");
+    var nameValue = name.value.trim();
+    var emailValue = email.value.trim();
+    var checks = [
+      {input:name, invalid:nameValue.length < 2, message:"Please enter your full name."},
+      {input:name, invalid:nameValue.length > 80, message:"Your name must be 80 characters or fewer."},
+      {
+        input:email,
+        invalid:!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailValue),
+        message:"Enter a valid email address, such as name@example.com."
+      },
+      {input:email, invalid:emailValue.length > 254, message:"Your email address must be 254 characters or fewer."},
+      {input:password, invalid:password.value.length < 8, message:"Your password must be at least 8 characters."},
+      {input:password, invalid:password.value.length > 128, message:"Your password must be 128 characters or fewer."}
+    ];
+    form.querySelectorAll("[aria-invalid='true']").forEach(function (input) {
+      input.removeAttribute("aria-invalid");
+    });
+    for (var index = 0; index < checks.length; index += 1) {
+      if (checks[index].invalid) {
+        checks[index].input.setAttribute("aria-invalid", "true");
+        return checks[index];
+      }
+    }
+    return null;
+  }
   async function register(event) {
     event.preventDefault();
     var button = document.getElementById("create");
     if (button.disabled) return;
-    if (!document.getElementById("form").reportValidity()) return;
+    var form = document.getElementById("form");
+    var validation = validateRegistrationForm(form);
+    if (validation) {
+      showError(validation.message);
+      validation.input.focus();
+      return;
+    }
     button.disabled = true;
     button.textContent = "Creating account…";
     try {
