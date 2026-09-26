@@ -231,6 +231,62 @@ const butterflySwimmer = plan({
 assert.equal(butterflySwimmer.decisionTrace.positionOrEvent.input, "butterfly");
 assert(/adjusts conditioning guidance/i.test(butterflySwimmer.decisionTrace.positionOrEvent.decision));
 assert(/For butterfly, keep pool technique work primary/i.test(butterflySwimmer.weeks[0].conditioning));
+const strengthStyleCases = [
+  ["powerlifting", "back-squat"],
+  ["olympic-lifting-base", "back-squat"],
+  ["bodybuilding", "bench-press"],
+  ["powerbuilding", "rdl"],
+  ["calisthenics", "push-up"],
+  ["strongman", "farmer-carry"],
+  ["dumbbell-strength", "goblet-squat"],
+  ["barbell-strength", "back-squat"],
+  ["resistance-band-strength", "band-press"],
+  ["kettlebell-strength", "kettlebell-deadlift"],
+  ["functional-strength", "split-squat"],
+  ["athletic-strength", "broad-jump"],
+  ["muscular-endurance", "tempo-squat"],
+  ["isometric-strength", "wall-sit"],
+  ["strength-circuits", "goblet-squat"],
+  ["general-strength", "goblet-squat"]
+];
+strengthStyleCases.forEach(([style, expectedPrimary]) => {
+  const strengthStylePlan = plan({
+    sport:"strength", sportDetail:style, goals:["strength"],
+    equipment:["gym", "dumbbells", "bands", "kettlebell", "field"],
+    days:2, duration:90, experience:"regular", consistency:"steady"
+  });
+  assert.equal(strengthStylePlan.first[0].id, expectedPrimary, `${style} selects its intended primary movement`);
+  assert(strengthStylePlan.weeks[0].emphasis.includes("Strength style:"));
+  assert(strengthStylePlan.decisionTrace.positionOrEvent.changedPrimary);
+  assertAllEquipmentAllowed(strengthStylePlan, ["gym", "dumbbells", "bands", "kettlebell", "field"]);
+});
+const powerliftingStyle = plan({
+  sport:"strength", sportDetail:"powerlifting", goals:["strength"],
+  equipment:["gym"], experience:"regular"
+});
+assert.equal(powerliftingStyle.first[0].reps, "4–6");
+const circuitStyle = plan({
+  sport:"strength", sportDetail:"strength-circuits", goals:["strength"],
+  equipment:["gym", "dumbbells"], experience:"regular"
+});
+assert.equal(circuitStyle.first[0].reps, "8–12");
+assert.equal(circuitStyle.first[0].rest, "60–90 sec");
+const isometricStyle = plan({
+  sport:"strength", sportDetail:"isometric-strength", goals:["strength"],
+  equipment:["bodyweight"], experience:"regular"
+});
+assert.equal(isometricStyle.first[0].reps, "20–45 sec");
+const strongmanStyle = plan({
+  sport:"strength", sportDetail:"strongman", goals:["strength"],
+  equipment:["dumbbells"], experience:"regular"
+});
+assert.equal(strongmanStyle.first[0].reps, "20–40 m");
+const kettlebellWithoutKit = plan({
+  sport:"strength", sportDetail:"kettlebell-strength", goals:["strength"],
+  equipment:["bodyweight"], days:2
+});
+assert.equal(kettlebellWithoutKit.first[0].id, "hip-hinge",
+  "a strength style must fall back to available safe equipment");
 assert.equal(Object.keys(engine.sportFocusSupport).length, 21);
 Object.keys(engine.sportFocusSupport).forEach((sport) => {
   engine.sportFocusSupport[sport].forEach((id) => {

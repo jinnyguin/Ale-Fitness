@@ -393,7 +393,9 @@
           '"><option value="">Choose if known</option>' +
           detailField.options.map(function (option) {
             return '<option value="' + esc(option[0]) + '">' + esc(option[1]) + "</option>";
-          }).join("") + "</select></div>";
+          }).join("") + "</select></div>" +
+          (p.sport === "strength" ?
+            '<p class="sport-load-note">Your style guides movement and effort. Goals, equipment, experience, and available time still shape each session.</p>' : "");
       }
       if (p.sport === "running" || p.sport === "cross-country") {
         fields += '<div class="field"><label for="run-distance">Target distance</label><select id="run-distance">' +
