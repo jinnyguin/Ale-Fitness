@@ -47,7 +47,7 @@
     ["cycling", "Cycling", "Build riding endurance and leg strength"],
     ["rowing", "Rowing", "Pulling strength and aerobic capacity"],
     ["combat-sports", "Combat sports", "Power, movement and round endurance"],
-    ["strength", "Strength", "Build the big lifts"],
+    ["strength", "Strength", "Choose your strength-training style"],
     ["hiit", "HIIT", "Work capacity and control"],
     ["mobility", "Mobility", "Move with more range"],
     ["general", "General fitness", "Train for your life"]
@@ -138,8 +138,22 @@
       ["boxing", "Boxing"], ["kickboxing", "Kickboxing"], ["grappling", "Wrestling or grappling"],
       ["mixed-martial-arts", "Mixed martial arts"]
     ]},
-    strength: { label:"Lifting focus", options:[
-      ["powerlifting", "Powerlifting-style strength"], ["bodybuilding", "Muscle building"],
+    strength: { label:"Strength training style", options:[
+      ["powerlifting", "Powerlifting"],
+      ["olympic-lifting-base", "Olympic lifting strength base"],
+      ["bodybuilding", "Bodybuilding / hypertrophy"],
+      ["powerbuilding", "Powerbuilding"],
+      ["calisthenics", "Calisthenics / bodyweight"],
+      ["strongman", "Strongman / loaded carries"],
+      ["dumbbell-strength", "Dumbbell training"],
+      ["barbell-strength", "Barbell strength"],
+      ["resistance-band-strength", "Resistance-band strength"],
+      ["kettlebell-strength", "Kettlebell training"],
+      ["functional-strength", "Functional strength"],
+      ["athletic-strength", "Athletic strength & power"],
+      ["muscular-endurance", "Muscular endurance"],
+      ["isometric-strength", "Isometric strength"],
+      ["strength-circuits", "Strength circuits"],
       ["general-strength", "General strength"]
     ]},
     hiit: { label:"Session style", options:[
@@ -251,6 +265,7 @@
   var equipment = [
     ["gym", "Full gym", "Barbell, machines and open space"],
     ["dumbbells", "Dumbbells", "One or two adjustable weights"],
+    ["kettlebell", "Kettlebell", "One or more kettlebells"],
     ["bands", "Resistance bands", "Anchored or loop bands"],
     ["bodyweight", "Bodyweight", "No external load"],
     ["field", "Court / field", "Outdoor or sport space"],

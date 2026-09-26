@@ -109,6 +109,24 @@
       conditioning:"Use brief controlled rounds; sparring and technical practice count toward hard workload."
     }
   };
+  var STRENGTH_STYLE_GUIDANCE = {
+    powerlifting:"Prioritize repeatable squat strength with controlled working sets; skip max testing.",
+    "olympic-lifting-base":"Build squat strength and controlled power; technical snatch and clean practice are not included.",
+    bodybuilding:"Use controlled muscle-building volume and leave room for recovery between hard sets.",
+    powerbuilding:"Pair a stable strength movement with moderate muscle-building support.",
+    calisthenics:"Use bodyweight-friendly pushing and bracing, with regressions that preserve good form.",
+    strongman:"Use loaded carries and full-body bracing where equipment allows; never rush the carry.",
+    "dumbbell-strength":"Favor dumbbell-compatible movements and balanced work on both sides.",
+    "barbell-strength":"Use stable barbell patterns and gradual loading; do not test a one-rep maximum.",
+    "resistance-band-strength":"Use controlled band tension through a comfortable range and secure the anchor.",
+    "kettlebell-strength":"Build hinge strength with controlled kettlebell work; use a safe available-equipment alternative when needed.",
+    "functional-strength":"Emphasize single-leg strength and trunk control for capable everyday movement.",
+    "athletic-strength":"Keep power work crisp and stop when speed or landing quality drops.",
+    "muscular-endurance":"Use repeatable efforts and stop before technique breaks down.",
+    "isometric-strength":"Build strength with short, controlled holds and steady breathing.",
+    "strength-circuits":"Use moderate effort and smooth transitions; do not race between movements.",
+    "general-strength":"Build balanced foundational strength across movement patterns."
+  };
 
   function exercise(config) {
     return config;
@@ -123,6 +141,9 @@
     exercise({id:"rdl",name:"Romanian deadlift",movementPattern:"hinge",requiredEquipment:["gym","dumbbells"],difficulty:"beginner",prerequisites:["hip hinge"],qualities:["strength","muscle"],impact:"low",fatigue:"medium",alternatives:["hip-hinge","glute-bridge"],prescription:{sets:[2,4],reps:"6–12",rest:"90–150 sec"}}),
     exercise({id:"hip-hinge",name:"Single-leg hip hinge",movementPattern:"hinge",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:["supported balance"],qualities:["movement","durability"],impact:"low",fatigue:"low",alternatives:["glute-bridge"],prescription:{sets:[2,3],reps:"6–10 / side",rest:"60–90 sec"}}),
     exercise({id:"glute-bridge",name:"Glute bridge",movementPattern:"hinge",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["movement","muscle"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,4],reps:"10–15",rest:"45–75 sec"}}),
+    exercise({id:"farmer-carry",name:"Farmer carry",movementPattern:"carry",requiredEquipment:["dumbbells","gym"],difficulty:"beginner",prerequisites:["comfortable loaded carry"],qualities:["strength","durability"],impact:"low",fatigue:"medium",alternatives:["brisk-walk"],prescription:{sets:[2,4],reps:"20–40 m",rest:"90–150 sec"}}),
+    exercise({id:"kettlebell-deadlift",name:"Kettlebell deadlift",movementPattern:"hinge",requiredEquipment:["kettlebell"],difficulty:"beginner",prerequisites:["comfortable hip hinge"],qualities:["strength","muscle"],impact:"low",fatigue:"medium",alternatives:["rdl","hip-hinge","glute-bridge"],prescription:{sets:[2,4],reps:"6–12",rest:"90–150 sec"}}),
+    exercise({id:"wall-sit",name:"Wall sit",movementPattern:"isometric",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["strength","durability"],impact:"low",fatigue:"low",alternatives:["tempo-squat"],prescription:{sets:[2,4],reps:"20–45 sec",rest:"45–90 sec"}}),
     exercise({id:"bench-press",name:"Bench press",movementPattern:"push",requiredEquipment:["gym"],difficulty:"intermediate",prerequisites:["confident press"],qualities:["strength","muscle"],impact:"low",fatigue:"medium",alternatives:["floor-press","push-up"],prescription:{sets:[2,5],reps:"3–10",rest:"2–3 min"}}),
     exercise({id:"floor-press",name:"Dumbbell floor press",movementPattern:"push",requiredEquipment:["dumbbells"],difficulty:"beginner",prerequisites:[],qualities:["strength","muscle"],impact:"low",fatigue:"medium",alternatives:["push-up"],prescription:{sets:[2,4],reps:"6–12",rest:"90–150 sec"}}),
     exercise({id:"push-up",name:"Incline push-up",movementPattern:"push",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["strength","muscle"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,4],reps:"6–15",rest:"60–90 sec"}}),
@@ -350,7 +371,22 @@
       boxing:"lateral-step",kickboxing:"acceleration",grappling:"split-squat","mixed-martial-arts":"snap-down"
     },
     strength:{
-      powerlifting:"back-squat",bodybuilding:"bench-press","general-strength":"goblet-squat"
+      powerlifting:"back-squat",
+      "olympic-lifting-base":"back-squat",
+      bodybuilding:"bench-press",
+      powerbuilding:"rdl",
+      calisthenics:"push-up",
+      strongman:"farmer-carry",
+      "dumbbell-strength":"goblet-squat",
+      "barbell-strength":"back-squat",
+      "resistance-band-strength":"band-press",
+      "kettlebell-strength":"kettlebell-deadlift",
+      "functional-strength":"split-squat",
+      "athletic-strength":"broad-jump",
+      "muscular-endurance":"tempo-squat",
+      "isometric-strength":"wall-sit",
+      "strength-circuits":"goblet-squat",
+      "general-strength":"goblet-squat"
     },
     hiit:{
       "cardio-intervals":"acceleration","strength-circuits":"goblet-squat",
@@ -483,6 +519,9 @@
       };
     }
     var guidance = SPORT_GUIDANCE[sport];
+    var strengthStyleCue = sport === "strength" && profile ?
+      STRENGTH_STYLE_GUIDANCE[String(profile.sportDetail || "").toLowerCase()] : "";
+    if (strengthStyleCue) phase.emphasis += ". Strength style: " + strengthStyleCue;
     if (guidance) {
       var phaseCue = phase.key === "foundation" ?
         "Establish a repeatable base for " + guidance.demand :
@@ -699,7 +738,7 @@
     return Math.max(1, Math.floor(target));
   }
 
-  function prescribeExercise(item, focus, profile, week, historyState, runSessionCount, phase) {
+  function prescribeExercise(item, focus, profile, week, historyState, runSessionCount, phase, exerciseIndex) {
     var prescription = strengthPrescription(focus, profile, week, historyState, phase);
     if (item.id === "easy-run") {
       var factors = [1, 1, 1, 0.75];
@@ -712,6 +751,39 @@
         /5k/i.test(profile.runDistance || "") ? "90 sec controlled" : "2 min controlled";
       return {sets:week === 4 ? 3 : 4,reps:interval,rest:"2 min easy",
          effort:phase && phase.key === "deload" ? "RPE 5–6; never all-out" : "RPE 6–7; never all-out"};
+    }
+    var strengthStyle = profile.sport === "strength" ? String(profile.sportDetail || "") : "";
+    if (item.id === "farmer-carry") {
+      return {sets:prescribedSets(focus, profile, week, historyState, phase),
+        reps:phase && phase.key === "deload" ? "15–25 m" : "20–40 m",
+        rest:"90–150 sec",effort:phase && phase.key === "deload" ? "light, controlled carries" : "upright posture; stop before grip fails"};
+    }
+    if (item.id === "wall-sit") {
+      return {sets:prescribedSets(focus, profile, week, historyState, phase),
+        reps:phase && phase.key === "deload" ? "15–30 sec" : "20–45 sec",
+        rest:"45–90 sec",effort:phase && phase.key === "deload" ? "easy hold; breathe steadily" : "controlled hold; stop before form changes"};
+    }
+    if ((exerciseIndex === 0) && strengthStyle === "powerlifting" &&
+        focus === "strength" && item.qualities.indexOf("strength") !== -1) {
+      return {sets:prescribedSets(focus, profile, week, historyState, phase),
+        reps:phase && phase.key === "intensification" ? "3–5" : "4–6",
+        rest:"2–4 min",effort:phase && phase.key === "deload" ? "RPE 5–6; smooth reps" : "RPE 7; leave reps in reserve"};
+    }
+    if ((exerciseIndex === 0) && strengthStyle === "olympic-lifting-base" &&
+        focus === "strength" && item.qualities.indexOf("strength") !== -1) {
+      return {sets:prescribedSets(focus, profile, week, historyState, phase),
+        reps:phase && phase.key === "intensification" ? "3–5" : "4–6",
+        rest:"2–4 min",effort:phase && phase.key === "deload" ? "RPE 5–6; controlled" : "RPE 6–7; crisp technique"};
+    }
+    if (strengthStyle === "strength-circuits" &&
+        item.qualities.indexOf("strength") !== -1) {
+      return {sets:Math.min(3, prescribedSets(focus, profile, week, historyState, phase)),
+        reps:"8–12",rest:"60–90 sec",
+        effort:phase && phase.key === "deload" ? "easy circuit; stop well before fatigue" : "RPE 6–7; smooth transitions"};
+    }
+    if (item.id === "kettlebell-deadlift" && focus !== "strength" && focus !== "muscle") {
+      return {sets:prescribedSets(focus, profile, week, historyState, phase),
+        reps:"6–10",rest:"90–150 sec",effort:"controlled hip hinge; reset each rep"};
     }
     if (item.qualities.indexOf("endurance") !== -1 &&
         (item.movementPattern === "locomotion" ||
@@ -851,7 +923,7 @@
       var sessions = trainingDays.map(function (dayIndex, sessionIndex) {
         var sessionExercises = phaseExercises.map(function (item, exerciseIndex) {
           var prescription = prescribeExercise(
-            item, focus, profile, week, historyState, trainingDays.length, phase
+            item, focus, profile, week, historyState, trainingDays.length, phase, exerciseIndex
           );
           var output = {
             id:item.id,
