@@ -26,6 +26,12 @@ function firstSets(result) {
   return result.first.reduce((sum, item) => sum + Number(item.sets || 0), 0);
 }
 
+function workoutSignatures(result) {
+  return result.weeks.flatMap((week) => week.sessions.map((session) =>
+    session.exercises.map((item) => item.id).sort().join("|")
+  ));
+}
+
 function assertAllEquipmentAllowed(result, allowed) {
   const actualAllowed = allowed.concat(["bodyweight"]);
   result.weeks.forEach((week) => {
@@ -156,6 +162,12 @@ assert.notEqual(profileA.recovery, plan(Object.assign({}, profileA.profile, {loa
       assert(session.estimatedMinutes <= session.minutes, "session must fit its stated time");
     });
   });
+  const signatures = workoutSignatures(result);
+  assert.equal(
+    new Set(signatures).size,
+    signatures.length,
+    `${result.name} should not repeat a full workout during the four-week block`
+  );
   const primaryIds = result.weeks.map((week) => week.sessions[0].exercises[0].id);
   assert.equal(new Set(primaryIds).size, 1, "primary exercise should repeat across the block");
   const weekThreeSets = Number(result.weeks[2].sessions[0].exercises[0].sets);
@@ -433,6 +445,36 @@ builderSports.forEach((sport) => {
   );
 });
 
+// Unique workout selection also holds for low-equipment, short-session plans across sports.
+const fullEquipmentSet = ["gym", "field", "dumbbells", "bands", "kettlebell", "bike", "rower", "pool"];
+builderSports.forEach((sport) => {
+  [["bodyweight"], fullEquipmentSet].forEach((equipment) => {
+    [20, 45].forEach((duration) => {
+      const result = plan({
+        sport,
+        goals:["fitness"],
+        equipment,
+        days:sport === "running" || sport === "cross-country" ? 2 : 4,
+        duration,
+        experience:"regular",
+        consistency:"steady",
+        weeklyRunVolume:120,
+        longestRun:50
+      });
+      const signatures = workoutSignatures(result);
+      assert.equal(
+        new Set(signatures).size,
+        signatures.length,
+        `${sport} should not repeat full workouts with ${equipment.join(", ")} in ${duration} minutes`
+      );
+      result.weeks.forEach((week) => week.sessions.forEach((session) => {
+        assert(session.estimatedMinutes <= session.minutes);
+      }));
+      assertAllEquipmentAllowed(result, equipment);
+    });
+  });
+});
+
 // New sports use sport-relevant starting movements, equipment, and plan routing.
 const expandedSportCases = [
   {sport:"volleyball", goal:"jump", equipment:["bodyweight"], primary:"snap-down", label:"Volleyball"},
@@ -518,6 +560,13 @@ const runnerBase = {
   sport:"running", goals:["conditioning"], equipment:["field"], days:2,
   duration:60, experience:"regular", consistency:"steady", weeklyRunVolume:120, longestRun:40
 };
+const distinctRunnerPlan = plan(runnerBase);
+assert.equal(distinctRunnerPlan.weeks[0].sessions[1].exercises[0].id, "tempo-run");
+assert.equal(
+  new Set(workoutSignatures(distinctRunnerPlan)).size,
+  workoutSignatures(distinctRunnerPlan).length,
+  "the running tempo day should remain while each scheduled workout stays distinct"
+);
 const fiveK = plan(Object.assign({}, runnerBase, {runDistance:"5K"}));
 const tenK = plan(Object.assign({}, runnerBase, {runDistance:"10K"}));
 assert.notEqual(
@@ -676,7 +725,9 @@ const unlockBase = plan({
   experience:"regular", consistency:"steady", familiarity:"confident"
 });
 const lockedWeekOne = JSON.parse(JSON.stringify(unlockBase.weeks[0]));
-const weekTwoBefore = Number(unlockBase.weeks[1].sessions[0].exercises[0].sets);
+const weekTwoBefore = unlockBase.weeks[1].sessions.map((session) =>
+  Number(session.exercises[0].sets)
+);
 let unlocked = unlockBase;
 unlockBase.weeks[0].sessions.forEach((session, index) => {
   unlocked = engine.applyFeedback(unlocked, {
@@ -689,8 +740,10 @@ unlockBase.weeks[0].sessions.forEach((session, index) => {
 assert.equal(unlocked.currentWeek, 2);
 assert.deepEqual(unlocked.weeks[0], lockedWeekOne);
 assert(
-  Number(unlocked.weeks[1].sessions[0].exercises[0].sets) > weekTwoBefore,
-  "week 2 progression must be earned from handled appropriate work"
+  unlocked.weeks[1].sessions.some((session, index) =>
+    Number(session.exercises[0].sets) > weekTwoBefore[index]
+  ),
+  "week 2 should progress sessions whose full support work still fits"
 );
 
 // A fully completed easy week advances rep ranges only when the whole session still fits.
