@@ -218,6 +218,21 @@ class AuthRouteTests(unittest.TestCase):
         self.assertIn("8 characters", response.get_json()["error"])
         auth_call.assert_not_called()
 
+    def test_signup_rejects_email_without_a_dot_in_domain_before_provider_call(self):
+        with patch.object(server, "supabase_auth") as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/register",
+                json={
+                    "full_name": "Test Athlete",
+                    "email": "jason@icloudcom",
+                    "password": "correct horse battery",
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"], "Please enter a valid email address.")
+        auth_call.assert_not_called()
+
     def test_remote_outage_returns_retryable_status(self):
         with (
             patch.object(server, "local_user_by_email", return_value=None),
