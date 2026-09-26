@@ -92,3 +92,7 @@
 }
 
 body{background:var(--ink)}
+.sport-intake-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+.sport-intake-grid .field{min-width:0}
+.sport-load-note{margin:4px 0 8px}
+@media(max-width:620px){.sport-intake-grid{grid-template-columns:1fr}}

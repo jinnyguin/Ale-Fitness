@@ -262,6 +262,30 @@
     return selected.sort(function (a, b) { return a - b; });
   }
 
+  var SPORT_FOCUS_SUPPORT = {
+    basketball:["snap-down","lateral-step","acceleration","calf-raise"],
+    football:["acceleration","broad-jump","goblet-squat","dumbbell-row"],
+    soccer:["acceleration","lateral-step","split-squat","calf-raise"],
+    baseball:["band-rotation","band-row","acceleration","step-up"],
+    swimming:["dumbbell-row","prone-swimmer","swim-technique","mobility-flow"],
+    track:["acceleration","broad-jump","calf-raise","split-squat"],
+    running:["calf-raise","split-squat","dead-bug","mobility-flow"],
+    "cross-country":["calf-raise","split-squat","dead-bug","mobility-flow"],
+    volleyball:["broad-jump","snap-down","lateral-step","band-row"],
+    tennis:["acceleration","lateral-step","band-rotation","calf-raise"],
+    rugby:["acceleration","broad-jump","goblet-squat","dumbbell-row"],
+    lacrosse:["acceleration","lateral-step","split-squat","calf-raise"],
+    hockey:["acceleration","lateral-step","split-squat","mobility-flow"],
+    golf:["band-rotation","mobility-flow","split-squat","brisk-walk"],
+    cycling:["split-squat","rdl","calf-raise","mobility-flow"],
+    rowing:["dumbbell-row","band-row","rdl","mobility-flow"],
+    "combat-sports":["lateral-step","band-rotation","split-squat","brisk-walk"],
+    strength:["back-squat","bench-press","rdl","dumbbell-row"],
+    hiit:["acceleration","goblet-squat","brisk-walk","mobility-flow"],
+    mobility:["mobility-flow","prone-swimmer","dead-bug","split-squat"],
+    general:["brisk-walk","easy-cycle","mobility-flow","goblet-squat"]
+  };
+
   var SPORT_DETAIL_PRIMARY = {
     basketball:{guard:"acceleration",wing:"snap-down",center:"goblet-squat"},
     football:{
@@ -478,6 +502,12 @@
     return phase;
   }
 
+  function selectedSportFocus(profile) {
+    var choices = SPORT_FOCUS_SUPPORT[profile.sport] || [];
+    var value = String(profile.sportFocus || "");
+    return choices.indexOf(value) > -1 ? value : "";
+  }
+
   function phaseExerciseIds(profile, focus, phase, baseIds) {
     var sport = profile.sport || "general";
     var rotations = {
@@ -589,7 +619,10 @@
       deload:["tempo-squat","glute-bridge","push-up","prone-swimmer","mobility-flow"]
     } : null);
     var rotation = (sportRotation && sportRotation[phase.key]) || defaults[phase.key] || baseIds.slice(1);
-    return [baseIds[0]].concat(rotation).filter(function (id, index, ids) {
+    var selectedFocus = selectedSportFocus(profile);
+    var prioritized = [baseIds[0]];
+    if (selectedFocus && selectedFocus !== baseIds[0]) prioritized.push(selectedFocus);
+    return prioritized.concat(rotation).filter(function (id, index, ids) {
       return ids.indexOf(id) === index;
     });
   }
@@ -597,7 +630,9 @@
   function prescribedSets(focus, profile, week, historyState, phase) {
     var novice = profile.experience === "new" || profile.experience === "not-sure" ||
       profile.consistency === "low" || profile.consistency === "not-sure" ||
-      profile.familiarity === "not-sure" || profile.familiarity === "basic";
+      profile.familiarity === "not-sure" || profile.familiarity === "basic" ||
+      profile.sportExperience === "new-to-sport" ||
+      profile.sportExperience === "less-than-year";
     var sets = focus === "muscle" ? (novice ? 3 : 4) :
       focus === "strength" ? (novice ? 2 : 4) :
       focus === "power" ? (novice ? 2 : 3) : (novice ? 2 : 3);
@@ -725,17 +760,37 @@
     var equipment = normalizeEquipment(profile.equipment);
     var focus = focusFor(profile);
     var workload = parseWorkload(profile.load);
+    var hasSportSessionInput = profile.sportSessionsPerWeek !== "" &&
+      profile.sportSessionsPerWeek !== null && profile.sportSessionsPerWeek !== undefined;
+    var hasSportMinutesInput = profile.sportSessionMinutes !== "" &&
+      profile.sportSessionMinutes !== null && profile.sportSessionMinutes !== undefined;
+    var reportedSportSessions = hasSportSessionInput ?
+      Math.max(0, Math.min(14, Math.floor(numeric(profile.sportSessionsPerWeek, 0)))) : 0;
+    var averageSportMinutes = hasSportMinutesInput ?
+      Math.max(0, Math.min(240, numeric(profile.sportSessionMinutes, 0))) : 0;
+    var scheduledSportSessions = Object.keys(workload).length;
+    var sportSessionCount = Math.max(reportedSportSessions, scheduledSportSessions);
+    var weeklySportMinutes = sportSessionCount * averageSportMinutes;
+    var highSportLoad = weeklySportMinutes >= 300 ||
+      (profile.sportIntensity === "hard" && sportSessionCount >= 3);
+    var sportNovice = profile.sportExperience === "new-to-sport" ||
+      profile.sportExperience === "less-than-year";
     var historyState = recentState(context);
     var requestedDays = Math.max(2, Math.min(4, numeric(profile.days, 3)));
     var impactLimit = profile.limitations || historyState.pain ? "low" :
       profile.age === "under18" || profile.age === "over55" || profile.age === "55plus" ||
-      profile.experience === "new" || profile.experience === "not-sure" ? "medium" : "high";
+      profile.experience === "new" || profile.experience === "not-sure" || sportNovice ?
+        "medium" : "high";
     var conservative = impactLimit !== "high" || profile.consistency === "low" ||
       profile.consistency === "not-sure" || profile.familiarity === "not-sure" ||
-      profile.familiarity === "basic" || historyState.lowRecovery;
+      profile.familiarity === "basic" || sportNovice || historyState.lowRecovery;
     var safeDays = requestedDays;
     if (profile.season === "in-season" || historyState.lowRecovery ||
-        Object.keys(workload).length >= 4) safeDays = Math.min(safeDays, 2);
+        scheduledSportSessions >= 4 || sportSessionCount >= 4 || highSportLoad) {
+      safeDays = Math.min(safeDays, 2);
+    } else if (sportSessionCount >= 2) {
+      safeDays = Math.min(safeDays, 3);
+    }
     if (sport === "running" || sport === "cross-country") {
       var recentRunMinutes = Math.max(0, numeric(profile.weeklyRunVolume, 0));
       if (recentRunMinutes < 10) {
@@ -749,8 +804,12 @@
       numeric(profile.duration, 45) <= 35 ? 3 :
       numeric(profile.duration, 45) <= 55 ? 4 : 5;
     if (sportInSeason) exerciseLimit = Math.min(exerciseLimit, 3);
+    if (highSportLoad || weeklySportMinutes >= 240) {
+      exerciseLimit = Math.min(exerciseLimit, 3);
+    }
     var baseIds = baseExerciseIds(profile, focus);
     var primaryId = baseIds[0];
+    var sportFocusId = selectedSportFocus(profile);
 
     var weeks = [];
     var highConsistencySetAdded = false;
@@ -871,6 +930,34 @@
     var detailChangesPrimary = !!(SPORT_DETAIL_PRIMARY[sport] &&
       SPORT_DETAIL_PRIMARY[sport][selectedDetail]);
     var unknownSport = sport !== "general" && SUPPORTED_SPORTS.indexOf(sport) === -1;
+    var sportFocusEntry = EXERCISES.filter(function (item) {
+      return item.id === sportFocusId;
+    })[0];
+    var sportFocusDecision = !sportFocusId ?
+      "No extra support focus was selected; the sport template supplies rotating support work." :
+      sportFocusId === primaryId ?
+        "Your selected priority already matches the block's stable primary movement." :
+        "Prioritized " + (sportFocusEntry ? sportFocusEntry.name : sportFocusId) +
+          " as a recurring support movement when equipment, impact safety, and session time allow; other support work still rotates.";
+    var sportLoadInput = {
+      schedule:profile.load || "none",
+      sessionsPerWeek:hasSportSessionInput ? reportedSportSessions : null,
+      averageMinutes:hasSportMinutesInput ? averageSportMinutes : null,
+      intensity:profile.sportIntensity || "not provided"
+    };
+    var sportLoadDecision = highSportLoad || sportSessionCount >= 4 ?
+      "Counted " + sportSessionCount +
+        " sport sessions per week and limited ALEFIT work to at most two days and three movements to leave room for recovery." :
+      sportSessionCount >= 2 ?
+        "Counted " + sportSessionCount +
+          " sport sessions per week and capped ALEFIT frequency at three days; exact weekdays are avoided when listed in the schedule." :
+        sportSessionCount === 1 ?
+          "Counted one sport session per week; the requested safe frequency was retained, with listed weekdays kept clear." :
+        scheduledSportSessions ?
+          "Practices and games listed in the weekly schedule count as workload; ALEFIT sessions avoid those days." :
+          profile.sportIntensity ?
+            "Recorded session effort; no weekly sport-session count was available to calculate a volume cap." :
+            "No current sport workload was reported; ALEFIT sessions are spaced across open days.";
     var decisionTrace = {
       sport:{input:sport,demand:sportGuidance ? sportGuidance.demand : null,
         decision:unknownSport ?
@@ -896,6 +983,7 @@
                   "The selected sport detail is included as context; the sport template and chosen goals still govern movement emphasis." :
                   "No role or event detail was selected; the supported sport template and goals set movement emphasis."
       },
+      sportFocus:{input:sportFocusId || "not provided",decision:sportFocusDecision},
       season:{input:profile.season || "not sure",decision:sportInSeason ?
         "Capped ALEFIT work at two days and three movements for in-season maintenance, and held extra progression." :
         profile.season === "in-season" ?
@@ -903,6 +991,11 @@
           "Used the requested safe frequency."},
       experience:{input:profile.experience || "not sure",decision:conservative ?
         "Started with lower volume/impact." : "Used standard starting volume."},
+      sportExperience:{input:profile.sportExperience || "not provided",decision:sportNovice ?
+        "A new sport-specific training history reduced starting sets and impact; progress only while movement quality and recovery stay good." :
+        profile.sportExperience ?
+          "Sport-specific experience was recorded; general training history and recovery still guide loading." :
+          "No sport-specific experience was provided."},
       consistency:{input:profile.consistency || "not sure",decision:
         highConsistencySetAdded ?
           "Added one set to the primary movement where it fit without cutting support work; the deload stays lower." :
@@ -920,9 +1013,7 @@
       schedule:{input:{days:requestedDays,duration:profile.duration || 45},decision:
         "Placed " + trainingDays.length + " sessions and capped each at " +
         numeric(profile.duration, 45) + " minutes with " + exerciseLimit + " or fewer movements."},
-      sportLoad:{input:profile.load || "none",decision:Object.keys(workload).length ?
-        "Practices/games were treated as workload; ALEFIT sessions avoid those days and protect competition-adjacent recovery." :
-        "Training was spaced across otherwise open days."},
+      sportLoad:{input:sportLoadInput,decision:sportLoadDecision},
       age:{input:profile.age || "not sure",decision:impactLimit === "high" ?
         "No age-based impact reduction was required." :
         "Used conservative starting impact and volume."},
@@ -958,9 +1049,7 @@
     var explanations = [
       "Your top goal sets " + focus + " work, including its sets, effort, and rest." +
         (sportGuidance ? " Sport-specific work prioritizes " + sportGuidance.demand + "." : ""),
-      Object.keys(workload).length ?
-        "Existing sport days count as hard workload, so ALEFIT sessions were placed on open days." :
-        "ALEFIT sessions are spaced across open days so recovery remains part of the plan.",
+      decisionTrace.sportLoad.decision,
       profile.limitations ? decisionTrace.limitations.decision :
         historyState.lowRecovery ? decisionTrace.readiness.decision :
           decisionTrace.equipment.decision
@@ -975,7 +1064,9 @@
       focus:focus,
       summary:sportGuidance ?
         "A four-week adaptive block centered on " + sportGuidance.demand +
-          ". The primary movement stays measurable while support work rotates by phase." :
+          (sportFocusId ?
+            ". Your selected support priority stays present when safe; other support work rotates by phase." :
+            ". The primary movement stays measurable while support work rotates by phase.") :
         "A four-week adaptive block: key movements stay measurable while support work, emphasis, and recovery change by phase.",
       profile:profile,
       currentWeek:1,
@@ -989,8 +1080,8 @@
           "Progress only after completed sessions feel appropriate—not merely because a week passed.",
       recovery:historyState.lowRecovery ?
         "Recent readiness is low. Choose rest, easy movement, or gentle mobility on recovery days." :
-        Object.keys(workload).length ?
-          "Your " + Object.keys(workload).length + " sport sessions already count as workload. Adjacent recovery is intentionally easy or complete rest." :
+        sportSessionCount ?
+          "Your " + sportSessionCount + " reported or scheduled sport sessions already count as workload. Adjacent recovery is intentionally easy or complete rest." :
           "Recovery days separate key sessions. Choose complete rest or optional easy movement based on readiness.",
       explanations:explanations,
       decisionTrace:decisionTrace,
@@ -1183,6 +1274,7 @@
 
   var api = {
     exerciseDatabase:EXERCISES,
+    sportFocusSupport:SPORT_FOCUS_SUPPORT,
     generate:generate,
     adaptSession:adaptSession,
     applyFeedback:applyFeedback,

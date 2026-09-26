@@ -231,6 +231,58 @@ const butterflySwimmer = plan({
 assert.equal(butterflySwimmer.decisionTrace.positionOrEvent.input, "butterfly");
 assert(/adjusts conditioning guidance/i.test(butterflySwimmer.decisionTrace.positionOrEvent.decision));
 assert(/For butterfly, keep pool technique work primary/i.test(butterflySwimmer.weeks[0].conditioning));
+assert.equal(Object.keys(engine.sportFocusSupport).length, 21);
+Object.keys(engine.sportFocusSupport).forEach((sport) => {
+  engine.sportFocusSupport[sport].forEach((id) => {
+    assert(
+      engine.exerciseDatabase.some((item) => item.id === id),
+      `${sport} support focus references missing exercise ${id}`
+    );
+  });
+});
+const focusedSoccer = plan({
+  sport:"soccer", sportDetail:"forward", sportFocus:"calf-raise",
+  goals:["speed"], equipment:["field"], days:2, duration:90
+});
+assert.equal(focusedSoccer.first[0].id, "acceleration");
+assert(
+  focusedSoccer.weeks.every((week) => week.sessions.every((session) =>
+    session.exercises.some((item) => item.id === "calf-raise")
+  )),
+  "the selected sport support focus should persist across phases"
+);
+assert.equal(
+  new Set(focusedSoccer.weeks.map((week) => week.sessions[0].exercises[0].id)).size,
+  1,
+  "the sport-selected primary must stay stable across the block"
+);
+const highSportLoad = plan({
+  sport:"soccer", goals:["speed"], equipment:["field"], days:4, duration:90,
+  season:"off-season", sportSessionsPerWeek:5, sportSessionMinutes:60,
+  sportIntensity:"moderate"
+});
+assert.equal(highSportLoad.weeks[0].sessions.length, 2);
+assert(highSportLoad.weeks[0].sessions.every((session) => session.exercises.length <= 3));
+assert(/5 sport sessions per week/.test(highSportLoad.decisionTrace.sportLoad.decision));
+const longModerateLoad = plan({
+  sport:"soccer", goals:["speed"], equipment:["field"], days:4, duration:90,
+  season:"off-season", sportSessionsPerWeek:3, sportSessionMinutes:90,
+  sportIntensity:"moderate"
+});
+assert.equal(longModerateLoad.weeks[0].sessions.length, 3);
+assert(longModerateLoad.weeks[0].sessions.every((session) => session.exercises.length <= 3));
+const newToSport = plan({
+  sport:"strength", goals:["strength"], equipment:["gym"], days:2, duration:90,
+  experience:"advanced", familiarity:"confident", sportExperience:"new-to-sport"
+});
+const experiencedInSport = plan({
+  sport:"strength", goals:["strength"], equipment:["gym"], days:2, duration:90,
+  experience:"advanced", familiarity:"confident", sportExperience:"4-plus-years"
+});
+assert(
+  Number(newToSport.first[0].sets) < Number(experiencedInSport.first[0].sets),
+  "sport-specific beginners should start with fewer sets"
+);
 const trailRunner = plan({
   sport:"running", sportDetail:"trail", goals:["conditioning"], weeklyRunVolume:40,
   longestRun:25, equipment:["bodyweight"], days:2

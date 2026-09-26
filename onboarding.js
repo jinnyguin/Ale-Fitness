@@ -309,7 +309,9 @@
   function sportFields(p) {
     var snapshot = { goals: Array.isArray(p.goals) ? p.goals.slice() : [] };
     ["position", "season", "runDistance", "weeklyRunVolume", "longestRun",
-      "raceDetail", "familiarity", "workingWeights", "activity", "sportDetail"].forEach(function (key) {
+      "raceDetail", "familiarity", "workingWeights", "activity", "sportDetail",
+      "sportFocus", "sportExperience", "sportSessionsPerWeek", "sportSessionMinutes",
+      "sportIntensity"].forEach(function (key) {
       if (p[key] !== undefined) snapshot[key] = p[key];
     });
     return snapshot;
@@ -321,14 +323,18 @@
       captureCurrentInputs();
       state.sportAnswers[p.sport] = sportFields(p);
       ["goals", "position", "season", "runDistance", "weeklyRunVolume",
-        "longestRun", "raceDetail", "familiarity", "workingWeights", "activity", "sportDetail"].forEach(function (key) {
+        "longestRun", "raceDetail", "familiarity", "workingWeights", "activity", "sportDetail",
+        "sportFocus", "sportExperience", "sportSessionsPerWeek", "sportSessionMinutes",
+        "sportIntensity"].forEach(function (key) {
         delete p[key];
       });
       var remembered = state.sportAnswers[value];
       p.goals = remembered && Array.isArray(remembered.goals) ? remembered.goals.slice() : [];
       if (remembered) {
         ["position", "season", "runDistance", "weeklyRunVolume", "longestRun",
-          "raceDetail", "familiarity", "workingWeights", "activity", "sportDetail"].forEach(function (key) {
+          "raceDetail", "familiarity", "workingWeights", "activity", "sportDetail",
+          "sportFocus", "sportExperience", "sportSessionsPerWeek", "sportSessionMinutes",
+          "sportIntensity"].forEach(function (key) {
           if (remembered[key] !== undefined) p[key] = remembered[key];
         });
       }
@@ -389,6 +395,34 @@
         fields += '<div class="field"><label for="season">Season status</label><select id="season">' +
           '<option value="not-sure">Not sure</option><option value="off-season">Off-season</option>' +
           '<option value="preseason">Preseason</option><option value="in-season">In-season</option></select></div>';
+      }
+      var supportField = sportFocusFields[p.sport];
+      if (supportField) {
+        fields += '<h3>Training profile</h3><div class="sport-intake-grid">' +
+          '<div class="field"><label for="sport-focus">' + esc(supportField.label) +
+          ' <span>(optional)</span></label><select id="sport-focus"><option value="">Choose if known</option>' +
+          supportField.options.map(function (option) {
+            return '<option value="' + esc(option[0]) + '">' + esc(option[1]) + "</option>";
+          }).join("") + '</select></div>' +
+          '<div class="field"><label for="sport-experience">Experience in this sport <span>(optional)</span></label>' +
+          '<select id="sport-experience"><option value="">Choose if known</option>' +
+          sportExperienceOptions.map(function (option) {
+            return '<option value="' + esc(option[0]) + '">' + esc(option[1]) + "</option>";
+          }).join("") + "</select></div></div>" +
+          '<h3>Current weekly sport load</h3>' +
+          '<p class="sport-load-note">Count practices, games, rides, pool sessions, or other work in this focus. Add exact weekdays in the weekly schedule later.</p>' +
+          '<div class="sport-intake-grid">' +
+          '<div class="field"><label for="sport-sessions">Sport sessions per week <span>(optional)</span></label>' +
+          '<input id="sport-sessions" type="number" min="0" max="14" step="1" inputmode="numeric" placeholder="e.g. 3" value="' +
+          esc(p.sportSessionsPerWeek == null ? "" : p.sportSessionsPerWeek) + '"></div>' +
+          '<div class="field"><label for="sport-session-minutes">Average minutes per session <span>(optional)</span></label>' +
+          '<input id="sport-session-minutes" type="number" min="0" max="240" step="5" inputmode="numeric" placeholder="e.g. 60" value="' +
+          esc(p.sportSessionMinutes == null ? "" : p.sportSessionMinutes) + '"></div>' +
+          '<div class="field"><label for="sport-intensity">Typical session effort <span>(optional)</span></label>' +
+          '<select id="sport-intensity"><option value="">Choose if known</option>' +
+          sportIntensityOptions.map(function (option) {
+            return '<option value="' + esc(option[0]) + '">' + esc(option[1]) + "</option>";
+          }).join("") + "</select></div></div>";
       }
       html += '<div class="sport-followups" id="sport-followups" aria-live="polite">' +
         '<h2>Details for ' + esc(selected[1]) + '</h2>' +
@@ -468,14 +502,21 @@
     if (age) age.value = p.age || "";
     var limitations = document.getElementById("limitations");
     if (limitations) limitations.value = p.limitations || "";
-    ["position", "sport-detail", "activity", "run-distance", "season", "consistency", "familiarity"].forEach(function (id) {
+    ["position", "sport-detail", "activity", "run-distance", "season", "consistency",
+      "familiarity", "sport-focus", "sport-experience", "sport-intensity"].forEach(function (id) {
       var input = document.getElementById(id);
       if (!input) return;
       var key = {
         "sport-detail":"sportDetail",
-        "run-distance":"runDistance"
+        "run-distance":"runDistance",
+        "sport-focus":"sportFocus",
+        "sport-experience":"sportExperience",
+        "sport-intensity":"sportIntensity"
       }[id] || id;
-      input.value = p[key] || (id === "sport-detail" ? "" : "not-sure");
+      input.value = p[key] || (
+        ["sport-detail", "sport-focus", "sport-experience", "sport-intensity"].indexOf(id) > -1 ?
+          "" : "not-sure"
+      );
     });
     bind();
   }
@@ -556,6 +597,37 @@
     if (p.sport === "general" && p.activity && p.activity !== "not-sure" &&
         trace.preferredActivity) {
       reasons.push({ label:"Preferred activity", text:trace.preferredActivity.decision });
+    }
+    var supportField = sportFocusFields[p.sport];
+    if (supportField && p.sportFocus && trace.sportFocus) {
+      var openingExercises = plan.weeks && plan.weeks[0] && plan.weeks[0].sessions[0] ?
+        plan.weeks[0].sessions[0].exercises : (plan.first || []);
+      var focusMovement = openingExercises.filter(function (item) {
+        return item.id === p.sportFocus;
+      })[0];
+      var placement = focusMovement ?
+        (openingExercises[0] && openingExercises[0].id === focusMovement.id ?
+          " It leads the opening session as the primary movement." :
+          " The opening session includes " + focusMovement.name + " as targeted support.") :
+        " Equipment, impact, and session-time limits may substitute or omit it in an individual session.";
+      reasons.push({
+        label:"Training support focus",
+        text:listLabel(supportField.options, p.sportFocus, p.sportFocus) + ". " +
+          trace.sportFocus.decision + placement
+      });
+    }
+    if (p.sportExperience && trace.sportExperience) {
+      reasons.push({
+        label:"Experience in this sport",
+        text:trace.sportExperience.decision
+      });
+    }
+    var hasStructuredSportLoad = p.sportSessionsPerWeek !== "" &&
+        p.sportSessionsPerWeek != null ||
+      p.sportSessionMinutes !== "" && p.sportSessionMinutes != null ||
+      !!p.sportIntensity;
+    if (hasStructuredSportLoad && trace.sportLoad) {
+      reasons.push({ label:"Current sport load", text:trace.sportLoad.decision });
     }
 
     var exerciseDatabase = window.ALEFITTrainingEngine.exerciseDatabase || [];
@@ -696,6 +768,34 @@
         0
       ]);
     }
+    var supportField = sportFocusFields[p.sport];
+    if (supportField && p.sportFocus) {
+      labels.splice(1, 0, [
+        "Training support focus",
+        listLabel(supportField.options, p.sportFocus, p.sportFocus),
+        0
+      ]);
+    }
+    if (p.sportExperience) {
+      labels.splice(1, 0, [
+        "Experience in this sport",
+        listLabel(sportExperienceOptions, p.sportExperience, p.sportExperience),
+        0
+      ]);
+    }
+    var sportLoadSummary = [];
+    if (p.sportSessionsPerWeek !== "" && p.sportSessionsPerWeek != null) {
+      sportLoadSummary.push(p.sportSessionsPerWeek + " sessions per week");
+    }
+    if (p.sportSessionMinutes !== "" && p.sportSessionMinutes != null) {
+      sportLoadSummary.push(p.sportSessionMinutes + " min per session");
+    }
+    if (p.sportIntensity) {
+      sportLoadSummary.push(listLabel(sportIntensityOptions, p.sportIntensity, p.sportIntensity));
+    }
+    if (sportLoadSummary.length) {
+      labels.splice(1, 0, ["Current sport load", sportLoadSummary.join(" · "), 0]);
+    }
     var reasons = personalizationReasons(state.plan, p);
     var firstSession = state.plan.weeks && state.plan.weeks[0] && state.plan.weeks[0].sessions[0];
     var exercises = firstSession ? firstSession.exercises : (state.plan.first || []);
@@ -833,7 +933,8 @@
     var p = state.prefs;
     if (state.step === 0) {
       ["position", "sport-detail", "activity", "season", "run-distance",
-        "run-volume", "longest-run", "race-detail"].forEach(function (id) {
+        "run-volume", "longest-run", "race-detail", "sport-focus", "sport-experience",
+        "sport-sessions", "sport-session-minutes", "sport-intensity"].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         var key = {
@@ -841,9 +942,15 @@
           "run-distance":"runDistance",
           "run-volume":"weeklyRunVolume",
           "longest-run":"longestRun",
-          "race-detail":"raceDetail"
+          "race-detail":"raceDetail",
+          "sport-focus":"sportFocus",
+          "sport-experience":"sportExperience",
+          "sport-sessions":"sportSessionsPerWeek",
+          "sport-session-minutes":"sportSessionMinutes",
+          "sport-intensity":"sportIntensity"
         }[id] || id;
-        p[key] = el.type === "number" ? Number(el.value || 0) : el.value.trim();
+        p[key] = el.type === "number" ?
+          (el.value.trim() === "" ? "" : Number(el.value)) : el.value.trim();
       });
     }
     if (state.step === 2) {
