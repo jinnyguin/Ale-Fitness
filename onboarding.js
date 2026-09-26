@@ -456,12 +456,14 @@
       heading.setAttribute("tabindex", "-1");
       heading.focus({ preventScroll: true });
     }
-    var progressWrap = document.querySelector(".progress-wrap");
-    if (progressWrap) progressWrap.scrollIntoView({ block: "start", behavior: "smooth" });
+    var scrollTarget = root.querySelector(".up-title") || document.querySelector(".progress-wrap");
+    if (scrollTarget) scrollTarget.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   function render() {
     persist();
+    var shell = document.querySelector(".shell");
+    if (shell) shell.classList.toggle("program-review-mode", state.step === 6);
     var progressPercent = Math.round((Math.min(state.step, 6) + 1) / 7 * 100);
     progress.style.width = progressPercent + "%";
     var progressWrap = document.querySelector(".progress-wrap");
@@ -815,61 +817,107 @@
       labels.splice(1, 0, ["Current sport load", sportLoadSummary.join(" · "), 0]);
     }
     var reasons = personalizationReasons(state.plan, p);
-    var firstSession = state.plan.weeks && state.plan.weeks[0] && state.plan.weeks[0].sessions[0];
-    var exercises = firstSession ? firstSession.exercises : (state.plan.first || []);
-    var schedule = state.plan.schedule || [];
     var weeks = state.plan.weeks || [];
-    return '<section class="preview" aria-labelledby="preview-title"><span class="eyebrow">Plan review <b class="step-count">PREVIEW</b></span>' +
-      '<h1 id="preview-title" tabindex="-1">Your opening block.</h1>' +
-      '<p class="sub">Review the plan and the reasons behind it. Edit any answer before creating your account.</p>' +
-      '<div class="plan-banner"><div><span class="eyebrow">Your 4-week start</span><h2>' +
-      esc(state.plan.name) + "</h2><p>" + esc(state.plan.summary) + '</p></div><div class="plan-banner-meta">' +
-      '<span>' + esc(focusLabel(state.plan.focus)) + '</span><span>' +
-      esc(String(firstSession ? firstSession.exercises.length : 0) + " movements in session one") +
-      '</span></div></div>' +
-      '<section class="personalization-card" aria-labelledby="personalization-title"><div class="section-heading">' +
-      '<span class="eyebrow">How your answers shape this plan</span><h2 id="personalization-title">Why this plan fits</h2></div>' +
-      '<div class="reason-grid">' + reasons.map(function (item) {
-        return '<article class="reason-item"><span>' + esc(item.label) + '</span><p>' + esc(item.text) + '</p></article>';
-      }).join("") + '</div></section>' +
-      '<section class="answer-review" aria-labelledby="answer-review-title"><div class="section-heading">' +
-      '<span class="eyebrow">Your inputs</span><h2 id="answer-review-title">Check your answers</h2></div><div class="answer-summary">' +
-      labels.map(function (item) {
-        return '<div class="summary-row"><div><span class="eyebrow">' + esc(item[0]) + '</span><b>' +
-          esc(item[1] || "Not set") + '</b></div><button type="button" class="text-btn edit-answer" data-step="' +
-          item[2] + '" aria-label="Edit ' + esc(item[0]) + ' answers">Edit</button></div>';
-      }).join("") + '</div></section>' +
-      '<div class="plan-grid"><article class="plan-card"><span class="eyebrow">First session · Week 1</span>' +
-      '<h3>' + esc(firstSession ? firstSession.name : "Opening session") + '</h3><p class="session-time">' +
-      (firstSession ? esc(String(firstSession.estimatedMinutes || firstSession.minutes) + " minute estimate") : "") + '</p>' +
-      exercises.map(function (item, index) {
-        var prescription = [];
-        if (item.sets) prescription.push(item.sets + " sets");
-        if (item.reps) prescription.push(item.reps);
-        if (item.rest) prescription.push(item.rest + " rest");
-        var effort = effortLabel(item.effort);
-        if (effort) prescription.push(effort);
-        return '<div class="exercise"><span class="exercise-index">0' + (index + 1) + '</span><div><b>' +
-          esc(item.name || item[0]) + '</b><small>' + esc(prescription.join(" · ")) + '</small></div></div>';
-      }).join("") + '</article><article class="plan-card"><span class="eyebrow">Seven-day rhythm</span>' +
-      '<h3>Training around your week</h3><div class="schedule">' +
-      schedule.map(function (item) {
-        var type = item.type === "training" ? "ALEFIT" :
-          item.type === "sport" ? "SPORT" : "RECOVERY";
-        return '<div class="session session-' + esc(item.type || "recovery") + '"><span class="session-day">' +
-          esc(item.day) + '</span><div><small>' + type + '</small><b>' +
-          esc(item.title || item.workout || "Rest") + '</b></div></div>';
-      }).join("") + '</div></article></div>' +
-      '<section class="progression-card"><div class="section-heading"><span class="eyebrow">What happens next</span>' +
-      '<h2>Four-week progression</h2></div><div class="week-steps">' +
-      weeks.slice(0, 4).map(function (week) {
-        return '<article class="week-step"><span>Week ' + esc(week.week) + '</span><b>' +
-          esc(week.phaseLabel || week.label || "Training") + '</b><p>' +
-          esc(week.emphasis || week.progression || "") + '</p></article>';
-      }).join("") + '</div><p class="recovery-note"><b>Recovery:</b> ' +
-      esc(state.plan.recovery || "Rest and lower-intensity days are included in the weekly rhythm.") + '</p></section>' +
-      '<div class="footer"><button type="button" class="button secondary" id="back">Back</button>' +
-      '<button type="button" class="button" id="next">Create account &amp; save</button></div></section>';
+    var firstWeek = weeks[0];
+    var firstSession = firstWeek && (firstWeek.sessions || [])[0];
+    var exercises = firstSession ? firstSession.exercises || [] : state.plan.first || [];
+    var schedule = state.plan.schedule || [];
+    var focus = focusLabel(state.plan.focus);
+    var sportName = listLabel(sports, p.sport, p.sport || "your training");
+    var goalLed = ["general", "strength", "hiit", "mobility"].indexOf(p.sport) !== -1;
+    var introTitle = goalLed ? "Built around<br/>your goals." : "Built around<br/>your sport.";
+    var asideTitle = goalLed ? "Built around your routine" : "Built for " + sportName;
+    var asideCopy = reasons.length ? reasons[0].text : state.plan.summary;
+    var firstSessionMinutes = firstSession && (firstSession.estimatedMinutes || firstSession.minutes);
+    var movementCount = String(exercises.length).padStart(2, "0");
+
+    var reasonMarkup = reasons.map(function (item, index) {
+      return '<article class="up-reason"><div class="up-reason-top"><span class="up-reason-index">0' +
+        (index + 1) + '</span><span class="up-reason-label">' + esc(item.label) +
+        '</span></div><p>' + esc(item.text) + '</p></article>';
+    }).join("");
+
+    var answerMarkup = labels.map(function (item) {
+      return '<div class="up-answer"><div class="up-answer-main"><span class="up-answer-label">' +
+        esc(item[0]) + '</span><b class="up-answer-value">' + esc(item[1] || "Not set") +
+        '</b></div><button type="button" class="up-edit edit-answer" data-step="' +
+        esc(item[2]) + '" aria-label="Edit ' + esc(item[0]) + ' answers">Edit</button></div>';
+    }).join("");
+
+    var exerciseMarkup = exercises.map(function (item, index) {
+      var prescription = [];
+      if (item.sets) prescription.push(item.sets + " sets");
+      if (item.reps) prescription.push(item.reps);
+      if (item.rest) prescription.push(item.rest + " rest");
+      var effort = effortLabel(item.effort);
+      if (effort) prescription.push(effort);
+      return '<div class="up-exercise"><span class="up-exercise-index">' +
+        String(index + 1).padStart(2, "0") + '</span><div><b class="up-exercise-name">' +
+        esc(item.name || item[0]) + '</b><small class="up-prescription">' +
+        esc(prescription.join(" · ")) + '</small></div></div>';
+    }).join("");
+
+    var scheduleMarkup = schedule.map(function (item) {
+      var category = item.type === "training" ? "training" :
+        item.type === "sport" ? "sport" : "recovery";
+      var typeLabel = category === "training" ? "ALEFIT" :
+        category === "sport" ? "SPORT" : "RECOVERY";
+      var title = item.title || item.workout || (category === "recovery" ? "Rest" : "Training");
+      return '<div class="up-session up-session-' + category + '"><span class="up-day">' +
+        esc(item.day) + '</span><span class="up-session-type">' + typeLabel +
+        '</span><b class="up-session-title">' + esc(title) + '</b></div>';
+    }).join("");
+
+    var weekMarkup = weeks.slice(0, 4).map(function (week) {
+      return '<article class="up-week"><span class="up-week-dot" aria-hidden="true"></span>' +
+        '<span class="up-week-label">Week ' + esc(week.week) + '</span><b>' +
+        esc(week.phaseLabel || week.label || "Training") + '</b><p>' +
+        esc(week.emphasis || week.progression || "") + '</p></article>';
+    }).join("");
+
+    return '<div class="updated-plan"><div class="up-frame">' +
+      '<header class="up-topbar"><a class="up-brand" href="/landing.html" aria-label="ALEFIT home">' +
+      '<img src="/images/alefit-logo.png" alt="ALEFIT"></a><div class="up-top-meta">' +
+      '<span class="up-review-state">Plan ready</span><a class="up-sign-in" href="/Login.html?from_url=%2FRegister.html">Sign in</a>' +
+      '</div></header><div class="up-progress" role="progressbar" aria-label="Plan builder progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span></span></div>' +
+      '<div class="up-progress-caption"><strong>Plan review</strong><span>6 questions · preview before account</span></div>' +
+      '<div class="up-content"><section class="up-intro" aria-labelledby="preview-title"><div>' +
+      '<div class="up-kicker">Your plan <span>/</span> Coach’s read</div>' +
+      '<h1 class="up-title" id="preview-title" tabindex="-1">' + introTitle + '</h1>' +
+      '<p class="up-intro-copy">Your opening block is ready. See what shaped it, check the week at a glance, and adjust any answer before you save.</p>' +
+      '</div><aside class="up-intro-aside"><strong>' + esc(asideTitle) + '</strong><p>' +
+      esc(asideCopy) + '</p></aside></section>' +
+      '<section class="up-plan-banner" aria-label="Your four-week plan"><div><span class="up-label">Your 4-week start</span>' +
+      '<h2 class="up-plan-name">' + esc(state.plan.name) + '</h2><p class="up-plan-summary">' +
+      esc(state.plan.summary) + '</p></div><div class="up-plan-facts"><span class="up-plan-fact"><b>' +
+      esc(focus) + '</b> focus</span><span class="up-plan-fact"><b>' + movementCount +
+      '</b> movements in session one</span></div></section>' +
+      '<section class="up-section up-fit" aria-labelledby="fit-title"><div class="up-fit-intro"><div>' +
+      '<span class="up-label">How your answers shape this plan</span><h2 class="up-section-heading" id="fit-title">Why this<br/>plan fits</h2>' +
+      '<p>This block responds to your sport, the work you already do, and the week you need to keep.</p></div>' +
+      '<div class="up-fit-mark"><i aria-hidden="true"></i> Individual, not off the shelf</div></div>' +
+      '<div class="up-reasons">' + reasonMarkup + '</div></section>' +
+      '<section class="up-section" aria-labelledby="answer-review-title"><div class="up-section-head"><div>' +
+      '<span class="up-label">Your inputs</span><h2 class="up-section-heading" id="answer-review-title">Check your answers</h2></div>' +
+      '<span class="up-section-aside">Change anything before you save</span></div>' +
+      '<div class="up-answers">' + answerMarkup + '</div></section>' +
+      '<section class="up-plan-grid" aria-label="Your first week"><article class="up-detail-card"><div class="up-card-heading"><div>' +
+      '<span class="up-label">First session · Week 1</span><h3>' +
+      esc(firstSession ? firstSession.name : "Opening session") + '</h3></div>' +
+      (firstSessionMinutes ? '<span class="up-time">' + esc(firstSessionMinutes) + ' min estimate</span>' : '') +
+      '</div><div>' + (exerciseMarkup || '<p class="up-empty">No movements are available in the first session yet.</p>') +
+      '</div></article><article class="up-detail-card"><div class="up-card-heading"><div>' +
+      '<span class="up-label">Seven-day rhythm</span><h3>Training around your week</h3></div></div>' +
+      '<div class="up-session-list">' + (scheduleMarkup || '<p class="up-empty">Your weekly rhythm will appear here.</p>') +
+      '</div></article></section>' +
+      '<section class="up-progression" aria-labelledby="progression-title"><div class="up-section-head"><div>' +
+      '<span class="up-label">What happens next</span><h2 class="up-section-heading" id="progression-title">Four-week progression</h2></div>' +
+      '<span class="up-section-aside">A clear build, then room to reset</span></div><div class="up-week-track">' +
+      weekMarkup + '</div><div class="up-recovery"><span class="up-recovery-label">Recovery guidance</span><p>' +
+      esc(state.plan.recovery || "Rest and lower-intensity days are included in the weekly rhythm.") +
+      '</p></div></section><footer class="up-footer"><button class="up-button up-button-secondary" id="back" type="button">Back</button>' +
+      '<span class="up-footer-note">You can still change your answers.</span>' +
+      '<button class="up-button up-button-primary" id="next" type="button">Create account &amp; save</button></footer></div></div></div>';
   }
 
   function bind() {
@@ -1009,6 +1057,8 @@
     focusHeading();
   }
   function showAccount() {
+    var shell = document.querySelector(".shell");
+    if (shell) shell.classList.remove("program-review-mode");
     root.innerHTML = '<section class="account"><span class="eyebrow">Account</span><h1>Save my plan and start today.</h1><p class="sub">Your reviewed plan is ready. Create an account to keep it and access your personalized training experience.</p>' +
       '<button type="button" class="button account-google" id="google-signup">' +
       '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.9 6.1-15Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.2A20.4 20.4 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.6a12.3 12.3 0 0 1 0-7.2v-5.2H5.8a20.1 20.1 0 0 0 0 17.6l6.8-5.2Z"/><path fill="#EA4335" d="M24 12c3 0 5.6 1 7.7 3.1l5.8-5.8C34 5.9 29.4 4 24 4A20.4 20.4 0 0 0 5.8 15.2l6.8 5.2C14.2 15.6 18.7 12 24 12Z"/></svg>' +
