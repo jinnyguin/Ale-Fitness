@@ -9,6 +9,9 @@
 .picker-instruction{margin:18px 0 0;font-size:.9rem}
 .sport-picker[hidden]{display:none!important}
 .sport-picker .answers{margin-top:14px}
+.sport-search-field{margin-top:20px}
+.sport-search-empty{margin:14px 0 0;padding:12px 14px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:.9rem}
+.sport-search-empty[hidden]{display:none}
 .selected-sport{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:24px;padding:16px;background:rgba(212,255,0,.06);border:1px solid rgba(212,255,0,.28)}
 .selected-sport strong{display:block;margin:7px 0 3px;font-size:1.25rem}
 .selected-sport small{display:block;color:var(--muted);line-height:1.4}

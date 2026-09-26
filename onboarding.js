@@ -175,10 +175,15 @@
         (pickerVisible ? "true" : "false") + '" aria-controls="sport-list">' +
         (pickerVisible ? "Keep this sport" : "Change sport") + "</button></div>";
     } else {
-      html += '<p class="picker-instruction">Choose one sport or training focus. All 21 options are available.</p>';
+      html += '<p class="picker-instruction">Choose one sport or training focus. Search the 21 options below.</p>';
     }
     html += '<div class="sport-picker' + (pickerVisible ? "" : " is-collapsed") +
-      '" id="sport-list" aria-label="Available sports"' + (pickerVisible ? "" : " hidden") + '><div class="answers">' +
+      '" id="sport-list" aria-label="Available sports"' + (pickerVisible ? "" : " hidden") +
+      '><div class="field sport-search-field"><label for="sport-search">Search sports or training focus</label>' +
+      '<input id="sport-search" type="search" autocomplete="off" placeholder="e.g. soccer, tennis, swimming" ' +
+      'aria-controls="sport-options"></div>' +
+      '<p class="sport-search-empty" id="sport-search-empty" role="status" hidden>No matches. Try another search.</p>' +
+      '<div class="answers" id="sport-options">' +
       sports.map(function (item) {
         return tile(item[0], item[1], item[2], p.sport === item[0]);
       }).join("") + "</div></div>";
@@ -558,6 +563,19 @@
   }
 
   function bind() {
+    var sportSearch = document.getElementById("sport-search");
+    if (sportSearch) sportSearch.oninput = function () {
+      var query = sportSearch.value.trim().toLowerCase();
+      var options = root.querySelectorAll("#sport-options .tile");
+      var visibleCount = 0;
+      options.forEach(function (option) {
+        var matches = option.textContent.toLowerCase().indexOf(query) !== -1;
+        option.hidden = !matches;
+        if (matches) visibleCount += 1;
+      });
+      var emptyState = document.getElementById("sport-search-empty");
+      if (emptyState) emptyState.hidden = visibleCount > 0;
+    };
     root.querySelectorAll(".tile").forEach(function (button) {
       button.onclick = function () {
         var value = button.dataset.value;
