@@ -262,6 +262,57 @@
     return selected.sort(function (a, b) { return a - b; });
   }
 
+  var SPORT_DETAIL_PRIMARY = {
+    basketball:{guard:"acceleration",wing:"snap-down",center:"goblet-squat"},
+    football:{
+      quarterback:"band-rotation","running-back":"acceleration","wide-receiver":"acceleration",
+      "tight-end":"split-squat","offensive-line":"goblet-squat","defensive-line":"goblet-squat",
+      linebacker:"broad-jump","defensive-back":"lateral-step"
+    },
+    soccer:{
+      goalkeeper:"snap-down",defender:"goblet-squat",midfielder:"lateral-step",forward:"acceleration"
+    },
+    baseball:{
+      pitcher:"band-rotation",catcher:"step-up",infield:"lateral-step",outfield:"acceleration"
+    },
+    track:{
+      "sprint-hurdles":"acceleration","middle-distance":"split-squat",distance:"calf-raise",
+      jumps:"broad-jump",throws:"band-rotation"
+    },
+    volleyball:{
+      setter:"lateral-step",outside:"snap-down",opposite:"broad-jump",middle:"broad-jump",libero:"lateral-step"
+    },
+    tennis:{singles:"lateral-step",doubles:"acceleration","all-court":"band-rotation"},
+    rugby:{forward:"goblet-squat",back:"acceleration"},
+    lacrosse:{
+      attack:"acceleration",midfield:"lateral-step",defense:"split-squat",goalie:"lateral-step"
+    },
+    hockey:{forward:"acceleration",defense:"split-squat",goalie:"lateral-step"},
+    golf:{
+      "swing-power":"band-rotation",mobility:"mobility-flow","walking-endurance":"brisk-walk"
+    },
+    cycling:{
+      road:"easy-cycle",gravel:"easy-cycle","mountain-bike":"lateral-step","track-sprint":"acceleration"
+    },
+    rowing:{
+      sweep:"dumbbell-row",sculling:"band-rotation","indoor-erg":"easy-row",distance:"easy-row"
+    },
+    "combat-sports":{
+      boxing:"lateral-step",kickboxing:"acceleration",grappling:"split-squat","mixed-martial-arts":"snap-down"
+    },
+    strength:{
+      powerlifting:"back-squat",bodybuilding:"bench-press","general-strength":"goblet-squat"
+    },
+    hiit:{
+      "cardio-intervals":"acceleration","strength-circuits":"goblet-squat",
+      "mixed-conditioning":"brisk-walk","low-impact":"mobility-flow"
+    },
+    mobility:{
+      "hips-ankles":"mobility-flow","shoulders-thoracic":"prone-swimmer",
+      "full-body-control":"dead-bug"
+    }
+  };
+
   function baseExerciseIds(profile, focus) {
     var sport = profile.sport || "general";
     var role = String(profile.position || "").toLowerCase();
@@ -317,6 +368,10 @@
     }
     if (sport === "general" && /cycle|bike/.test(activity)) ids[3] = "easy-cycle";
     if (sport === "general" && /walk/.test(activity)) ids[3] = "brisk-walk";
+    var detail = sport === "basketball" ? role :
+      String(profile.sportDetail || "").toLowerCase();
+    var detailPrimary = SPORT_DETAIL_PRIMARY[sport] && SPORT_DETAIL_PRIMARY[sport][detail];
+    if (detailPrimary) ids[0] = detailPrimary;
     var secondarySupport = {
       mobility:"mobility-flow", movement:"mobility-flow", conditioning:"brisk-walk",
       fitness:"brisk-walk", durability:"calf-raise", speed:"acceleration",
@@ -333,7 +388,7 @@
     return ids;
   }
 
-  function phaseFor(focus, week, sport, season) {
+  function phaseFor(focus, week, sport, season, profile) {
     var phase;
     if (week === 1) {
       phase = {
@@ -396,6 +451,30 @@
         phase.recovery = "Keep competition-adjacent days easy and account for total sport and gym workload.";
       }
     }
+    var detail = String(profile && profile.sportDetail || "").toLowerCase();
+    var terrainCues = sport === "running" ? {
+      road:"On roads, adjust pace to conditions and keep easy runs conversational.",
+      track:"On the track, keep faster work controlled and compare pace on the same surface.",
+      trail:"On trails, judge effort rather than pace and choose controlled footing.",
+      treadmill:"On a treadmill, keep effort conversational and use a comfortable pace.",
+      mixed:"Adjust pace to the surface and keep easy running conversational."
+    } : sport === "cross-country" ? {
+      "rolling-trails":"On rolling trails, keep effort steady as the grades change.",
+      "hilly-trails":"On hills, control effort on climbs and avoid racing the descents.",
+      "grass-fields":"On grass and fields, prioritize stable footing over target pace.",
+      "mixed-course":"Adjust effort to course conditions instead of forcing a flat-course pace."
+    } : null;
+    var swimCues = {
+      "freestyle-sprint":"For freestyle sprint events, keep pool quality work brief, fast, and technically crisp.",
+      "freestyle-distance":"For distance freestyle, prioritize relaxed aerobic pool work over extra hard intervals.",
+      backstroke:"For backstroke, keep pool technique work primary and gym support controlled.",
+      breaststroke:"For breaststroke, keep pool technique work primary and gym support controlled.",
+      butterfly:"For butterfly, keep pool technique work primary and gym support controlled.",
+      "individual-medley":"For individual medley, keep stroke-specific pool work primary and gym support controlled."
+    };
+    var detailCue = terrainCues && terrainCues[detail] ||
+      (sport === "swimming" && swimCues[detail]);
+    if (detailCue) phase.conditioning += " " + detailCue;
     return phase;
   }
 
@@ -676,7 +755,7 @@
     var weeks = [];
     var highConsistencySetAdded = false;
     for (var week = 1; week <= 4; week += 1) {
-      var phase = phaseFor(focus, week, sport, profile.season);
+      var phase = phaseFor(focus, week, sport, profile.season, profile);
       var phaseExercises = [];
       phaseExerciseIds(profile, focus, phase, baseIds).forEach(function (id) {
         var selected = chooseExercise(id, equipment, impactLimit);
@@ -786,6 +865,11 @@
     var role = String(profile.position || "").toLowerCase();
     var recognizedRole = sport === "basketball" &&
       (/guard|point|center|forward|wing/.test(role));
+    var selectedDetail = sport === "basketball" ? role :
+      String(profile.sportDetail || "").toLowerCase();
+    var hasSelectedDetail = !!selectedDetail && selectedDetail !== "not-sure";
+    var detailChangesPrimary = !!(SPORT_DETAIL_PRIMARY[sport] &&
+      SPORT_DETAIL_PRIMARY[sport][selectedDetail]);
     var unknownSport = sport !== "general" && SUPPORTED_SPORTS.indexOf(sport) === -1;
     var decisionTrace = {
       sport:{input:sport,demand:sportGuidance ? sportGuidance.demand : null,
@@ -797,9 +881,21 @@
             "Selected the supported " + sport + " training template."},
       goals:{input:profile.goals || [],decision:"The first goal set " + focus +
         " prescriptions; later goals changed support exercise selection."},
-      positionOrEvent:{input:profile.position || "not provided",decision:recognizedRole ?
-        "Recognized basketball role changed the drill and strength emphasis." :
-        "Unknown or optional role used the general template without guessing."},
+      positionOrEvent:{
+        input:hasSelectedDetail ? selectedDetail : "not provided",
+        changedPrimary:detailChangesPrimary,
+        decision:recognizedRole ?
+          "Recognized basketball role changed the drill and strength emphasis." :
+          detailChangesPrimary ?
+            "The selected sport role or training detail sets the block's stable primary movement, subject to equipment and impact-safe alternatives." :
+            hasSelectedDetail && (sport === "running" || sport === "cross-country") ?
+              "Terrain selection adjusts conditioning guidance; target distance, weekly volume, and longest comfortable run still govern run progression." :
+              hasSelectedDetail && sport === "swimming" ?
+                "The selected stroke or event adjusts conditioning guidance; technique work stays primary while chosen goals shape strength support." :
+                hasSelectedDetail ?
+                  "The selected sport detail is included as context; the sport template and chosen goals still govern movement emphasis." :
+                  "No role or event detail was selected; the supported sport template and goals set movement emphasis."
+      },
       season:{input:profile.season || "not sure",decision:sportInSeason ?
         "Capped ALEFIT work at two days and three movements for in-season maintenance, and held extra progression." :
         profile.season === "in-season" ?
@@ -845,7 +941,7 @@
           "Movement familiarity adjusted conservatism; optional working weights are carried as starting references, never max tests." :
           "Not applicable to this training focus."},
       preferredActivity:{input:profile.activity || "not provided",decision:
-        sport === "general" && profile.activity ?
+        sport === "general" && profile.activity && profile.activity !== "not-sure" ?
           "Preferred walking, cycling, or mobility changed conditioning/support selection." :
           "No activity preference changed the template."},
       history:{input:historyState.logs.length,decision:historyState.tooHard >= 2 ?

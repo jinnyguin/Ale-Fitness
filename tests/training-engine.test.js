@@ -214,6 +214,28 @@ assert.notDeepEqual(
   firstIds(plan({sport:"basketball", position:"guard", goals:["power"], equipment:["field", "gym"]})),
   firstIds(plan({sport:"basketball", position:"center", goals:["power"], equipment:["field", "gym"]}))
 );
+const soccerForward = plan({
+  sport:"soccer", sportDetail:"forward", goals:["speed"], equipment:["field"], days:2
+});
+const soccerGoalkeeper = plan({
+  sport:"soccer", sportDetail:"goalkeeper", goals:["agility"], equipment:["bodyweight"], days:2
+});
+assert.equal(soccerForward.first[0].id, "acceleration");
+assert.equal(soccerGoalkeeper.first[0].id, "snap-down");
+assert(soccerForward.decisionTrace.positionOrEvent.changedPrimary);
+assert.equal(soccerForward.decisionTrace.positionOrEvent.input, "forward");
+assert.equal(new Set(soccerForward.weeks.map((week) => week.sessions[0].exercises[0].id)).size, 1);
+const butterflySwimmer = plan({
+  sport:"swimming", sportDetail:"butterfly", goals:["mobility"], equipment:["bodyweight"]
+});
+assert.equal(butterflySwimmer.decisionTrace.positionOrEvent.input, "butterfly");
+assert(/adjusts conditioning guidance/i.test(butterflySwimmer.decisionTrace.positionOrEvent.decision));
+assert(/For butterfly, keep pool technique work primary/i.test(butterflySwimmer.weeks[0].conditioning));
+const trailRunner = plan({
+  sport:"running", sportDetail:"trail", goals:["conditioning"], weeklyRunVolume:40,
+  longestRun:25, equipment:["bodyweight"], days:2
+});
+assert(/On trails, judge effort rather than pace/i.test(trailRunner.weeks[0].conditioning));
 assert(
   plan({sport:"basketball", season:"in-season", days:4}).weeks[0].sessions.length <
   plan({sport:"basketball", season:"off-season", days:4}).weeks[0].sessions.length

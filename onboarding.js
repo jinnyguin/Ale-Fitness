@@ -75,6 +75,86 @@
     mobility: [["mobility", "More range"], ["durability", "Move comfortably"], ["movement", "Better control"]],
     general: [["strength", "Get stronger"], ["fitness", "Build fitness"], ["movement", "Move better"]]
   };
+  var sportDetailFields = {
+    basketball: { key:"position", label:"Court role", options:[
+      ["not-sure", "Not sure"], ["guard", "Guard"], ["wing", "Wing"], ["center", "Center"]
+    ]},
+    football: { label:"Position group", options:[
+      ["quarterback", "Quarterback"], ["running-back", "Running back"], ["wide-receiver", "Wide receiver"],
+      ["tight-end", "Tight end"], ["offensive-line", "Offensive line"], ["defensive-line", "Defensive line"],
+      ["linebacker", "Linebacker"], ["defensive-back", "Defensive back"]
+    ]},
+    soccer: { label:"Playing position", options:[
+      ["goalkeeper", "Goalkeeper"], ["defender", "Defender"], ["midfielder", "Midfielder"], ["forward", "Forward"]
+    ]},
+    baseball: { label:"Field role", options:[
+      ["pitcher", "Pitcher"], ["catcher", "Catcher"], ["infield", "Infield"], ["outfield", "Outfield"]
+    ]},
+    swimming: { label:"Main stroke or event", options:[
+      ["freestyle-sprint", "Freestyle sprint"], ["freestyle-distance", "Freestyle distance"],
+      ["backstroke", "Backstroke"], ["breaststroke", "Breaststroke"], ["butterfly", "Butterfly"],
+      ["individual-medley", "Individual medley"]
+    ]},
+    track: { label:"Event group", options:[
+      ["sprint-hurdles", "Sprints and hurdles"], ["middle-distance", "Middle distance"],
+      ["distance", "Distance"], ["jumps", "Jumps"], ["throws", "Throws"]
+    ]},
+    running: { label:"Usual running surface", options:[
+      ["road", "Road"], ["track", "Track"], ["trail", "Trail"], ["treadmill", "Treadmill"], ["mixed", "Mixed"]
+    ]},
+    "cross-country": { label:"Usual course terrain", options:[
+      ["rolling-trails", "Rolling trails"], ["hilly-trails", "Hilly trails"],
+      ["grass-fields", "Grass and fields"], ["mixed-course", "Mixed terrain"]
+    ]},
+    volleyball: { label:"Court role", options:[
+      ["setter", "Setter"], ["outside", "Outside hitter"], ["opposite", "Opposite"],
+      ["middle", "Middle blocker"], ["libero", "Libero / defensive specialist"]
+    ]},
+    tennis: { label:"Playing format", options:[
+      ["singles", "Singles"], ["doubles", "Doubles"], ["all-court", "A mix of both"]
+    ]},
+    rugby: { label:"Position group", options:[
+      ["forward", "Forward"], ["back", "Back"]
+    ]},
+    lacrosse: { label:"Playing position", options:[
+      ["attack", "Attack"], ["midfield", "Midfield"], ["defense", "Defense"], ["goalie", "Goalie"]
+    ]},
+    hockey: { label:"Playing position", options:[
+      ["forward", "Forward"], ["defense", "Defense"], ["goalie", "Goalie"]
+    ]},
+    golf: { label:"Main training priority", options:[
+      ["swing-power", "Swing power"], ["mobility", "Hip and trunk mobility"],
+      ["walking-endurance", "Walking endurance"]
+    ]},
+    cycling: { label:"Cycling discipline", options:[
+      ["road", "Road"], ["gravel", "Gravel"], ["mountain-bike", "Mountain biking"],
+      ["track-sprint", "Track or sprint"]
+    ]},
+    rowing: { label:"Rowing discipline", options:[
+      ["sweep", "Sweep rowing"], ["sculling", "Sculling"], ["indoor-erg", "Indoor erg"],
+      ["distance", "Distance racing"]
+    ]},
+    "combat-sports": { label:"Primary discipline", options:[
+      ["boxing", "Boxing"], ["kickboxing", "Kickboxing"], ["grappling", "Wrestling or grappling"],
+      ["mixed-martial-arts", "Mixed martial arts"]
+    ]},
+    strength: { label:"Lifting focus", options:[
+      ["powerlifting", "Powerlifting-style strength"], ["bodybuilding", "Muscle building"],
+      ["general-strength", "General strength"]
+    ]},
+    hiit: { label:"Session style", options:[
+      ["cardio-intervals", "Cardio intervals"], ["strength-circuits", "Strength circuits"],
+      ["mixed-conditioning", "Mixed conditioning"], ["low-impact", "Low-impact intervals"]
+    ]},
+    mobility: { label:"Focus area", options:[
+      ["hips-ankles", "Hips and ankles"], ["shoulders-thoracic", "Shoulders and upper back"],
+      ["full-body-control", "Full-body movement control"]
+    ]},
+    general: { key:"activity", label:"Preferred activity", options:[
+      ["not-sure", "Not sure"], ["walking", "Walking"], ["cycling", "Cycling"],
+      ["swimming", "Swimming"], ["gym", "Gym training"]
+    ]}
+  };
   var equipment = [
     ["gym", "Full gym", "Barbell, machines and open space"],
     ["dumbbells", "Dumbbells", "One or two adjustable weights"],
@@ -136,7 +216,7 @@
   function sportFields(p) {
     var snapshot = { goals: Array.isArray(p.goals) ? p.goals.slice() : [] };
     ["position", "season", "runDistance", "weeklyRunVolume", "longestRun",
-      "raceDetail", "familiarity", "workingWeights", "activity"].forEach(function (key) {
+      "raceDetail", "familiarity", "workingWeights", "activity", "sportDetail"].forEach(function (key) {
       if (p[key] !== undefined) snapshot[key] = p[key];
     });
     return snapshot;
@@ -148,14 +228,14 @@
       captureCurrentInputs();
       state.sportAnswers[p.sport] = sportFields(p);
       ["goals", "position", "season", "runDistance", "weeklyRunVolume",
-        "longestRun", "raceDetail", "familiarity", "workingWeights", "activity"].forEach(function (key) {
+        "longestRun", "raceDetail", "familiarity", "workingWeights", "activity", "sportDetail"].forEach(function (key) {
         delete p[key];
       });
       var remembered = state.sportAnswers[value];
       p.goals = remembered && Array.isArray(remembered.goals) ? remembered.goals.slice() : [];
       if (remembered) {
         ["position", "season", "runDistance", "weeklyRunVolume", "longestRun",
-          "raceDetail", "familiarity", "workingWeights", "activity"].forEach(function (key) {
+          "raceDetail", "familiarity", "workingWeights", "activity", "sportDetail"].forEach(function (key) {
           if (remembered[key] !== undefined) p[key] = remembered[key];
         });
       }
@@ -190,10 +270,16 @@
 
     if (selected) {
       var fields = "";
-      if (p.sport === "basketball") {
-        fields += '<div class="field"><label for="position">Court role</label><select id="position">' +
-          '<option value="not-sure">Not sure</option><option value="guard">Guard</option>' +
-          '<option value="wing">Wing</option><option value="center">Center</option></select></div>';
+      var detailField = sportDetailFields[p.sport];
+      if (detailField) {
+        var detailId = detailField.key === "position" ? "position" :
+          detailField.key === "activity" ? "activity" : "sport-detail";
+        fields += '<div class="field"><label for="' + detailId + '">' + esc(detailField.label) +
+          ' <span>(optional)</span></label><select id="' + detailId +
+          '"><option value="">Choose if known</option>' +
+          detailField.options.map(function (option) {
+            return '<option value="' + esc(option[0]) + '">' + esc(option[1]) + "</option>";
+          }).join("") + "</select></div>";
       }
       if (p.sport === "running" || p.sport === "cross-country") {
         fields += '<div class="field"><label for="run-distance">Target distance</label><select id="run-distance">' +
@@ -264,9 +350,7 @@
         '<div class="field"><label for="consistency">Recent training consistency</label><select id="consistency"><option value="not-sure">Not sure</option><option value="low">Less than once most weeks</option><option value="medium">2–3 times per week</option><option value="high">4+ times per week</option></select></div>' +
         (p.sport === "strength" ?
           '<div class="field"><label for="familiarity">Basic lift familiarity</label><select id="familiarity"><option value="not-sure">Not sure</option><option value="basic">Learning squat, hinge, push, pull</option><option value="confident">Comfortable with barbell basics</option><option value="advanced">Experienced with complex variations</option></select></div>' +
-          '<div class="field"><label for="working-weights">Current working weights <span>(optional)</span></label><input id="working-weights" maxlength="100" placeholder="Example: goblet squat 35lb, deadlift 185lb" value="' + esc(p.workingWeights || "") + '"></div>' : "") +
-        (p.sport === "general" ?
-          '<div class="field"><label for="activity">Preferred activity</label><select id="activity"><option value="not-sure">Not sure</option><option value="walking">Walking</option><option value="cycling">Cycling</option><option value="swimming">Swimming</option><option value="gym">Gym training</option></select></div>' : ""));
+          '<div class="field"><label for="working-weights">Current working weights <span>(optional)</span></label><input id="working-weights" maxlength="100" placeholder="Example: goblet squat 35lb, deadlift 185lb" value="' + esc(p.workingWeights || "") + '"></div>' : ""));
     } else if (state.step === 3) {
       var conflict = p.equipment.indexOf("pool") > -1 && p.sport !== "swimming";
       html = question(3, "What can you train with?", "Select every option you can use. Portable tools stay useful alongside a court, field or pool.",
@@ -291,13 +375,14 @@
     if (age) age.value = p.age || "";
     var limitations = document.getElementById("limitations");
     if (limitations) limitations.value = p.limitations || "";
-    ["position", "run-distance", "season", "consistency", "familiarity", "activity"].forEach(function (id) {
+    ["position", "sport-detail", "activity", "run-distance", "season", "consistency", "familiarity"].forEach(function (id) {
       var input = document.getElementById(id);
       if (!input) return;
       var key = {
+        "sport-detail":"sportDetail",
         "run-distance":"runDistance"
       }[id] || id;
-      input.value = p[key] || "not-sure";
+      input.value = p[key] || (id === "sport-detail" ? "" : "not-sure");
     });
     bind();
   }
@@ -361,19 +446,23 @@
       });
     }
 
-    if (trace.positionOrEvent &&
-        /Recognized basketball role changed/.test(trace.positionOrEvent.decision || "")) {
-      var role = listLabel([
-        ["guard", "guard"], ["wing", "wing"], ["center", "center"]
-      ], String(p.position || "").toLowerCase(), "basketball");
-      var roleMoves = (plan.first || []).filter(function (item) {
-        return ["acceleration", "lateral-step", "goblet-squat", "snap-down"].indexOf(item.id) > -1;
-      }).map(function (item) { return item.name; });
+    var detailField = sportDetailFields[p.sport];
+    var selectedDetail = p.sport === "basketball" ? p.position : p.sportDetail;
+    if (detailField && p.sport !== "general" && selectedDetail &&
+        selectedDetail !== "not-sure" && trace.positionOrEvent) {
+      var detailLabel = listLabel(detailField.options, selectedDetail, selectedDetail);
+      var detailPrimary = (plan.first || [])[0];
       reasons.push({
-        label: "Court role",
-        text: "The " + role + " profile changes the basketball template" +
-          (roleMoves.length ? "; this session includes " + formatList(roleMoves.slice(0, 2)) + "." : ".")
+        label: detailField.label,
+        text: trace.positionOrEvent.decision +
+          (trace.positionOrEvent.changedPrimary && detailPrimary ?
+            " Your " + detailLabel + " profile starts with " + detailPrimary.name +
+              " as the stable primary movement." : "")
       });
+    }
+    if (p.sport === "general" && p.activity && p.activity !== "not-sure" &&
+        trace.preferredActivity) {
+      reasons.push({ label:"Preferred activity", text:trace.preferredActivity.decision });
     }
 
     var exerciseDatabase = window.ALEFITTrainingEngine.exerciseDatabase || [];
@@ -504,6 +593,16 @@
       ["Age & limitations", listLabel(ageLabels, p.age, "Not set") +
         (p.limitations ? " · Note added" : " · No limitations noted"), 5]
     ];
+    var detailField = sportDetailFields[p.sport];
+    var detailValue = p.sport === "basketball" ? p.position :
+      p.sport === "general" ? p.activity : p.sportDetail;
+    if (detailField && detailValue && detailValue !== "not-sure") {
+      labels.splice(1, 0, [
+        detailField.label,
+        listLabel(detailField.options, detailValue, detailValue),
+        0
+      ]);
+    }
     var reasons = personalizationReasons(state.plan, p);
     var firstSession = state.plan.weeks && state.plan.weeks[0] && state.plan.weeks[0].sessions[0];
     var exercises = firstSession ? firstSession.exercises : (state.plan.first || []);
@@ -640,10 +739,12 @@
   function captureCurrentInputs() {
     var p = state.prefs;
     if (state.step === 0) {
-      ["position", "season", "run-distance", "run-volume", "longest-run", "race-detail"].forEach(function (id) {
+      ["position", "sport-detail", "activity", "season", "run-distance",
+        "run-volume", "longest-run", "race-detail"].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         var key = {
+          "sport-detail":"sportDetail",
           "run-distance":"runDistance",
           "run-volume":"weeklyRunVolume",
           "longest-run":"longestRun",
