@@ -557,23 +557,51 @@ SUPPORTED_OAUTH_PROVIDERS = {"google", "apple"}
 
 @app.route("/api/oauth/authorize")
 def oauth_authorize():
-    import http.client
     provider = (request.args.get("provider") or "").lower()
     if provider not in SUPPORTED_OAUTH_PROVIDERS:
         return jsonify({"error": f"Unsupported provider: {provider}"}), 400
-    redirect_to = request.args.get("redirect_to") or (request.host_url + "auth/callback")
-    url = f"{SUPABASE_URL}/auth/v1/authorize?provider={provider}&redirect_to={urllib.parse.quote(redirect_to, safe='')}"
-    # Pre-check whether the provider is actually enabled in Supabase
-    try:
-        parsed = urllib.parse.urlparse(url)
-        conn = http.client.HTTPSConnection(parsed.netloc, timeout=5)
-        conn.request("GET", parsed.path + "?" + parsed.query)
-        resp = conn.getresponse()
-        conn.close()
-        if resp.status >= 400:
-            return jsonify({"error": f"{provider.capitalize()} sign-in is not yet enabled. Please use email sign-in."}), 400
-    except Exception:
-        pass  # Network issue — return URL anyway and let browser handle it
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return jsonify({
+            "error": f"{provider.capitalize()} sign-in is not configured yet. Please use email sign-in."
+        }), 503
+
+    redirect_to = request.args.get("redirect_to") or (
+        request.host_url.rstrip("/") + "/auth/callback"
+    )
+    parsed_redirect = urllib.parse.urlparse(redirect_to)
+    if (
+        parsed_redirect.scheme not in ("http", "https")
+        or parsed_redirect.netloc.lower() != request.host.lower()
+        or parsed_redirect.path != "/auth/callback"
+    ):
+        return jsonify({"error": "Google sign-in must return to this site's authentication callback."}), 400
+
+    return_to = urllib.parse.parse_qs(parsed_redirect.query).get("from_url", ["/"])[0]
+    parsed_return = urllib.parse.urlparse(return_to)
+    if (
+        parsed_return.scheme
+        or parsed_return.netloc
+        or not return_to.startswith("/")
+        or return_to.startswith("//")
+        or "\\" in return_to
+    ):
+        return jsonify({"error": "Google sign-in has an invalid return page."}), 400
+
+    settings_status, settings = supabase_auth("GET", "/auth/v1/settings")
+    if settings_status != 200 or not isinstance(settings, dict):
+        return jsonify({
+            "error": f"{provider.capitalize()} sign-in is temporarily unavailable. Please use email sign-in."
+        }), 503
+    if not (settings.get("external") or {}).get(provider):
+        return jsonify({
+            "error": f"{provider.capitalize()} sign-in is not enabled yet. Enable it in Supabase Auth settings, then try again."
+        }), 400
+
+    url = (
+        f"{SUPABASE_URL.rstrip('/')}/auth/v1/authorize"
+        f"?provider={urllib.parse.quote(provider, safe='')}"
+        f"&redirect_to={urllib.parse.quote(redirect_to, safe='')}"
+    )
     return jsonify({"url": url})
 
 
@@ -595,13 +623,22 @@ def logout():
 
 @app.route("/api/apps/public/prod/public-settings/by-id/<app_id>")
 def public_settings(app_id):
+    providers = ["email"]
+    if SUPABASE_URL and SUPABASE_KEY:
+        oauth_status, auth_settings = supabase_auth("GET", "/auth/v1/settings")
+        if (
+            oauth_status == 200
+            and isinstance(auth_settings, dict)
+            and (auth_settings.get("external") or {}).get("google")
+        ):
+            providers.append("google")
     return jsonify({
         "id": app_id,
         "name": "ALEFIT",
         "app_base_url": "",          # tells SPA to redirect to /Login.html etc. on THIS server
         "auth": {
             "enabled": True,
-            "providers": ["email", "google"],
+            "providers": providers,
             "registration_enabled": True,
         },
         "theme": {"primary_color": "#000000"},
@@ -922,6 +959,7 @@ def auth_me(app_id):
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     result = format_user(user)
+    ensure_profile(result["id"], result["email"], result["full_name"])
     result.update(get_profile_extras(user["id"]))
     return jsonify(result)
 

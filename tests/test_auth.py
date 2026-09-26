@@ -21,6 +21,23 @@ class AuthRouteTests(unittest.TestCase):
     def setUp(self):
         self.client = server.app.test_client()
 
+    def test_public_auth_settings_only_advertise_google_when_enabled(self):
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "supabase_auth", return_value=(200, {"external": {"google": False}})),
+        ):
+            disabled = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
+        self.assertEqual(disabled.get_json()["auth"]["providers"], ["email"])
+
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "supabase_auth", return_value=(200, {"external": {"google": True}})),
+        ):
+            enabled = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
+        self.assertEqual(enabled.get_json()["auth"]["providers"], ["email", "google"])
+
     def test_registration_falls_back_to_local_auth_when_provider_is_unavailable(self):
         with (
             patch.object(server, "SUPABASE_SERVICE_KEY", ""),
@@ -130,6 +147,68 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(response.get_json()["user"]["id"], "remote-user")
         ensure_profile.assert_called_once_with("remote-user", "athlete@example.test")
 
+    def test_google_oauth_returns_url_for_same_site_callback(self):
+        redirect_to = (
+            "http://localhost/auth/callback"
+            "?from_url=%2FRegister.html%3Fgoogle_signup%3D1"
+        )
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(
+                server,
+                "supabase_auth",
+                return_value=(200, {"external": {"google": True}}),
+            ) as auth_call,
+        ):
+            response = self.client.get(
+                "/api/oauth/authorize",
+                query_string={"provider": "google", "redirect_to": redirect_to},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        oauth_url = urlparse(response.get_json()["url"])
+        oauth_query = parse_qs(oauth_url.query)
+        self.assertEqual(oauth_url.netloc, "auth.example.test")
+        self.assertEqual(oauth_query["provider"], ["google"])
+        self.assertEqual(oauth_query["redirect_to"], [redirect_to])
+        auth_call.assert_called_once_with("GET", "/auth/v1/settings")
+
+    def test_google_oauth_explains_when_provider_is_disabled(self):
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(
+                server,
+                "supabase_auth",
+                return_value=(200, {"external": {"google": False}}),
+            ),
+        ):
+            response = self.client.get(
+                "/api/oauth/authorize",
+                query_string={
+                    "provider": "google",
+                    "redirect_to": "http://localhost/auth/callback",
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("not enabled", response.get_json()["error"].lower())
+
+    def test_google_oauth_rejects_external_callback_before_provider_check(self):
+        with patch.object(server, "supabase_auth") as auth_call:
+            response = self.client.get(
+                "/api/oauth/authorize",
+                query_string={
+                    "provider": "google",
+                    "redirect_to": "https://attacker.example/auth/callback",
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("this site's authentication callback", response.get_json()["error"].lower())
+        auth_call.assert_not_called()
+
     def test_local_user_can_log_in_without_contacting_remote_provider(self):
         with (
             patch.object(server, "local_user_by_email", return_value=LOCAL_USER),
@@ -146,6 +225,29 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["access_token"], "local.signed.token")
         auth_call.assert_not_called()
+
+    def test_auth_me_creates_profile_for_oauth_user(self):
+        oauth_user = {
+            "id": "google-user",
+            "email": "google@example.test",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "user_metadata": {"full_name": "Google Athlete"},
+        }
+        with (
+            patch.object(server, "get_current_user", return_value=(oauth_user, "oauth-token")),
+            patch.object(server, "ensure_profile") as ensure_profile,
+            patch.object(server, "get_profile_extras", return_value={}),
+        ):
+            response = self.client.get(
+                f"/api/apps/{APP_ID}/auth/me",
+                headers={"Authorization": "Bearer oauth-token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["full_name"], "Google Athlete")
+        ensure_profile.assert_called_once_with(
+            "google-user", "google@example.test", "Google Athlete"
+        )
 
     def test_wrong_local_password_is_rejected_without_remote_fallback(self):
         with (

@@ -96,3 +96,10 @@ body{background:var(--ink)}
 .sport-intake-grid .field{min-width:0}
 .sport-load-note{margin:4px 0 8px}
 @media(max-width:620px){.sport-intake-grid{grid-template-columns:1fr}}
+.account .account-google{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:22px;background:#fff;border-color:#dadce0;color:#202124;font:700 .86rem "DM Sans",sans-serif;letter-spacing:0;text-transform:none}
+.account .account-google:hover{background:#f4f6f6;border-color:#c7cacc}
+.account .account-google:focus-visible{outline:3px solid var(--lime);outline-offset:3px}
+.account .account-google:disabled{opacity:.55;cursor:wait}
+.account-google svg{width:20px;height:20px;flex:0 0 auto}
+.account-oauth-divider{display:flex;align-items:center;gap:12px;margin:18px 0 4px;color:var(--muted);font-size:.72rem}
+.account-oauth-divider:before,.account-oauth-divider:after{content:"";height:1px;flex:1;background:var(--line)}

@@ -43,6 +43,17 @@
 <script>
 (function() {
   var APP_ID = '6a1f3d189ebdbe71fa7d256c';
+  var query = new URLSearchParams(window.location.search);
+  function safeReturnPath(raw) {
+    try {
+      var target = new URL(raw || '/Login.html', window.location.origin);
+      if (target.origin !== window.location.origin) return '/Login.html';
+      return target.pathname + target.search + target.hash;
+    } catch (e) {
+      return '/Login.html';
+    }
+  }
+  var fromUrl = safeReturnPath(query.get('from_url'));
 
   function setError(msg) {
     document.getElementById('spinner').style.display = 'none';
@@ -51,8 +62,8 @@
     var e = document.getElementById('errMsg');
     e.textContent = msg + ' — ';
     var a = document.createElement('a');
-    a.href = '/Login.html';
-    a.textContent = 'Try again';
+    a.href = fromUrl;
+    a.textContent = 'Return to ALEFIT';
     e.appendChild(a);
     e.style.display = 'block';
   }
@@ -69,13 +80,9 @@
   }
 
   if (!token) {
-    setError('No access token received.');
+    setError(query.get('error_description') || query.get('error') || 'No access token received.');
     return;
   }
-
-  // Determine where to redirect after login
-  var qp2 = new URLSearchParams(window.location.search);
-  var fromUrl = qp2.get('from_url') || '/';
 
   // Store token in localStorage
   localStorage.setItem('base44_access_token', token);
