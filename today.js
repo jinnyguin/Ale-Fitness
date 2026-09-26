@@ -20,6 +20,10 @@
   var movementNotes = {};
   var saving = false;
   var chat = [];
+  var dateChangePending = false;
+  var watchedDateKey = null;
+  var dayRefreshTimer = null;
+  var dateWatcherStarted = false;
 
   function esc(value) {
     var node = document.createElement("div");
@@ -32,6 +36,14 @@
   function todayKey() {
     var d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function localDateKey(value) {
+    if (!value) return "";
+    var text = String(value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    var date = new Date(value);
+    if (isNaN(date.getTime())) return "";
+    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
   }
   function displayDate() {
     return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -66,16 +78,78 @@
       (plan.appliedFeedbackIds || []).indexOf(id) !== -1;
   }
   function sessionToShow() {
-    var list = sessions();
-    if (!list.length) return null;
-    var day = new Date().getDay();
-    var target = day === 0 ? 6 : day - 1;
-    var open = list.filter(function (s) { return !isLogged(s); });
-    if (!open.length) return list[0];
-    var exact = open.filter(function (s) {
-      return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].indexOf(s.day) === target;
-    })[0];
-    return exact || open[0];
+    var scheduled = window.ALEFITTrainingEngine.sessionForDate(sessions(), new Date());
+    if (!scheduled) return null;
+    if (hasWorkoutLoggedToday() && !isLogged(scheduled)) return null;
+    return scheduled;
+  }
+  function hasWorkoutLoggedToday() {
+    return logs.some(function (log) {
+      var feedback = log.feedback || {};
+      var loggedAt = feedback.recorded_at || log.recorded_at || log.created_at || log.created_date;
+      return localDateKey(loggedAt) === todayKey();
+    });
+  }
+  function hasUnfinishedSessionState() {
+    return activeWorkout ||
+      Object.keys(completedMovements).some(function (key) { return completedMovements[key]; }) ||
+      Object.keys(movementNotes).some(function (key) { return String(movementNotes[key] || "").trim(); });
+  }
+  function resetTodaySession() {
+    currentSession = sessionToShow();
+    adaptedSession = null;
+    activeWorkout = false;
+    workoutDifficulty = "appropriate";
+    workoutPain = false;
+    completedMovements = {};
+    movementNotes = {};
+    dateChangePending = false;
+  }
+  function switchToTodaySession() {
+    if (activeWorkout) return;
+    if (hasUnfinishedSessionState() &&
+        !window.confirm("Switching will discard this unfinished session’s in-page checks and notes. Continue?")) return;
+    resetTodaySession();
+    watchedDateKey = todayKey();
+    render();
+    flash("Today’s scheduled session is ready. Missed sessions stay on their original days.", false);
+  }
+  function checkForNewDay() {
+    var currentDateKey = todayKey();
+    if (watchedDateKey === null) {
+      watchedDateKey = currentDateKey;
+      return;
+    }
+    if (currentDateKey === watchedDateKey) return;
+    watchedDateKey = currentDateKey;
+    if (!plan || getView() !== "today") return;
+    if (hasUnfinishedSessionState()) {
+      dateChangePending = true;
+      render();
+      return;
+    }
+    resetTodaySession();
+    render();
+    flash("Today’s scheduled session is ready.", false);
+  }
+  function scheduleNextDayCheck() {
+    var now = new Date();
+    var nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    dayRefreshTimer = window.setTimeout(function () {
+      checkForNewDay();
+      scheduleNextDayCheck();
+    }, Math.max(1, nextMidnight.getTime() - now.getTime() + 100));
+  }
+  function startDateWatcher() {
+    if (dateWatcherStarted) return;
+    dateWatcherStarted = true;
+    watchedDateKey = todayKey();
+    window.addEventListener("focus", checkForNewDay);
+    window.addEventListener("pageshow", checkForNewDay);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) checkForNewDay();
+    });
+    scheduleNextDayCheck();
   }
   function exerciseList(items, interactive) {
     if (!items || !items.length) return '<p class="empty">No additional movement is scheduled here. Recovery is part of your plan.</p>';
@@ -124,8 +198,12 @@
     currentSession = currentSession || sessionToShow();
     var week = currentWeek();
     if (!currentSession) {
-      app.innerHTML = headerMarkup("Recovery day", "Make space to recover.", plan.recovery) +
-        '<div class="grid grid-2"><article class="hero-card"><div><span class="tag">No extra session today</span><h2>Your existing sport load already counts.</h2><p>' +
+      var completedToday = hasWorkoutLoggedToday();
+      app.innerHTML = headerMarkup(completedToday ? "Today’s work complete" : "Recovery day",
+        completedToday ? "Recover before your next scheduled session." : "Make space to recover.", plan.recovery) +
+        '<div class="grid grid-2"><article class="hero-card"><div><span class="tag">' +
+        (completedToday ? "Training saved for today" : "No extra session today") +
+        '</span><h2>' + (completedToday ? "You’ve already logged training today." : "Your existing sport load already counts.") + '</h2><p>' +
         esc(plan.recovery) + '</p></div><div class="actions"><a class="button" href="/today.html?view=plan">Review my plan</a></div></article>' +
         '<article class="card"><span class="eyebrow">Recovery suggestion</span><h3>Check in with your body.</h3><p>Choose complete rest, an easy walk, or gentle mobility. The next hard session should meet your readiness, not fight it.</p><a class="button secondary small" href="/today.html?view=coach">Ask Coach</a></article></div>';
       return;
@@ -135,8 +213,16 @@
     var completed = Object.keys(completedMovements).filter(function (key) { return completedMovements[key]; }).length;
     var total = (session.exercises || []).length;
     var checkin = latestCheckin();
+    var rolloverNotice = dateChangePending ?
+      '<div class="notice day-rollover" role="status">' +
+      (activeWorkout ?
+        "A new training day has started. Finish this workout to load today’s scheduled session." :
+        "A new training day has started. Your paused session is preserved; switch to today’s schedule when ready.") +
+      (!activeWorkout ?
+        '<br><button type="button" class="button secondary small" id="switch-today-session">Switch to today’s session</button>' :
+        "") + '</div>' : "";
     app.innerHTML = headerMarkup("Today · " + displayDate(), "Train for the person you are today.", plan.summary) +
-      '<div class="grid grid-2"><section class="hero-card"><div><span class="tag">Week ' + esc(week.week) + " · " +
+      rolloverNotice + '<div class="grid grid-2"><section class="hero-card"><div><span class="tag">Week ' + esc(week.week) + " · " +
       esc(week.phaseLabel || week.label) + '</span><h2>' + esc(session.name) + '</h2><p>' +
       esc(session.day + " · " + session.minutes + " minutes · " + (week.emphasis || "Goal-directed work")) +
       '</p></div><div><div class="meta"><span><b>' + total + '</b> movements</span><span><b>' +
@@ -199,7 +285,15 @@
     var finish = document.getElementById("finish-workout");
     if (finish) finish.onclick = finishWorkout;
     var pause = document.getElementById("pause-workout");
-    if (pause) pause.onclick = function () { activeWorkout = false; render(); flash("Your session is ready to resume today.", false); };
+    if (pause) pause.onclick = function () {
+      activeWorkout = false;
+      render();
+      flash(dateChangePending ?
+        "Your paused session is preserved. You can switch to today’s schedule when ready." :
+        "Your session is ready to resume today.", false);
+    };
+    var switchToday = document.getElementById("switch-today-session");
+    if (switchToday) switchToday.onclick = switchToTodaySession;
   }
   async function adaptToday() {
     var session = currentSession;
@@ -283,6 +377,8 @@
       workoutDifficulty = "appropriate";
       workoutPain = false;
       adaptedSession = null;
+      dateChangePending = false;
+      watchedDateKey = todayKey();
       currentSession = sessionToShow();
       render();
       flash("Workout saved. Your next progression now reflects what you did.", false);
@@ -432,6 +528,7 @@
       record = plans[0];
       plan = record.generated_plan || record.generatedPlan;
       if (!plan || !plan.weeks) throw new Error("plan missing");
+      startDateWatcher();
       render();
     } catch (error) {
       app.innerHTML = '<div class="empty"><h2>Your plan is temporarily unavailable.</h2><p>Nothing was changed. Check your connection and try again.</p><button class="button" id="retry">Retry</button></div>';

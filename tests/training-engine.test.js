@@ -48,6 +48,27 @@ function assertAllEquipmentAllowed(result, allowed) {
   });
 }
 
+const datedSessions = [
+  {id:"monday-session", day:"Monday"},
+  {id:"sunday-session", day:"Sunday"}
+];
+assert.strictEqual(
+  engine.sessionForDate(datedSessions, new Date(2026, 8, 28)),
+  datedSessions[0],
+  "the daily view should use the workout scheduled for Monday"
+);
+assert.equal(
+  engine.sessionForDate(datedSessions, new Date(2026, 8, 29)),
+  null,
+  "an unscheduled weekday should remain a recovery day"
+);
+assert.strictEqual(
+  engine.sessionForDate(datedSessions, new Date(2026, 8, 27)),
+  datedSessions[1],
+  "Sunday should map to the final day of the training week"
+);
+assert.equal(engine.sessionForDate(datedSessions, new Date("invalid")), null);
+
 // Profile A: beginner basketball athlete, dumbbells, two ALEFIT days, three practices.
 const profileA = plan({
   sport: "basketball",
