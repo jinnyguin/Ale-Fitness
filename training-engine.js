@@ -1541,12 +1541,24 @@
     return output;
   }
 
+  function sessionForDate(sessions, date) {
+    if (!Array.isArray(sessions) || !sessions.length) return null;
+    var trainingDate = date instanceof Date ? date : new Date(date);
+    if (isNaN(trainingDate.getTime())) return null;
+    var dayIndex = trainingDate.getDay() === 0 ? 6 : trainingDate.getDay() - 1;
+    var dayName = DAYS[dayIndex];
+    return sessions.filter(function (session) {
+      return session && session.day === dayName;
+    })[0] || null;
+  }
+
   var api = {
     exerciseDatabase:EXERCISES,
     sportFocusSupport:SPORT_FOCUS_SUPPORT,
     generate:generate,
     adaptSession:adaptSession,
     applyFeedback:applyFeedback,
+    sessionForDate:sessionForDate,
     parseWorkload:parseWorkload
   };
   root.ALEFITTrainingEngine = api;
