@@ -14,6 +14,8 @@
   var adaptedSession = null;
   var selectedIndex = 0;
   var activeWorkout = false;
+  var workoutDifficulty = "appropriate";
+  var workoutPain = false;
   var completedMovements = {};
   var movementNotes = {};
   var saving = false;
@@ -154,7 +156,16 @@
       '<section class="card" style="margin-top:14px"><div class="view-header"><div><span class="eyebrow">' +
       (activeWorkout ? "Workout in progress" : "Session preview") + '</span><h3>' + esc(session.name) + '</h3></div><span class="tag">' +
       completed + " / " + total + " complete</span></div><div class=\"movement-list\">" + exerciseList(session.exercises, activeWorkout && !logged) +
-      '</div>' + (activeWorkout && !logged ? '<div class="actions"><button class="button" id="finish-workout">Finish workout</button><button class="button secondary" id="pause-workout">Save for later</button></div>' : "") +
+       '</div>' + (activeWorkout && !logged ?
+       '<div class="field"><label for="workout-difficulty">How did the work feel?</label><select id="workout-difficulty">' +
+       '<option value="too-easy"' + (workoutDifficulty === "too-easy" ? " selected" : "") + '>Easier than expected</option>' +
+       '<option value="appropriate"' + (workoutDifficulty === "appropriate" ? " selected" : "") + '>About right</option>' +
+       '<option value="too-hard"' + (workoutDifficulty === "too-hard" ? " selected" : "") + '>Harder than expected</option>' +
+       '</select></div><label class="movement"><span><b>Any pain during this session?</b>' +
+       '<small>Stop a movement that causes pain; do not push through it.</small></span>' +
+       '<input id="workout-pain" type="checkbox"' + (workoutPain ? " checked" : "") + '></label>' +
+       '<div class="actions"><button class="button" id="finish-workout">Finish workout</button>' +
+       '<button class="button secondary" id="pause-workout">Save for later</button></div>' : "") +
       '<p id="page-message"></p></section><section class="card soft" style="margin-top:14px"><span class="eyebrow">Why this is your plan</span><p>' +
       esc((plan.explanations || [])[0] || plan.summary) + '</p><a class="link-button" href="/today.html?view=plan">See the full adaptive block →</a></section>';
     if (checkin) {
@@ -175,6 +186,10 @@
     };
     var adapt = document.getElementById("adapt");
     if (adapt) adapt.onclick = adaptToday;
+    var difficulty = document.getElementById("workout-difficulty");
+    if (difficulty) difficulty.onchange = function () { workoutDifficulty = difficulty.value; };
+    var sessionPain = document.getElementById("workout-pain");
+    if (sessionPain) sessionPain.onchange = function () { workoutPain = sessionPain.checked; };
     document.querySelectorAll("[data-movement]").forEach(function (button) {
       button.onclick = function () { completedMovements[button.dataset.movement] = !completedMovements[button.dataset.movement]; render(); };
     });
@@ -220,12 +235,15 @@
     saving = true;
     var session = adaptedSession || currentSession;
     var completed = Object.keys(completedMovements).filter(function (key) { return completedMovements[key]; }).length;
+    var difficultyInput = document.getElementById("workout-difficulty");
+    var painInput = document.getElementById("workout-pain");
+    var todayReadiness = latestCheckin() || {};
     var feedback = {
       feedback_id: feedbackId(currentSession),
       session_id: currentSession.id,
       status: completed === 0 ? "skipped" : completed < (session.exercises || []).length ? "partial" : "completed",
-      difficulty: "appropriate",
-      pain: false,
+      difficulty: difficultyInput ? difficultyInput.value : workoutDifficulty,
+      pain: !!(painInput && painInput.checked) || workoutPain || !!todayReadiness.pain,
       notes: Object.keys(movementNotes).map(function (key) { return movementNotes[key] ? key + ": " + movementNotes[key] : ""; }).filter(Boolean).join(" | "),
       completed_movements: completed,
       recorded_at: new Date().toISOString()
@@ -262,6 +280,8 @@
       activeWorkout = false;
       completedMovements = {};
       movementNotes = {};
+      workoutDifficulty = "appropriate";
+      workoutPain = false;
       adaptedSession = null;
       currentSession = sessionToShow();
       render();

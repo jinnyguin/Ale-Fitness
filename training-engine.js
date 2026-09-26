@@ -216,16 +216,41 @@
     return profile.sport && profile.sport !== "general" ? "sport" : "strength";
   }
 
+  function recentEntries(entries, limit, maxAgeDays) {
+    var indexed = (Array.isArray(entries) ? entries : []).map(function (entry, index) {
+      var payload = entry && entry.feedback ? entry.feedback : entry || {};
+      var rawDate = payload.recorded_at || payload.created_at || payload.created_date ||
+        (entry && (entry.recorded_at || entry.created_at || entry.created_date));
+      var timestamp = Date.parse(rawDate);
+      return {entry:entry,index:index,timestamp:isFinite(timestamp) ? timestamp : null};
+    });
+    if (indexed.some(function (item) { return item.timestamp !== null; })) {
+      indexed.sort(function (a, b) {
+        if (a.timestamp === null && b.timestamp === null) return a.index - b.index;
+        if (a.timestamp === null) return 1;
+        if (b.timestamp === null) return -1;
+        return b.timestamp - a.timestamp || a.index - b.index;
+      });
+    }
+    if (maxAgeDays) {
+      var cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+      indexed = indexed.filter(function (item) {
+        return item.timestamp === null || item.timestamp >= cutoff;
+      });
+    }
+    return indexed.slice(0, limit).map(function (item) { return item.entry; });
+  }
+
   function recentState(context) {
-    var logs = (context.workoutLogs || context.logs || []).slice(0, 8);
-    var readiness = (context.readiness || []).slice(0, 5);
-    var tooHard = logs.filter(function (entry) {
+    var logs = recentEntries(context.workoutLogs || context.logs, 8, 42);
+    var readiness = recentEntries(context.readiness, 5, 14);
+    var tooHard = logs.slice(0, 4).filter(function (entry) {
       return (entry.feedback || entry).difficulty === "too-hard";
     }).length;
-    var skipped = logs.filter(function (entry) {
+    var skipped = logs.slice(0, 4).filter(function (entry) {
       return (entry.feedback || entry).status === "skipped";
     }).length;
-    var pain = logs.some(function (entry) {
+    var pain = logs.slice(0, 3).some(function (entry) {
       return !!(entry.feedback || entry).pain;
     });
     var lowRecovery = readiness.some(function (entry) {
@@ -1140,10 +1165,23 @@
     return output;
   }
 
-  function applyEarnedProgression(week, focus, profile) {
-    if (profile && profile.season === "in-season" && SPORT_GUIDANCE[profile.sport]) return;
+  function progressRepRange(reps) {
+    var text = String(reps || "");
+    var match = text.match(/^(\d+)\s*[–-]\s*(\d+)(.*)$/);
+    if (!match || Number(match[2]) >= 15) return text;
+    return (Number(match[1]) + 1) + "–" + (Number(match[2]) + 1) + match[3];
+  }
+
+  function applyEarnedProgression(week, focus, profile, veryEasyWeek) {
+    if (profile && profile.season === "in-season" && SPORT_GUIDANCE[profile.sport]) {
+      return {progressed:false,repRangeAdvanced:false};
+    }
+    var repRangeAdvanced = false;
+    var progressionApplied = false;
     week.sessions.forEach(function (session) {
-      session.exercises.forEach(function (item) {
+      var candidate = clone(session.exercises || []);
+      var sessionRepRangeAdvanced = false;
+      candidate.forEach(function (item) {
         if (item.id === "easy-run") {
           item.reps = String(item.reps).replace(/^(\d+)/, function (match) {
             return String(Math.max(Number(match) + 1, Math.round(Number(match) * 1.05)));
@@ -1152,13 +1190,55 @@
         }
         if ((focus === "strength" || focus === "muscle") && item.priority === "primary") {
           item.sets = Math.min(5, numeric(item.sets, 1) + 1);
-          item.effort = "planned progression after appropriate completed work";
+          if (veryEasyWeek) {
+            var nextRange = progressRepRange(item.reps);
+            sessionRepRangeAdvanced = sessionRepRangeAdvanced || nextRange !== String(item.reps || "");
+            item.reps = nextRange;
+          }
+          item.effort = sessionRepRangeAdvanced ?
+            "small rep-range increase after an entirely easy completed week" :
+            "planned progression after appropriate completed work";
         } else if (focus === "power" && item.priority === "primary") {
           item.effort = "same volume; improve speed and landing quality";
         }
       });
-      session.estimatedMinutes = fitSessionDuration(session.exercises, session.minutes).estimatedMinutes;
+      var fitted = fitSessionDuration(candidate, session.minutes);
+      function preservesSessionPlan(proposed, fit) {
+        return fit.exercises.length === proposed.length &&
+          proposed.every(function (item, index) {
+            var fittedItem = fit.exercises[index];
+            return fittedItem.id === item.id &&
+              numeric(fittedItem.sets, 0) === numeric(item.sets, 0) &&
+              String(fittedItem.reps || "") === String(item.reps || "");
+          });
+      }
+      var preservesSession = preservesSessionPlan(candidate, fitted);
+      if (!preservesSession && veryEasyWeek &&
+          (focus === "strength" || focus === "muscle") && sessionRepRangeAdvanced) {
+        candidate = clone(session.exercises || []);
+        sessionRepRangeAdvanced = false;
+        candidate.forEach(function (item) {
+          if (item.priority !== "primary") return;
+          var nextRange = progressRepRange(item.reps);
+          if (nextRange === String(item.reps || "")) return;
+          item.reps = nextRange;
+          item.effort = "small rep-range increase after an entirely easy completed week";
+          sessionRepRangeAdvanced = true;
+        });
+        fitted = fitSessionDuration(candidate, session.minutes);
+        preservesSession = preservesSessionPlan(candidate, fitted);
+      }
+      if (preservesSession) {
+        progressionApplied = progressionApplied || candidate.some(function (item, index) {
+          var previous = (session.exercises || [])[index] || {};
+          return item.sets !== previous.sets || item.reps !== previous.reps || item.effort !== previous.effort;
+        });
+        session.exercises = candidate;
+        session.estimatedMinutes = fitted.estimatedMinutes;
+        repRangeAdvanced = repRangeAdvanced || sessionRepRangeAdvanced;
+      }
     });
+    return {progressed:progressionApplied,repRangeAdvanced:repRangeAdvanced};
   }
 
   function namespaceContinuationWeeks(weeks, blockNumber, firstWeekNumber) {
@@ -1194,13 +1274,17 @@
     }
     if (feedback.session_id && output.completedSessionIds.indexOf(feedback.session_id) === -1 &&
         feedback.status !== "skipped") output.completedSessionIds.push(feedback.session_id);
-    var tooHard = output.feedbackHistory.filter(function (item) {
+    var recentFeedback = recentEntries(output.feedbackHistory.slice().reverse(), 8, 42);
+    var tooHard = recentFeedback.slice(0, 4).filter(function (item) {
       return item.difficulty === "too-hard";
     }).length;
+    var recentPain = recentFeedback.slice(0, 3).some(function (item) {
+      return !!item.pain;
+    });
     var currentWeekNumber = Math.max(1, numeric(output.currentWeek, 1));
     var current = output.weeks[currentWeekNumber - 1];
     var futureWeeks = output.weeks.slice(currentWeekNumber);
-    if (tooHard >= 2 || feedback.pain) {
+    if (tooHard >= 2 || recentPain) {
       futureWeeks.forEach(function (week) {
         week.sessions.forEach(function (session) {
           session.exercises.forEach(function (item) {
@@ -1231,9 +1315,20 @@
           return item.status === "completed" && !item.pain && item.difficulty !== "too-hard";
         });
       if (earned && !sportInSeason) {
-        applyEarnedProgression(output.weeks[currentWeekNumber], output.focus, output.profile);
-        output.progression = "Week " + (currentWeekNumber + 1) +
-          " unlocked with a small earned progression from completed, appropriate work.";
+        var veryEasyWeek = currentFeedback.every(function (item) {
+          return item.difficulty === "too-easy";
+        });
+        var progressionResult = applyEarnedProgression(
+          output.weeks[currentWeekNumber], output.focus, output.profile, veryEasyWeek
+        );
+        output.progression = veryEasyWeek && progressionResult.repRangeAdvanced ?
+          "Week " + (currentWeekNumber + 1) +
+            " unlocked with a small rep-range increase after every session felt easy; time and set limits were preserved." :
+          progressionResult.progressed ?
+            "Week " + (currentWeekNumber + 1) +
+              " unlocked with a small earned progression from completed, appropriate work." :
+            "Week " + (currentWeekNumber + 1) +
+              " unlocked at held volume because no increase fit within session-time and movement limits.";
       } else if (earned && sportInSeason) {
         output.progression = "Week " + (currentWeekNumber + 1) +
           " unlocked at in-season maintenance volume; sport workload was not increased.";
@@ -1253,20 +1348,32 @@
         finalFeedback.every(function (item) {
           return item.status === "completed" && !item.pain && item.difficulty !== "too-hard";
         });
-      var nextBlock = generate(output.profile, {workoutLogs:output.feedbackHistory});
+      var nextBlock = generate(output.profile, {
+        workoutLogs:output.feedbackHistory.slice(-8).reverse()
+      });
       var blockNumber = Math.max.apply(null, output.weeks.map(function (week) {
         return numeric(week.block, 1);
       })) + 1;
       var nextWeeks = namespaceContinuationWeeks(nextBlock.weeks, blockNumber, currentWeekNumber + 1);
+      var finalProgression = {progressed:false,repRangeAdvanced:false};
       if (finalEarned && !sportInSeason) {
-        applyEarnedProgression(nextWeeks[0], output.focus, output.profile);
+        var veryEasyFinalWeek = finalFeedback.every(function (item) {
+          return item.difficulty === "too-easy";
+        });
+        finalProgression = applyEarnedProgression(
+          nextWeeks[0], output.focus, output.profile, veryEasyFinalWeek
+        );
       }
       output.weeks = output.weeks.concat(nextWeeks);
       output.currentWeek = currentWeekNumber + 1;
-      output.progression = finalEarned ?
+      output.progression = finalProgression.repRangeAdvanced ?
+        "A new adaptive block unlocked with a small rep-range increase because every session felt easy; time and set limits were preserved." :
+        finalEarned ?
         sportInSeason ?
           "A new adaptive block unlocked at in-season maintenance volume; future support work changed while the primary movement remains measurable." :
-          "A new adaptive block unlocked with an earned progression. Future support work changed while the primary movement remains measurable." :
+            finalProgression.progressed ?
+              "A new adaptive block unlocked with an earned progression. Future support work changed while the primary movement remains measurable." :
+              "A new adaptive block unlocked at held volume because no increase fit within session-time and movement limits." :
         "A new adaptive block unlocked at held volume. Feedback shaped the next phase; skipped or difficult work was not added as catch-up.";
     }
     return output;

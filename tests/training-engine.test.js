@@ -522,6 +522,35 @@ const lowReadiness = engine.generate(profileB.profile, {
 assert(lowReadiness.weeks[0].sessions.length < profileB.weeks[0].sessions.length);
 assert(firstSets(lowReadiness) < firstSets(profileB));
 
+// Dated history is ordered and stale effort, pain, and readiness signals expire.
+const historyTestNow = Date.now();
+const daysAgo = (days) => new Date(historyTestNow - days * 24 * 60 * 60 * 1000).toISOString();
+const responseProfile = plan({
+  sport:"basketball", position:"guard", goals:["jump"], equipment:["field", "dumbbells"],
+  experience:"advanced", consistency:"steady"
+});
+const recoveredFromOldSignals = engine.generate(responseProfile.profile, {
+  workoutLogs:[
+    {feedback:{status:"partial", difficulty:"too-hard", pain:true, recorded_at:daysAgo(60)}},
+    {feedback:{status:"completed", difficulty:"appropriate", pain:false, recorded_at:daysAgo(3)}},
+    {feedback:{status:"completed", difficulty:"appropriate", pain:false, recorded_at:daysAgo(2)}},
+    {feedback:{status:"completed", difficulty:"appropriate", pain:false, recorded_at:daysAgo(1)}}
+  ],
+  readiness:[{energy:"low", soreness:"high", recorded_at:daysAgo(20)}]
+});
+assert.equal(recoveredFromOldSignals.historyState.pain, false);
+assert.equal(recoveredFromOldSignals.historyState.tooHard, 0);
+assert.equal(recoveredFromOldSignals.historyState.lowRecovery, false);
+assert.equal(recoveredFromOldSignals.historyState.logs[0].feedback.difficulty, "appropriate");
+const recentPain = engine.generate(responseProfile.profile, {
+  workoutLogs:[
+    {feedback:{status:"completed", difficulty:"appropriate", pain:false, recorded_at:daysAgo(2)}},
+    {feedback:{status:"completed", difficulty:"appropriate", pain:false, recorded_at:daysAgo(1)}},
+    {feedback:{status:"partial", difficulty:"appropriate", pain:true, recorded_at:daysAgo(0)}}
+  ]
+});
+assert.equal(recentPain.historyState.pain, true, "current pain must keep exercise selection conservative");
+
 // Readiness adaptation preserves priority, honors time, extra load, and pain.
 const originalSession = profileB.weeks[0].sessions[0];
 const shortSession = engine.adaptSession(originalSession, {minutesAvailable:20, energy:"okay", soreness:"low"});
@@ -553,6 +582,23 @@ assert(
   Number(feedbackPlan.weeks[1].sessions[0].exercises[0].sets)
 );
 
+// Older hard sessions stop suppressing upcoming work after several recent appropriate sessions.
+const recoveredFeedbackPlan = JSON.parse(JSON.stringify(feedbackPlan));
+recoveredFeedbackPlan.feedbackHistory = [
+  {feedback_id:"old-hard-1", difficulty:"too-hard", status:"completed"},
+  {feedback_id:"old-hard-2", difficulty:"too-hard", status:"partial"},
+  {feedback_id:"good-1", difficulty:"appropriate", status:"completed"},
+  {feedback_id:"good-2", difficulty:"appropriate", status:"completed"},
+  {feedback_id:"good-3", difficulty:"appropriate", status:"completed"},
+  {feedback_id:"good-4", difficulty:"appropriate", status:"completed"}
+];
+const futureSetsBeforeRecovery = recoveredFeedbackPlan.weeks[1].sessions[0].exercises[0].sets;
+const feedbackAfterRecovery = engine.applyFeedback(recoveredFeedbackPlan, {
+  feedback_id:"recovered-session", session_id:"not-in-current-week",
+  status:"completed", difficulty:"appropriate", pain:false
+});
+assert.equal(feedbackAfterRecovery.weeks[1].sessions[0].exercises[0].sets, futureSetsBeforeRecovery);
+
 // A repeated feedback ID is idempotent, and a skipped session never creates catch-up work.
 const duplicate = engine.applyFeedback(adjusted, {
   feedback_id:"two", session_id:adjusted.weeks[0].sessions[1].id, status:"partial", difficulty:"too-hard"
@@ -570,7 +616,7 @@ assert.deepEqual(
 
 // A week unlocks only after every scheduled session is handled; earned work changes week 2, not week 1.
 const unlockBase = plan({
-  sport:"strength", goals:["strength"], equipment:["gym"], days:2,
+  sport:"strength", goals:["strength"], equipment:["gym"], days:2, duration:60,
   experience:"regular", consistency:"steady", familiarity:"confident"
 });
 const lockedWeekOne = JSON.parse(JSON.stringify(unlockBase.weeks[0]));
@@ -590,6 +636,46 @@ assert(
   Number(unlocked.weeks[1].sessions[0].exercises[0].sets) > weekTwoBefore,
   "week 2 progression must be earned from handled appropriate work"
 );
+
+// A fully completed easy week advances rep ranges only when the whole session still fits.
+let easyWeek = plan({
+  sport:"strength", goals:["strength"], equipment:["gym"], days:2, duration:120,
+  experience:"regular", consistency:"steady", familiarity:"confident"
+});
+const easyWeekTwoPrimary = easyWeek.weeks[1].sessions[0].exercises.find((item) => item.priority === "primary");
+const easyWeekTwoRepsBefore = easyWeekTwoPrimary.reps;
+easyWeek.weeks[0].sessions.forEach((session, index) => {
+  easyWeek = engine.applyFeedback(easyWeek, {
+    feedback_id:"easy-" + index,
+    session_id:session.id,
+    status:"completed",
+    difficulty:"too-easy"
+  });
+});
+const easyWeekTwoPrimaryAfter = easyWeek.weeks[1].sessions[0].exercises.find((item) => item.priority === "primary");
+assert.notEqual(easyWeekTwoPrimaryAfter.reps, easyWeekTwoRepsBefore);
+assert(/rep-range increase/i.test(easyWeek.progression));
+easyWeek.weeks[1].sessions.forEach((session) => {
+  assert(session.exercises.length > 0);
+  assert(session.estimatedMinutes <= session.minutes);
+});
+
+// Standard earned set progress is withheld when it would shorten support work or exceed time.
+let timeLimitedWeek = plan({
+  sport:"strength", goals:["strength"], equipment:["gym"], days:2, duration:45,
+  experience:"regular", consistency:"steady", familiarity:"confident"
+});
+const timeLimitedExercises = JSON.parse(JSON.stringify(timeLimitedWeek.weeks[1].sessions[0].exercises));
+timeLimitedWeek.weeks[0].sessions.forEach((session, index) => {
+  timeLimitedWeek = engine.applyFeedback(timeLimitedWeek, {
+    feedback_id:"time-limited-" + index,
+    session_id:session.id,
+    status:"completed",
+    difficulty:"appropriate"
+  });
+});
+assert.deepEqual(timeLimitedWeek.weeks[1].sessions[0].exercises, timeLimitedExercises);
+assert(/held volume/i.test(timeLimitedWeek.progression));
 
 // Partial work unlocks the next calendar week at held volume, never with an earned increase.
 let partialWeek = plan({
