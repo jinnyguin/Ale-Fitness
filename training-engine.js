@@ -910,18 +910,62 @@
 
     var weeks = [];
     var highConsistencySetAdded = false;
+    var usedWorkoutSignatures = {};
     for (var week = 1; week <= 4; week += 1) {
       var phase = phaseFor(focus, week, sport, profile.season, profile);
       var phaseExercises = [];
-      phaseExerciseIds(profile, focus, phase, baseIds).forEach(function (id) {
+      var weekExerciseIds = phaseExerciseIds(profile, focus, phase, baseIds);
+      var styleQualities = focus === "strength" || focus === "muscle" ?
+        ["strength", "muscle", "durability", "movement"] :
+        focus === "power" ?
+          ["power", "sport", "durability", "movement"] :
+          focus === "endurance" ?
+            ["endurance", "recovery", "durability", "mobility"] :
+            ["movement", "mobility", "durability", "recovery"];
+      var primaryCandidate = chooseExercise(weekExerciseIds[0] || primaryId, equipment, impactLimit);
+      if (primaryCandidate) phaseExercises.push(primaryCandidate);
+      var variationIds = weekExerciseIds.slice(1).concat(baseIds.slice(1));
+      EXERCISES.forEach(function (item) {
+        if (item.qualities.some(function (quality) { return styleQualities.indexOf(quality) !== -1; })) {
+          variationIds.push(item.id);
+        }
+      });
+      variationIds.forEach(function (id) {
         var selected = chooseExercise(id, equipment, impactLimit);
         if (selected && !phaseExercises.some(function (existing) { return existing.id === selected.id; })) {
           phaseExercises.push(selected);
         }
       });
-      phaseExercises = phaseExercises.slice(0, exerciseLimit);
       var sessions = trainingDays.map(function (dayIndex, sessionIndex) {
-        var sessionExercises = phaseExercises.map(function (item, exerciseIndex) {
+        var sessionPrimary = phaseExercises[0] || chooseExercise(primaryId, equipment, impactLimit);
+        if ((sport === "running" || sport === "cross-country") && sessionIndex === 1 &&
+            profile.experience !== "new" && profile.consistency !== "low") {
+          sessionPrimary = chooseExercise("tempo-run", equipment, impactLimit) || sessionPrimary;
+        }
+        var supportPool = phaseExercises.filter(function (item) {
+          return item && (!sessionPrimary || item.id !== sessionPrimary.id);
+        });
+        var supportSlots = Math.min(Math.max(0, exerciseLimit - 1), supportPool.length);
+        var firstOffset = (week - 1) * trainingDays.length * Math.max(1, supportSlots) +
+          sessionIndex * Math.max(1, supportSlots);
+        var selectedSessionExercises = [];
+        var fitted = null;
+        var workoutSignature = "";
+        var attempts = Math.max(1, supportPool.length);
+        for (var attempt = 0; attempt < attempts; attempt += 1) {
+          var candidateSupport = [];
+          if (supportPool.length && supportSlots) {
+            var supportStart = (firstOffset + attempt) % supportPool.length;
+            for (var offset = 0; offset < supportPool.length &&
+                 candidateSupport.length < supportSlots; offset += 1) {
+              var support = supportPool[(supportStart + offset) % supportPool.length];
+              if (!candidateSupport.some(function (item) { return item.id === support.id; })) {
+                candidateSupport.push(support);
+              }
+            }
+          }
+          var proposedExercises = (sessionPrimary ? [sessionPrimary] : []).concat(candidateSupport);
+          var proposedSessionExercises = proposedExercises.map(function (item, exerciseIndex) {
           var prescription = prescribeExercise(
             item, focus, profile, week, historyState, trainingDays.length, phase, exerciseIndex
           );
@@ -941,17 +985,16 @@
               exerciseIndex < 3) output.startingLoad = profile.workingWeights;
           return output;
         });
-        if ((sport === "running" || sport === "cross-country") && sessionIndex === 1 &&
-            profile.experience !== "new" && profile.consistency !== "low") {
-          var tempo = chooseExercise("tempo-run", equipment, impactLimit);
-          if (tempo) sessionExercises[0] = Object.assign({
-            id:tempo.id,name:tempo.name,priority:"primary",
-            movementPattern:tempo.movementPattern,impact:tempo.impact
-          }, prescribeExercise(
-            tempo, "endurance", profile, week, historyState, trainingDays.length, phase
-          ));
+          var candidateFit = fitSessionDuration(proposedSessionExercises, numeric(profile.duration, 45));
+          var signatureParts = candidateFit.exercises.map(function (item) {
+            return [item.id, item.sets, item.reps, item.rest].join(":");
+          }).sort();
+          var candidateSignature = signatureParts.join("|");
+          selectedSessionExercises = proposedSessionExercises;
+          fitted = candidateFit;
+          workoutSignature = candidateSignature;
+          if (!usedWorkoutSignatures[candidateSignature]) break;
         }
-        var fitted = fitSessionDuration(sessionExercises, numeric(profile.duration, 45));
         var primary = fitted.exercises[0];
         var timeBasedPrimary = primary &&
           (primary.movementPattern === "conditioning" ||
@@ -974,10 +1017,15 @@
             highConsistencySetAdded = true;
           }
         }
+        var finalSignature = fitted.exercises.map(function (item) {
+          return [item.id, item.sets, item.reps, item.rest].join(":");
+        }).sort().join("|");
+        usedWorkoutSignatures[finalSignature || workoutSignature] = true;
         return {
           id:"week-" + week + "-day-" + dayIndex,
           day:DAYS[dayIndex],
-          name:sessionIndex === 0 ? "Priority " + focus + " session" : "Support " + focus + " session",
+          name:focus.charAt(0).toUpperCase() + focus.slice(1) + " · " +
+            phase.label + " · Workout " + String.fromCharCode(65 + sessionIndex),
           minutes:numeric(profile.duration, 45),
           estimatedMinutes:fitted.estimatedMinutes,
           exercises:fitted.exercises
