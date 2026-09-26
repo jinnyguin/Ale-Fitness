@@ -73,6 +73,63 @@ class AuthRouteTests(unittest.TestCase):
             "remote-user", "athlete@example.test", "Test Athlete"
         )
 
+    def test_remote_signup_returns_session_when_provider_is_available(self):
+        provider_user = {
+            "id": "remote-user",
+            "email": "athlete@example.test",
+            "user_metadata": {"full_name": "Test Athlete"},
+        }
+        with (
+            patch.object(server, "SUPABASE_SERVICE_KEY", ""),
+            patch.object(
+                server,
+                "supabase_auth",
+                return_value=(201, {"access_token": "remote-access-token", "user": provider_user}),
+            ),
+            patch.object(server, "ensure_profile") as ensure_profile,
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/register",
+                json={
+                    "full_name": "Test Athlete",
+                    "email": "athlete@example.test",
+                    "password": "correct horse battery",
+                },
+            )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.get_json()["access_token"], "remote-access-token")
+        self.assertEqual(response.get_json()["user"]["id"], "remote-user")
+        ensure_profile.assert_called_once_with(
+            "remote-user", "athlete@example.test", "Test Athlete"
+        )
+
+    def test_remote_user_can_log_in_when_provider_is_available(self):
+        provider_user = {
+            "id": "remote-user",
+            "email": "athlete@example.test",
+            "user_metadata": {"full_name": "Test Athlete"},
+        }
+        with (
+            patch.object(server, "local_user_by_email", return_value=None),
+            patch.object(server, "local_login", return_value=None),
+            patch.object(
+                server,
+                "supabase_auth",
+                return_value=(200, {"access_token": "remote-access-token", "user": provider_user}),
+            ),
+            patch.object(server, "ensure_profile") as ensure_profile,
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/login",
+                json={"email": "ATHLETE@example.test", "password": "correct horse battery"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["access_token"], "remote-access-token")
+        self.assertEqual(response.get_json()["user"]["id"], "remote-user")
+        ensure_profile.assert_called_once_with("remote-user", "athlete@example.test")
+
     def test_local_user_can_log_in_without_contacting_remote_provider(self):
         with (
             patch.object(server, "local_user_by_email", return_value=LOCAL_USER),
