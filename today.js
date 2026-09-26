@@ -389,21 +389,88 @@
   }
   function planView() {
     var week = currentWeek();
+    var sessions = week.sessions || [];
+    var weekDays = [
+      { name: "Monday", short: "Mon" },
+      { name: "Tuesday", short: "Tue" },
+      { name: "Wednesday", short: "Wed" },
+      { name: "Thursday", short: "Thu" },
+      { name: "Friday", short: "Fri" },
+      { name: "Saturday", short: "Sat" },
+      { name: "Sunday", short: "Sun" }
+    ];
+    var todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+    function sessionArtwork(session) {
+      var exerciseNames = (session.exercises || []).map(function (exercise) {
+        return exercise && exercise.name || "";
+      });
+      var description = [session.name || ""].concat(exerciseNames).join(" ").toLowerCase();
+      if (/\b(run|running|sprint|conditioning|endurance|tempo|cardio)\b/.test(description)) {
+        return {src:"/images/7a34d38b8_generated_0b924612.png",alt:"Running shoe ready for an endurance session"};
+      }
+      if (/\b(mobility|recovery|stretch|flexibility|warm-up|warm up)\b/.test(description)) {
+        return {src:"/images/483b4b336_generated_e0df4712.png",alt:"Athlete performing a mobility stretch"};
+      }
+      return {src:"/images/3b6f70f20_generated_82bc43e3.png",alt:"Dumbbells ready for a strength session"};
+    }
+    var scheduledDays = {};
+    sessions.forEach(function (session) {
+      scheduledDays[String(session.day || "").toLowerCase()] = session;
+    });
+    var dayStrip = weekDays.map(function (day) {
+      var session = scheduledDays[day.name.toLowerCase()];
+      var isToday = day.name === todayName;
+      var label = day.name + (isToday ? ", today" : "") +
+        (session ? " · Training scheduled: " + session.name : " · No session scheduled");
+      return '<div class="ap-plan-day' + (session ? ' is-scheduled' : '') + (isToday ? ' is-today' : '') +
+        '" aria-label="' + esc(label) + '"' + (isToday ? ' aria-current="date"' : '') + '>' +
+        '<span class="ap-plan-day-name">' + esc(day.short) + '</span>' +
+        '<span class="ap-plan-day-mark" aria-hidden="true">' + (session ? '•' : '—') + '</span>' +
+        '<span class="ap-plan-day-status">' + (session ? 'Train' : 'Open') + '</span>' +
+        (isToday ? '<span class="ap-plan-today-label">Today</span>' : '') + '</div>';
+    }).join("");
+    var sessionCards = sessions.map(function (session) {
+      var artwork = sessionArtwork(session);
+      var logged = isLogged(session);
+      return '<article class="ap-plan-session">' +
+        (artwork ? '<div class="ap-plan-session-art"><img src="' + artwork.src + '" alt="' + esc(artwork.alt) +
+          '"><span class="ap-plan-session-day">' + esc(session.day) + '</span></div>' : '') +
+        '<div class="ap-plan-session-content"><div class="ap-plan-session-state' + (logged ? ' is-logged' : '') + '">' +
+        (logged ? 'Logged' : 'Scheduled') + '</div><h3>' + esc(session.name) + '</h3>' +
+        '<div class="ap-plan-session-meta"><span><b>' + esc(session.minutes) + '</b> min</span><i aria-hidden="true"></i><span><b>' +
+        esc(session.exercises.length) + '</b> movements</span></div>' +
+        '<a class="link-button ap-plan-open" href="/today.html" aria-label="Open ' + esc(session.name) +
+        '">Open session <span aria-hidden="true">↗</span></a></div></article>';
+    }).join("");
     app.innerHTML = headerMarkup("My plan", "One plan. Built around you.", plan.summary) +
-      '<div class="grid grid-2"><section class="hero-card"><div><span class="tag">Week ' + esc(week.week) + " · " +
-      esc(week.phaseLabel || week.label) + '</span><h2>' + esc(week.emphasis || week.progression) + '</h2><p>' +
-      esc(week.reason || "The current phase responds to your goal and recent feedback.") + '</p></div><div class="meta"><span><b>' +
-      esc(plan.focus) + '</b> primary focus</span><span><b>' + (week.sessions || []).length + '</b> sessions this week</span></div></section>' +
-      '<aside class="card"><span class="eyebrow">Current guidance</span><div class="list"><div class="list-row"><b>Conditioning</b><span>' +
-      esc(week.conditioning) + '</span></div><div class="list-row"><b>Recovery</b><span>' + esc(week.recovery) + '</span></div><div class="list-row"><b>Progression</b><span>' +
-      esc(week.progression) + '</span></div></div></aside></div>' +
-      '<section class="card" style="margin-top:14px"><span class="eyebrow">This week, in detail</span>' +
-      (week.sessions || []).map(function (session) { return '<div class="movement"><div><b>' + esc(session.day + " · " + session.name) +
-        '</b><small>' + esc(session.minutes + " min · " + session.exercises.length + " movements") + '</small></div><a class="link-button" href="/today.html">Open →</a></div>'; }).join("") +
-      '</section><section class="card" style="margin-top:14px"><span class="eyebrow">What changes next</span><p>Primary movements stay recognizable long enough to measure. Support work, volume, effort, conditioning, and recovery respond to your readiness and feedback.</p>' +
-      (plan.weeks || []).filter(function (item) { return Number(item.week) > Number(plan.currentWeek); }).map(function (item) {
-        return '<div class="list-row"><b>Week ' + esc(item.week) + " · " + esc(item.phaseLabel || item.label) + '</b><span>' + esc(item.emphasis) + '</span></div>';
-      }).join("") + '</section>';
+      '<section class="ap-plan-week-strip" aria-label="Week ' + esc(week.week) + ' schedule">' +
+      '<div class="ap-plan-strip-heading"><div><span class="eyebrow">Week at a glance</span>' +
+      '<span class="ap-plan-strip-caption">' + esc(sessions.length) + ' sessions on the plan</span></div>' +
+      '<span class="ap-plan-strip-key"><i aria-hidden="true"></i> Scheduled</span></div>' +
+      '<div class="ap-plan-days">' + dayStrip + '</div></section>' +
+      '<div class="grid grid-2 ap-plan-overview"><section class="hero-card ap-plan-phase"><div>' +
+      '<span class="tag">Week ' + esc(week.week) + " · " + esc(week.phaseLabel || week.label) +
+      '</span><h2>' + esc(week.emphasis || week.progression) + '</h2><p>' +
+      esc(week.reason || "The current phase responds to your goal and recent feedback.") +
+      '</p></div><div class="meta"><span><b>' + esc(plan.focus) +
+      '</b> primary focus</span><span><b>' + esc(sessions.length) +
+      '</b> sessions this week</span></div></section>' +
+      '<aside class="card ap-plan-guidance"><div class="ap-plan-guidance-heading"><span class="eyebrow">Current guidance</span>' +
+      '<span>Keep in view</span></div><div class="ap-plan-guidance-list">' +
+      '<div class="ap-plan-guidance-row"><b>Conditioning</b><span>' + esc(week.conditioning) + '</span></div>' +
+      '<div class="ap-plan-guidance-row"><b>Recovery</b><span>' + esc(week.recovery) + '</span></div>' +
+      '<div class="ap-plan-guidance-row"><b>Progression</b><span>' + esc(week.progression) + '</span></div></div></aside></div>' +
+      '<section class="ap-plan-workouts"><div class="ap-plan-section-heading"><div><span class="eyebrow">This week, in detail</span>' +
+      '<h2>Your sessions</h2></div><span class="ap-plan-session-count"><b>' + esc(sessions.length) + '</b> scheduled</span></div>' +
+      '<div class="ap-plan-session-grid">' + sessionCards + '</div></section>' +
+      '<section class="card ap-plan-future"><div class="ap-plan-future-copy"><span class="eyebrow">Beyond this week</span>' +
+      '<h2>What changes next</h2><p>Primary movements stay recognizable long enough to measure. Support work, volume, effort, conditioning, and recovery respond to your readiness and feedback.</p></div>' +
+      '<div class="ap-plan-future-weeks">' + (plan.weeks || []).filter(function (item) {
+        return Number(item.week) > Number(plan.currentWeek);
+      }).map(function (item) {
+        return '<div class="ap-plan-future-row"><b>Week ' + esc(item.week) + " · " +
+          esc(item.phaseLabel || item.label) + '</b><span>' + esc(item.emphasis) + '</span></div>';
+      }).join("") + '</div></section>';
   }
   function progressView() {
     var total = (plan.weeks || []).reduce(function (sum, week) { return sum + (week.sessions || []).length; }, 0);
