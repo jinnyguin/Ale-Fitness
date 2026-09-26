@@ -155,6 +155,99 @@
       ["swimming", "Swimming"], ["gym", "Gym training"]
     ]}
   };
+  var sportFocusFields = {
+    basketball: { label:"What should training support most?", options:[
+      ["snap-down", "Jump and landing control"], ["lateral-step", "Court movement"],
+      ["acceleration", "First-step speed"], ["calf-raise", "Lower-leg durability"]
+    ]},
+    football: { label:"What should training support most?", options:[
+      ["acceleration", "Acceleration"], ["broad-jump", "Explosive power"],
+      ["goblet-squat", "Lower-body strength"], ["dumbbell-row", "Upper-back strength"]
+    ]},
+    soccer: { label:"What should training support most?", options:[
+      ["acceleration", "Repeat-sprint speed"], ["lateral-step", "Change of direction"],
+      ["split-squat", "Single-leg strength"], ["calf-raise", "Lower-leg durability"]
+    ]},
+    baseball: { label:"What should training support most?", options:[
+      ["band-rotation", "Rotational power"], ["band-row", "Shoulder-supporting pulls"],
+      ["acceleration", "First-step speed"], ["step-up", "Single-leg strength"]
+    ]},
+    swimming: { label:"What should training support most?", options:[
+      ["dumbbell-row", "Pulling strength"], ["prone-swimmer", "Shoulder control"],
+      ["swim-technique", "Pool technique"], ["mobility-flow", "Mobility"]
+    ]},
+    track: { label:"What should training support most?", options:[
+      ["acceleration", "Acceleration"], ["broad-jump", "Elastic power"],
+      ["calf-raise", "Lower-leg durability"], ["split-squat", "Single-leg strength"]
+    ]},
+    running: { label:"What should training support most?", options:[
+      ["calf-raise", "Lower-leg durability"], ["split-squat", "Leg strength"],
+      ["dead-bug", "Trunk control"], ["mobility-flow", "Mobility"]
+    ]},
+    "cross-country": { label:"What should training support most?", options:[
+      ["calf-raise", "Lower-leg durability"], ["split-squat", "Leg strength"],
+      ["dead-bug", "Trunk control"], ["mobility-flow", "Mobility"]
+    ]},
+    volleyball: { label:"What should training support most?", options:[
+      ["broad-jump", "Jump power"], ["snap-down", "Landing control"],
+      ["lateral-step", "Court movement"], ["band-row", "Shoulder balance"]
+    ]},
+    tennis: { label:"What should training support most?", options:[
+      ["acceleration", "First-step speed"], ["lateral-step", "Lateral movement"],
+      ["band-rotation", "Rotational control"], ["calf-raise", "Lower-leg durability"]
+    ]},
+    rugby: { label:"What should training support most?", options:[
+      ["acceleration", "Acceleration"], ["broad-jump", "Power"],
+      ["goblet-squat", "Lower-body strength"], ["dumbbell-row", "Upper-back strength"]
+    ]},
+    lacrosse: { label:"What should training support most?", options:[
+      ["acceleration", "First-step speed"], ["lateral-step", "Change of direction"],
+      ["split-squat", "Single-leg strength"], ["calf-raise", "Lower-leg durability"]
+    ]},
+    hockey: { label:"What should training support most?", options:[
+      ["acceleration", "First-step speed"], ["lateral-step", "Lateral control"],
+      ["split-squat", "Leg strength"], ["mobility-flow", "Mobility"]
+    ]},
+    golf: { label:"What should training support most?", options:[
+      ["band-rotation", "Rotational control"], ["mobility-flow", "Hip and trunk mobility"],
+      ["split-squat", "Balance and leg strength"], ["brisk-walk", "Walking capacity"]
+    ]},
+    cycling: { label:"What should training support most?", options:[
+      ["split-squat", "Climbing strength"], ["rdl", "Hip-hinge strength"],
+      ["calf-raise", "Lower-leg durability"], ["mobility-flow", "Mobility"]
+    ]},
+    rowing: { label:"What should training support most?", options:[
+      ["dumbbell-row", "Pulling strength"], ["band-row", "Upper-back endurance"],
+      ["rdl", "Hip-hinge strength"], ["mobility-flow", "Mobility"]
+    ]},
+    "combat-sports": { label:"What should training support most?", options:[
+      ["lateral-step", "Footwork"], ["band-rotation", "Rotational control"],
+      ["split-squat", "Leg strength"], ["brisk-walk", "Round endurance"]
+    ]},
+    strength: { label:"What should training support most?", options:[
+      ["back-squat", "Squat strength"], ["bench-press", "Pressing strength"],
+      ["rdl", "Hinge strength"], ["dumbbell-row", "Pulling strength"]
+    ]},
+    hiit: { label:"What should training support most?", options:[
+      ["acceleration", "Short power efforts"], ["goblet-squat", "Strength circuits"],
+      ["brisk-walk", "Aerobic capacity"], ["mobility-flow", "Low-impact movement"]
+    ]},
+    mobility: { label:"What should training support most?", options:[
+      ["mobility-flow", "Full-body range"], ["prone-swimmer", "Shoulder control"],
+      ["dead-bug", "Trunk control"], ["split-squat", "Balance and control"]
+    ]},
+    general: { label:"What should training support most?", options:[
+      ["brisk-walk", "Walking capacity"], ["easy-cycle", "Cycling"],
+      ["mobility-flow", "Mobility"], ["goblet-squat", "Strength"]
+    ]}
+  };
+  var sportExperienceOptions = [
+    ["new-to-sport", "New to this sport"], ["less-than-year", "Less than a year"],
+    ["1-3-years", "1–3 years"], ["4-plus-years", "4+ years"]
+  ];
+  var sportIntensityOptions = [
+    ["easy", "Mostly easy"], ["moderate", "Mixed effort"], ["hard", "Mostly hard"]
+  ];
   var equipment = [
     ["gym", "Full gym", "Barbell, machines and open space"],
     ["dumbbells", "Dumbbells", "One or two adjustable weights"],
