@@ -65,6 +65,24 @@ def _supabase_transport_error(error):
     return 503, {"error": "Auth service unavailable."}
 
 
+def _supabase_json_response(response):
+    raw = response.read()
+    if not raw:
+        return response.status, {}
+    try:
+        return response.status, json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        headers = getattr(response, "headers", {})
+        content_type = (headers.get("Content-Type", "unknown") or "unknown")
+        content_type = content_type.split(";", 1)[0].strip().lower()[:80]
+        app.logger.warning(
+            "Supabase Auth returned HTTP %s with non-JSON content (%s).",
+            response.status,
+            content_type or "unknown",
+        )
+        return 503, {"error": "Auth service unavailable."}
+
+
 def supabase_auth(method, path, body=None, token=None):
     if not SUPABASE_URL or not SUPABASE_KEY:
         app.logger.warning("Supabase Auth configuration is incomplete.")
@@ -79,8 +97,7 @@ def supabase_auth(method, path, body=None, token=None):
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            raw = resp.read()
-            return resp.status, json.loads(raw) if raw else {}
+            return _supabase_json_response(resp)
     except urllib.error.HTTPError as e:
         return _supabase_http_error(e)
     except urllib.error.URLError as e:
@@ -106,8 +123,7 @@ def supabase_admin(method, path, body=None):
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            raw = resp.read()
-            return resp.status, json.loads(raw) if raw else {}
+            return _supabase_json_response(resp)
     except urllib.error.HTTPError as e:
         return _supabase_http_error(e)
     except urllib.error.URLError as e:

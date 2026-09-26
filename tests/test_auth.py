@@ -201,6 +201,30 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(status, 503)
         self.assertEqual(data, {"error": "Auth service unavailable."})
 
+    def test_non_json_provider_response_is_sanitized(self):
+        class NonJsonResponse:
+            status = 200
+            headers = {"Content-Type": "text/html; charset=utf-8"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def read(self):
+                return b"<html>upstream error</html>"
+
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "test-key"),
+            patch("server.urllib.request.urlopen", return_value=NonJsonResponse()),
+        ):
+            status, data = server.supabase_auth("GET", "/auth/v1/settings")
+
+        self.assertEqual(status, 503)
+        self.assertEqual(data, {"error": "Auth service unavailable."})
+
     def test_admin_auth_does_not_fall_back_to_public_key(self):
         with (
             patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
