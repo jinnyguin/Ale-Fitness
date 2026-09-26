@@ -87,3 +87,5 @@
   .footer{gap:7px}
   .footer .button{padding:12px 7px;font-size:.62rem}
 }
+
+body{background:var(--ink)}
