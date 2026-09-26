@@ -23,51 +23,74 @@ id = "nB9CY2lyBRIePmSwWh4aH"
 uri = "file://ads/alefit-ad-instagram.png"
 type = "image"
 title = "Instagram Feed Image (1:1)"
+logical_id = "51839f9f-836b-49a8-b200-a4c3a9e48095"
 
 [[outputs]]
 id = "SDLJf3HDlqpg5fnUX_ak-"
 uri = "file://ads/alefit-ad-story.png"
 type = "image"
 title = "Instagram Story Image (9:16)"
+logical_id = "14f9ace9-9c42-4cad-82e3-362d0551389e"
 
 [[outputs]]
 id = "-DTxscSf0aEDQ3fGe_AV3"
 uri = "file://ads/alefit-ad-banner.png"
 type = "image"
 title = "Website Banner Image (16:9)"
+logical_id = "6cac7460-a361-431a-9c43-f1b3dc5f3ea8"
 
 [[outputs]]
 id = "vqRxAsi9xjo6Bv_65xEQn"
 uri = "file://ads/social-media-ads.md"
 type = "text"
 title = "Ad Copy & Text"
+logical_id = "523c93e7-4b0a-4c3f-9ceb-16968948a869"
 
 [[outputs]]
 id = "tznljdtaqM1VcDKbxpLNu"
 uri = "file://attached_assets/generated_videos/alefit-brand-ad-landscape.mp4"
 type = "video"
 title = "Brand Ad (16:9 Landscape) - YouTube/Facebook"
+logical_id = "292b7a39-a34b-4d98-95dc-a8ade7d9a6c7"
 
 [[outputs]]
 id = "wKiZ6H3ADpjGfQDagsHYJ"
 uri = "file://attached_assets/generated_videos/alefit-social-ad-vertical.mp4"
 type = "video"
 title = "Social Ad (9:16 Vertical) - Instagram/TikTok/Reels"
+logical_id = "480a1ae4-ebd0-4203-b8c6-27db044111d2"
 
 [[outputs]]
 id = "9GjJNJ5k5myll6hkUbp06"
 uri = "file://attached_assets/generated_videos/alefit-tools-ad.mp4"
 type = "video"
 title = "Tools Ad (16:9 Landscape) - YouTube/Facebook"
+logical_id = "705ef5bc-5cc8-4d28-89b2-cfb6163c69ac"
 
 [[outputs]]
 id = "FOS4SMsH041UHOJZ_KLqs"
 uri = "file://attached_assets/generated_videos/alefit-athletes-ad.mp4"
 type = "video"
 title = "Athletes Ad (9:16 Vertical) - Instagram/TikTok/Reels"
+logical_id = "2bbe2c37-13dc-42dd-beeb-6db33847e757"
 
 [[outputs]]
 id = "eQ9b4p2H2nN0jO_AxDYoc"
 uri = "file://ads/ads-with-video.md"
 type = "text"
 title = "Complete Ad Copy & Video Scripts"
+logical_id = "e7326890-e2b8-4d48-b567-6b60ae298ad9"
+
+[[outputs]]
+id = "p2TNWOdQkrfRADaFKoxh6"
+uri = "file://screenshots/alefit-program-page-sample.jpg"
+type = "image"
+title = "ALEFIT program page preview"
+description = "Signed-in My Plan screen rendered with ALEFIT’s actual page code and a sample athlete plan. This is demo data, not your account’s saved plan."
+logical_id = "f46f85e7-58d2-412e-a598-478d3beb017a"
+content_hash = "sha256:37aee382a57ea88e4c05f157df86889e5528526e05d47be7242d40a7d58c8506"
+size = 76480
+mtime_ms = 1790451458334
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/f46f85e7-58d2-412e-a598-478d3beb017a/97cb3622-f29f-42b2-8e79-daaf4acfd0e0"
+storage_version_token = "1790451476621030"
+content_type = "image/jpeg"
