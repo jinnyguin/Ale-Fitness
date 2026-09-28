@@ -309,7 +309,11 @@
     error.setAttribute("role", "alert");
     error.textContent = message;
     var footerNode = root.querySelector(".footer");
-    root.insertBefore(error, footerNode || null);
+    if (footerNode && footerNode.parentNode) {
+      footerNode.parentNode.insertBefore(error, footerNode);
+    } else {
+      root.appendChild(error);
+    }
   }
   function question(step, title, sub, body, next, back) {
     return '<span class="eyebrow">Plan build <b class="step-count">0' + (step + 1) +
