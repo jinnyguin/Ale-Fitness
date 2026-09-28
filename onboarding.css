@@ -292,3 +292,11 @@ body{background:var(--ink)}
   .account .footer{position:static;align-items:stretch;margin-top:26px;padding:0;background:none}
   .account .footer .button:last-child{min-width:0}
 }
+/* Keep the page backdrop black; lime remains an accent, not a background wash. */
+:root{--ink:#000;--panel:#161616;--line:#303030}
+html,body{background:#000}
+.updated-plan{--up-ink:#000;--up-panel:#191919;background:#000}
+.plan-banner,.up-plan-banner{background:#111}
+.up-footer{background:#000}
+.account{background:#111}
+.account-plan-summary{background:#080808}

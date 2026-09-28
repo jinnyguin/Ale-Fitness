@@ -10,8 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     :root {
-      --ink: #080909;
-      --panel: #111313;
+      --ink: #000;
+      --panel: #111;
       --line: rgba(255,255,255,.1);
       --muted: #8f9893;
       --lime: #d4ff00;
@@ -21,10 +21,7 @@
     body {
       font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
       color: #fff;
-      background:
-        radial-gradient(circle at 16% 18%, rgba(212,255,0,.08), transparent 30rem),
-        radial-gradient(circle at 88% 88%, rgba(212,255,0,.04), transparent 28rem),
-        var(--ink);
+      background: var(--ink);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -60,7 +57,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      background: linear-gradient(145deg, rgba(212,255,0,.1), transparent 48%), #0d1010;
+      background: #0d1010;
       border-right: 1px solid var(--line);
       position: relative;
       isolation: isolate;
@@ -170,7 +167,7 @@
       align-items: flex-start;
       padding: calc(20px + env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
       font-family: "DM Sans", sans-serif;
-      background: radial-gradient(circle at 92% 2%, #282d1b 0, transparent 25rem), var(--ink);
+      background: var(--ink);
     }
     body::before { display: none; }
     .auth-page { width: min(100%, 1040px); margin: 0 auto; }
@@ -208,7 +205,7 @@
     .aside-foot { margin-top:3rem; color:#7b8176; font-size:.68rem; letter-spacing:.12em; }
     .aside-foot b { color:var(--lime); }
     .card {
-      max-width:none; padding:clamp(22px,4vw,38px); background:linear-gradient(145deg,rgba(212,255,0,.045),transparent 42%),#161815;
+      max-width:none; padding:clamp(22px,4vw,38px); background:#111;
       border:1px solid rgba(232,239,214,.14); border-radius:4px;
     }
     .form-intro { margin-bottom:1.5rem; }
