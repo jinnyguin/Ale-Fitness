@@ -1243,7 +1243,7 @@
       if (window.trackEvent) window.trackEvent("plan_created", {
         days: Number(state.prefs.days || 0)
       });
-      window.location.replace("/today.html");
+      window.location.replace("/today.html?view=plan");
     } catch (error) {
       button.dataset.saving = "false";
       button.disabled = false;
