@@ -94,3 +94,59 @@ mtime_ms = 1790451458334
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/f46f85e7-58d2-412e-a598-478d3beb017a/97cb3622-f29f-42b2-8e79-daaf4acfd0e0"
 storage_version_token = "1790451476621030"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "juPJpAp1pO8PK_t8KiFwl"
+uri = "file://screenshots/alefit-plan-review-desktop-viewport.png"
+type = "image"
+title = "ALEFIT plan review — desktop"
+description = "Desktop view of the generated-program review screen."
+logical_id = "ccec68ca-c8f6-42bb-99ee-c550bfa8c852"
+content_hash = "sha256:cd81caee036a568f746d47358e407abbe48f405903344468325a38140d7b7023"
+size = 588834
+mtime_ms = 1790560195908
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/ccec68ca-c8f6-42bb-99ee-c550bfa8c852/686f99cc-4314-45ad-a88c-376333dd1299"
+storage_version_token = "1790560203888256"
+content_type = "image/png"
+
+[[outputs]]
+id = "kdvmBv7CD9mi0Z5AumKSS"
+uri = "file://screenshots/alefit-plan-review-desktop.png"
+type = "image"
+title = "ALEFIT plan review — desktop full page"
+description = "Full-page desktop capture showing answers, sessions, weekly rhythm, progression, and recovery guidance."
+logical_id = "fb408476-f5b1-4e99-9f70-2eb2a2b49f28"
+content_hash = "sha256:2bf5fdabdaf6d845891fef80d0cacfd5792e1d0bc748c0c03abf4fb369b50021"
+size = 826943
+mtime_ms = 1790560171796
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/fb408476-f5b1-4e99-9f70-2eb2a2b49f28/2b05c279-cdab-4db3-b268-d53a6567ec95"
+storage_version_token = "1790560204744729"
+content_type = "image/png"
+
+[[outputs]]
+id = "Emf3anxDG8BNfHBnb0cn8"
+uri = "file://screenshots/alefit-plan-review-mobile-viewport.png"
+type = "image"
+title = "ALEFIT plan review — mobile"
+description = "Mobile viewport capture with the responsive review layout and fixed action bar."
+logical_id = "c3875ac2-2a9e-49d9-a67f-51b561a091db"
+content_hash = "sha256:e4bcb3c9b9455a3e0e5248dcc8eea67f9bc93f2cd76b729f58660d8cfc8bce68"
+size = 257166
+mtime_ms = 1790560173091
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/c3875ac2-2a9e-49d9-a67f-51b561a091db/e6cd342b-c1db-418f-8172-3e9a9a7a3562"
+storage_version_token = "1790560205427693"
+content_type = "image/png"
+
+[[outputs]]
+id = "vOkexS8r6_SH_hYa1nvNL"
+uri = "file://screenshots/alefit-plan-review-mobile.png"
+type = "image"
+title = "ALEFIT plan review — mobile full page"
+description = "Full-page mobile capture of the complete generated-plan review."
+logical_id = "60fe3f3d-6791-49aa-b8bd-c78115725a38"
+content_hash = "sha256:5fae1d727d4929c401db306683f45fbd48386e228dd3bfb829a6f210a6413474"
+size = 860630
+mtime_ms = 1790560172975
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/60fe3f3d-6791-49aa-b8bd-c78115725a38/8cc08fe8-12cc-4721-8cef-98752ff1549b"
+storage_version_token = "1790560206149939"
+content_type = "image/png"
