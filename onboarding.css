@@ -2,7 +2,7 @@
 
 .progress-caption{display:flex;justify-content:space-between;gap:12px;margin-top:8px;color:var(--muted);font-size:.72rem}
 .progress-caption span:first-child{color:var(--white);font-weight:700}
-.topbar{min-height:0;justify-content:flex-end}
+.topbar{min-height:0;justify-content:space-between}
 .onboarding{min-width:0;margin-top:clamp(34px,7vh,68px)}
 .onboarding h1{overflow-wrap:anywhere}
 .sport-step-body{margin-top:26px}
@@ -277,3 +277,18 @@ body{background:var(--ink)}
 .account-google svg{width:20px;height:20px;flex:0 0 auto}
 .account-oauth-divider{display:flex;align-items:center;gap:12px;margin:18px 0 4px;color:var(--muted);font-size:.72rem}
 .account-oauth-divider:before,.account-oauth-divider:after{content:"";height:1px;flex:1;background:var(--line)}
+.account{width:min(100%,620px);max-width:620px;margin:clamp(34px,7vh,68px) auto 0;padding:clamp(20px,4vw,32px);background:linear-gradient(145deg,rgba(212,255,0,.045),transparent 42%),var(--panel);border:1px solid var(--line)}
+.account h1{font-size:clamp(2.7rem,7vw,4.4rem);max-width:560px}
+.account .sub{margin-top:12px}
+.account-plan-summary{margin-bottom:26px;padding:16px 18px;border:1px solid #59622b;background:linear-gradient(110deg,rgba(212,255,0,.11),rgba(212,255,0,.025))}
+.account-plan-summary strong{display:block;margin:8px 0 6px;font:800 1.8rem/.95 "Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.02em}
+.account-plan-summary p{font-size:.86rem}
+.account .footer{gap:12px}
+.account .footer .button{width:auto;margin-top:0}
+.account .footer .button:last-child{flex:1}
+@media(max-width:620px){
+  .account{margin:28px auto 0;padding:18px 16px}
+  .account-plan-summary{margin-bottom:22px;padding:14px}
+  .account .footer{position:static;align-items:stretch;margin-top:26px;padding:0;background:none}
+  .account .footer .button:last-child{min-width:0}
+}

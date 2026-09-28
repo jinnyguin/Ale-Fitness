@@ -150,3 +150,45 @@ mtime_ms = 1790560172975
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/60fe3f3d-6791-49aa-b8bd-c78115725a38/8cc08fe8-12cc-4721-8cef-98752ff1549b"
 storage_version_token = "1790560206149939"
 content_type = "image/png"
+
+[[outputs]]
+id = "ew_8YPY2ehGMDZUIhL4N6"
+uri = "file://screenshots/alefit-login-desktop-updated.jpg"
+type = "image"
+title = "Updated ALEFIT sign-in — desktop"
+description = "Sign-in screen aligned with the plan-review typography and visual system."
+logical_id = "bc598dda-4552-4eb5-89b9-00cb67b1c34e"
+content_hash = "sha256:93f9c5e2da12ce47e00ecc000b0ab5c05b387399d96e0ba1677101f442986f97"
+size = 55055
+mtime_ms = 1790561856428
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/bc598dda-4552-4eb5-89b9-00cb67b1c34e/da44a0f3-e534-4bf5-8a54-adb38be2a24e"
+storage_version_token = "1790561862637635"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "SjMnqi2o9eTtQq7VrO-HJ"
+uri = "file://screenshots/alefit-login-mobile-updated.png"
+type = "image"
+title = "Updated ALEFIT sign-in — mobile"
+description = "Mobile sign-in screen with contextual return-to-plan messaging."
+logical_id = "4057b41b-1571-45f2-9b88-7c5449a0fabb"
+content_hash = "sha256:98b23b9719451c32e293e8fe3c323fe8673cc2e80befa3510edada56fc45df03"
+size = 112224
+mtime_ms = 1790561856418
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/4057b41b-1571-45f2-9b88-7c5449a0fabb/98b181dc-7801-483d-a46f-9ecb2b7362b1"
+storage_version_token = "1790561863281489"
+content_type = "image/png"
+
+[[outputs]]
+id = "PaBCMlPPbGUFtcUptl1Qj"
+uri = "file://screenshots/alefit-account-mobile-updated.png"
+type = "image"
+title = "Updated ALEFIT account setup — mobile"
+description = "Account setup now continues the plan flow and shows the generated plan before saving."
+logical_id = "261ef97c-53c9-4bf6-9e27-37bdd118eee7"
+content_hash = "sha256:734abe1e5e7451d5ff742787bc8c1d1bd963d8e88e8ba6f8d4e122224548314b"
+size = 119827
+mtime_ms = 1790561856424
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:dcd1707b-ced5-4c9f-b9a6-fb01f659bdb1/261ef97c-53c9-4bf6-9e27-37bdd118eee7/78d0070e-4f9d-44c1-954f-ad978f1135bc"
+storage_version_token = "1790561863859126"
+content_type = "image/png"

@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login | ALEFIT</title>
   <link rel="icon" href="/images/alefit-logo.png" type="image/png"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     :root {
       --ink: #080909;
@@ -161,20 +164,113 @@
     @media (max-width: 390px) {
       .links-row { align-items: flex-start; flex-direction: column; gap: .85rem; }
     }
+    /* Keep account access visually connected to the ALEFIT plan builder. */
+    html { background: var(--ink); }
+    body {
+      align-items: flex-start;
+      padding: calc(20px + env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+      font-family: "DM Sans", sans-serif;
+      background: radial-gradient(circle at 92% 2%, #282d1b 0, transparent 25rem), var(--ink);
+    }
+    body::before { display: none; }
+    .auth-page { width: min(100%, 1040px); margin: 0 auto; }
+    .auth-topbar { display:flex; align-items:center; justify-content:space-between; gap:1rem; min-height:48px; }
+    .brand-lockup { gap:.65rem; }
+    .brand-lockup img { width:2.65rem; height:2.65rem; }
+    .brand-lockup strong { font-size:1.1rem; letter-spacing:.12em; }
+    .brand-lockup span { font-size:.58rem; letter-spacing:.16em; }
+    .auth-build-link {
+      color:#f4f5ed; border:1px solid rgba(212,255,0,.35); border-radius:3px;
+      padding:.65rem .85rem; background:rgba(212,255,0,.05); text-decoration:none;
+      font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+    }
+    .auth-build-link:hover { color:var(--lime); border-color:var(--lime); }
+    .auth-progress { height:3px; margin-top:20px; background:#292b27; }
+    .auth-progress span { display:block; width:100%; height:100%; background:var(--lime); }
+    .auth-progress-caption { display:flex; justify-content:space-between; gap:12px; margin-top:8px; color:var(--muted); font-size:.72rem; }
+    .auth-progress-caption strong { color:#f4f5ed; font-weight:700; }
+    .auth-shell {
+      grid-template-columns:minmax(0,.95fr) minmax(340px,1.05fr);
+      gap:clamp(28px,6vw,72px); align-items:start; min-height:0; margin:clamp(38px,8vh,76px) 0 0;
+      background:none; border:0; border-radius:0; box-shadow:none; backdrop-filter:none; overflow:visible;
+    }
+    .auth-aside {
+      min-height:0; padding:0; justify-content:flex-start; background:none; border:0;
+    }
+    .auth-aside::after { content:none; }
+    .aside-copy { max-width:25rem; margin:0; }
+    .eyebrow { color:var(--lime); font-size:.7rem; font-weight:700; letter-spacing:.19em; }
+    .aside-copy h1 {
+      margin:16px 0 12px; font-family:"Barlow Condensed",sans-serif; font-size:clamp(4rem,7vw,6.5rem);
+      line-height:.86; letter-spacing:.015em; font-weight:900; text-transform:uppercase;
+    }
+    .aside-copy p { max-width:24rem; margin-top:1rem; color:#9a9d94; font-size:.98rem; line-height:1.6; }
+    .aside-foot { margin-top:3rem; color:#7b8176; font-size:.68rem; letter-spacing:.12em; }
+    .aside-foot b { color:var(--lime); }
+    .card {
+      max-width:none; padding:clamp(22px,4vw,38px); background:linear-gradient(145deg,rgba(212,255,0,.045),transparent 42%),#161815;
+      border:1px solid rgba(232,239,214,.14); border-radius:4px;
+    }
+    .form-intro { margin-bottom:1.5rem; }
+    .form-intro h2 {
+      margin-top:.65rem; font-family:"Barlow Condensed",sans-serif; font-size:clamp(2.5rem,4vw,3.25rem);
+      line-height:.92; letter-spacing:.015em; text-transform:uppercase;
+    }
+    .form-intro p { margin-top:.65rem; color:#9a9d94; font-size:.9rem; }
+    label { color:#aeb7b0; font-family:"DM Sans",sans-serif; font-size:.68rem; letter-spacing:.14em; }
+    .field { margin-bottom:1rem; }
+    input[type=email], input[type=password], input[type=text] {
+      border:1px solid #30332c; border-radius:3px; background:#10110f; padding:14px;
+      font-family:"DM Sans",sans-serif;
+    }
+    input:focus { border-color:var(--lime); background:#101410; box-shadow:0 0 0 2px rgba(212,255,0,.2); }
+    .btn { min-height:50px; border-radius:3px; font-family:"DM Sans",sans-serif; }
+    .google-btn { border-radius:3px; font-family:"DM Sans",sans-serif; }
+    .oauth-divider { color:#9a9d94; }
+    .links { color:#9a9d94; }
+    .links a { color:var(--lime); }
+    .links-row a:last-child { border-radius:3px; }
+    @media (max-width:700px) {
+      body { padding:calc(16px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); }
+      .auth-shell { display:grid; grid-template-columns:1fr; gap:22px; margin-top:36px; }
+      .auth-aside { min-height:0; padding:0; border:0; background:none; }
+      .aside-copy { margin:0; }
+      .aside-copy h1 { margin:14px 0 10px; font-size:clamp(3.8rem,14vw,5.4rem); }
+      .aside-copy p { display:block; margin-top:.75rem; font-size:.9rem; }
+      .aside-foot { display:none; }
+      .card { padding:22px 18px; }
+      .form-intro { margin-bottom:1.25rem; }
+      .form-intro h2 { font-size:2.65rem; }
+    }
+    @media (max-width:390px) {
+      .auth-topbar { gap:.5rem; }
+      .brand-lockup { gap:.45rem; }
+      .brand-lockup img { width:2.25rem; height:2.25rem; }
+      .brand-lockup strong { font-size:.98rem; }
+      .brand-lockup span { font-size:.5rem; }
+      .auth-build-link { padding:.58rem .65rem; font-size:.64rem; }
+      .auth-progress-caption { font-size:.66rem; }
+      .aside-copy h1 { font-size:clamp(3.35rem,14vw,4.4rem); }
+    }
   </style>
 </head>
 <body>
 <main class="auth-page">
+<header class="auth-topbar">
+  <a class="brand-lockup" href="/" aria-label="ALEFIT home">
+    <img src="/images/alefit-logo.png" alt="ALEFIT">
+    <div><strong>ALEFIT</strong><span>Performance training</span></div>
+  </a>
+  <a class="auth-build-link" href="/Register.html">Build a plan</a>
+</header>
+<div class="auth-progress" aria-hidden="true"><span></span></div>
+<div class="auth-progress-caption"><strong>Member access</strong><span id="auth-progress-hint">Sign in to continue training</span></div>
 <div class="auth-shell">
   <aside class="auth-aside">
-    <a class="brand-lockup" href="/" aria-label="ALEFIT home">
-      <img src="/images/alefit-logo.png" alt="ALEFIT">
-      <div><strong>ALEFIT</strong><span>Performance training</span></div>
-    </a>
     <div class="aside-copy">
       <span class="eyebrow">Your next block starts here</span>
       <h1>Train<br><em>with intent.</em></h1>
-      <p>Sign in to pick up your personalized plan, track today’s work, and keep your progress moving forward.</p>
+      <p id="login-copy">Sign in to pick up your personalized plan, track today’s work, and keep your progress moving forward.</p>
     </div>
     <div class="aside-foot"><b>●</b> Adaptive training for real athletes</div>
   </aside>
@@ -230,6 +326,10 @@
     }
   }
   var fromUrl = safeReturnPath(params.get('from_url'));
+  if (/^\/Register\.html(?:[?#]|$)/i.test(fromUrl)) {
+    document.getElementById('auth-progress-hint').textContent = 'Sign in to save your reviewed plan';
+    document.getElementById('login-copy').textContent = 'Your opening block is ready. Sign in and return to save it to your ALEFIT account.';
+  }
 
   var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
   if (token) {
