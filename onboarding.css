@@ -293,10 +293,15 @@ body{background:var(--ink)}
   .account .footer .button:last-child{min-width:0}
 }
 /* Keep the page backdrop black; lime remains an accent, not a background wash. */
-:root{--ink:#000;--panel:#161616;--line:#303030}
+:root{--ink:#000;--panel:#080808;--line:#303030}
 html,body{background:#000}
-.updated-plan{--up-ink:#000;--up-panel:#191919;background:#000}
-.plan-banner,.up-plan-banner{background:#111}
-.up-footer{background:#000}
-.account{background:#111}
-.account-plan-summary{background:#080808}
+.tile.selected{background:#000}
+.plan-banner{border-color:var(--line);background:#000}
+.selected-sport{background:#000}
+.reason-item,.week-step{background:#080808}
+.updated-plan{--up-ink:#000;--up-panel:#080808;--up-line:rgba(255,255,255,.14);background:#000}
+.up-plan-banner{border-color:var(--up-line);background:#000}
+.up-reason{background:#080808}
+.up-footer{background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.96) 20%,#000 100%)}
+.account{background:#080808}
+.account-plan-summary{border-color:var(--line);background:#000}
