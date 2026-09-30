@@ -11,9 +11,9 @@
   <style>
     :root {
       --ink: #000;
-      --panel: #111;
-      --line: rgba(255,255,255,.1);
-      --muted: #8f9893;
+      --panel: #000;
+      --line: rgba(255,255,255,.12);
+      --muted: #909090;
       --lime: #d4ff00;
       --lime-soft: rgba(212,255,0,.12);
     }
@@ -45,7 +45,7 @@
       display: grid;
       grid-template-columns: minmax(280px, .9fr) minmax(360px, 1.1fr);
       min-height: 570px;
-      background: rgba(17,19,19,.86);
+      background: #000;
       border: 1px solid var(--line);
       border-radius: 1.5rem;
       overflow: hidden;
@@ -57,7 +57,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      background: #0d1010;
+      background: #000;
       border-right: 1px solid var(--line);
       position: relative;
       isolation: isolate;
@@ -100,12 +100,12 @@
     label { display: block; color: #aeb7b0; font-size: .68rem; font-weight: 800; margin-bottom: .5rem; letter-spacing: .14em; text-transform: uppercase; }
     .field { margin-bottom: 1.25rem; }
     input[type=email], input[type=password], input[type=text] {
-      width: 100%; background: #0b0d0c; border: 1px solid #2c332e;
+      width: 100%; background: #000; border: 1px solid #303030;
       border-radius: .55rem; padding: .9rem 1rem;
       color: #fff; font-size: .95rem; outline: none;
       transition: border-color .15s, box-shadow .15s, background .15s;
     }
-    input:focus { border-color: var(--lime); background: #101410; box-shadow: 0 0 0 4px var(--lime-soft); }
+    input:focus { border-color: var(--lime); background: #000; box-shadow: 0 0 0 4px var(--lime-soft); }
     input::placeholder { color: #4e5751; }
     .btn {
       width: 100%; background: var(--lime);
@@ -144,9 +144,9 @@
       border: 1px solid rgba(212,255,0,.35);
       border-radius: .45rem;
       padding: .55rem .7rem;
-      background: rgba(212,255,0,.06);
+      background: transparent;
     }
-    .links-row a:last-child:hover { border-color: var(--lime); background: rgba(212,255,0,.12); text-decoration: none; }
+    .links-row a:last-child:hover { border-color: var(--lime); background: transparent; text-decoration: none; }
     .links-row a:last-child::after { content: "  →"; color: var(--lime); }
     @media (max-width: 700px) {
       body { align-items: flex-start; padding: 1rem; }
@@ -178,7 +178,7 @@
     .brand-lockup span { font-size:.58rem; letter-spacing:.16em; }
     .auth-build-link {
       color:#f4f5ed; border:1px solid rgba(212,255,0,.35); border-radius:3px;
-      padding:.65rem .85rem; background:rgba(212,255,0,.05); text-decoration:none;
+      padding:.65rem .85rem; background:transparent; text-decoration:none;
       font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
     }
     .auth-build-link:hover { color:var(--lime); border-color:var(--lime); }
@@ -189,10 +189,10 @@
     .auth-shell {
       grid-template-columns:minmax(0,.95fr) minmax(340px,1.05fr);
       gap:clamp(28px,6vw,72px); align-items:start; min-height:0; margin:clamp(38px,8vh,76px) 0 0;
-      background:none; border:0; border-radius:0; box-shadow:none; backdrop-filter:none; overflow:visible;
+      background:#000; border:0; border-radius:0; box-shadow:none; backdrop-filter:none; overflow:visible;
     }
     .auth-aside {
-      min-height:0; padding:0; justify-content:flex-start; background:none; border:0;
+      min-height:0; padding:0; justify-content:flex-start; background:#000; border:0;
     }
     .auth-aside::after { content:none; }
     .aside-copy { max-width:25rem; margin:0; }
@@ -205,7 +205,7 @@
     .aside-foot { margin-top:3rem; color:#7b8176; font-size:.68rem; letter-spacing:.12em; }
     .aside-foot b { color:var(--lime); }
     .card {
-      max-width:none; padding:clamp(22px,4vw,38px); background:#111;
+      max-width:none; padding:clamp(22px,4vw,38px); background:#000;
       border:1px solid rgba(232,239,214,.14); border-radius:4px;
     }
     .form-intro { margin-bottom:1.5rem; }
@@ -217,10 +217,10 @@
     label { color:#aeb7b0; font-family:"DM Sans",sans-serif; font-size:.68rem; letter-spacing:.14em; }
     .field { margin-bottom:1rem; }
     input[type=email], input[type=password], input[type=text] {
-      border:1px solid #30332c; border-radius:3px; background:#10110f; padding:14px;
+      border:1px solid #303030; border-radius:3px; background:#000; padding:14px;
       font-family:"DM Sans",sans-serif;
     }
-    input:focus { border-color:var(--lime); background:#101410; box-shadow:0 0 0 2px rgba(212,255,0,.2); }
+    input:focus { border-color:var(--lime); background:#000; box-shadow:0 0 0 2px rgba(212,255,0,.2); }
     .btn { min-height:50px; border-radius:3px; font-family:"DM Sans",sans-serif; }
     .google-btn { border-radius:3px; font-family:"DM Sans",sans-serif; }
     .oauth-divider { color:#9a9d94; }
