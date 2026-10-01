@@ -328,61 +328,116 @@
     document.getElementById('login-copy').textContent = 'Your opening block is ready. Sign in and return to save it to your ALEFIT account.';
   }
 
-  var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
-  if (token) {
-    fetch('/api/apps/' + APP_ID + '/auth/me', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    }).then(function(r) {
-      if (r.ok) {
-        window.location.replace(fromUrl);
-      } else {
-        localStorage.removeItem('base44_access_token');
-        localStorage.removeItem('token');
-        localStorage.removeItem('alefit_user');
-      }
-    }).catch(function() {});
-  }
-
   var form = document.getElementById('loginForm');
   var errorMsg = document.getElementById('errorMsg');
   var submitBtn = document.getElementById('submitBtn');
+  var manualSignInStarted = false;
 
   function showError(msg) {
     errorMsg.textContent = msg;
     errorMsg.style.display = 'block';
   }
 
+  function readStoredToken() {
+    try {
+      return window.localStorage.getItem('base44_access_token') ||
+        window.localStorage.getItem('token');
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function clearStoredSession() {
+    try {
+      window.localStorage.removeItem('base44_access_token');
+      window.localStorage.removeItem('token');
+      window.localStorage.removeItem('alefit_user');
+    } catch (err) {}
+  }
+
   async function saveSession(data) {
-    localStorage.setItem('base44_access_token', data.access_token);
-    localStorage.setItem('token', data.access_token);
-    if (data.user) localStorage.setItem('alefit_user', JSON.stringify(data.user));
+    if (!data || typeof data.access_token !== 'string' || !data.access_token) {
+      throw new Error('The sign-in service did not return a valid session. Please try again.');
+    }
+    try {
+      window.localStorage.setItem('base44_access_token', data.access_token);
+      window.localStorage.setItem('token', data.access_token);
+      if (data.user) window.localStorage.setItem('alefit_user', JSON.stringify(data.user));
+    } catch (err) {
+      clearStoredSession();
+      throw new Error('Your browser blocked sign-in storage. Allow site data for ALEFIT, then try again.');
+    }
     window.location.replace(fromUrl);
+  }
+
+  var token = readStoredToken();
+  if (token) {
+    fetch('/api/apps/' + APP_ID + '/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(function(response) {
+      if (manualSignInStarted) return;
+      if (response.ok) {
+        window.location.replace(fromUrl);
+      } else if (response.status === 401 || response.status === 403) {
+        clearStoredSession();
+      } else {
+        showError('We could not verify your saved sign-in right now. You can try signing in below.');
+      }
+    }).catch(function() {
+      if (!manualSignInStarted) {
+        showError('We could not reach the sign-in service to verify your saved session. Please try again.');
+      }
+    });
   }
 
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
+    manualSignInStarted = true;
     errorMsg.style.display = 'none';
     submitBtn.disabled = true;
     submitBtn.textContent = 'Signing in…';
     var email = document.getElementById('email').value.trim();
     var password = document.getElementById('password').value;
     try {
-      var resp = await fetch('/api/apps/' + APP_ID + '/auth/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email: email, password: password})
-      });
-      var data = await resp.json();
-      if (resp.ok && data.access_token) {
-         if (window.trackEvent) window.trackEvent('login_succeeded', {source: 'login'});
-         await saveSession(data);
-      } else {
-        showError(data.error || data.message || 'Login failed. Check your email and password.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Sign In';
+      var resp;
+      try {
+        resp = await fetch('/api/apps/' + APP_ID + '/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({email: email, password: password})
+        });
+      } catch (networkError) {
+        throw new Error('Could not reach the sign-in service. Check your connection and try again.');
       }
+
+      var data;
+      try {
+        data = await resp.json();
+      } catch (parseError) {
+        throw new Error('The sign-in service returned an invalid response. Please try again.');
+      }
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new Error('The sign-in service returned an invalid response. Please try again.');
+      }
+
+      if (resp.ok && data.access_token) {
+        if (window.trackEvent) {
+          try { window.trackEvent('login_succeeded', {source: 'login'}); } catch (trackError) {}
+        }
+        await saveSession(data);
+        return;
+      }
+
+      var fallback = resp.status === 429 ?
+        'Too many sign-in attempts. Please wait a moment and try again.' :
+        resp.status >= 500 ?
+          'Sign-in is temporarily unavailable. Please try again in a moment.' :
+          'Login failed. Check your email and password.';
+      showError(data.error || data.message || fallback);
     } catch(err) {
-      showError('Network error. Please try again.');
+      showError(err.message || 'Could not reach the sign-in service. Check your connection and try again.');
+    }
+    if (submitBtn.disabled) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Sign In';
     }
@@ -395,6 +450,9 @@
     googleButton.disabled = true;
     googleButton.textContent = 'Connecting to Google…';
     try {
+      if (!window.AlefitOAuth || typeof window.AlefitOAuth.startGoogle !== 'function') {
+        throw new Error('Google sign-in is unavailable right now. Please use email sign-in.');
+      }
       await window.AlefitOAuth.startGoogle(fromUrl);
     } catch(err) {
       showError(err.message || 'Google sign-in could not be started. Please try again.');

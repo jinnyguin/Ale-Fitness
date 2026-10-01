@@ -84,26 +84,52 @@
     return;
   }
 
-  // Store token in localStorage
-  localStorage.setItem('base44_access_token', token);
-  localStorage.setItem('token', token);
+  function clearStoredSession() {
+    try {
+      window.localStorage.removeItem('base44_access_token');
+      window.localStorage.removeItem('token');
+      window.localStorage.removeItem('alefit_user');
+    } catch (e) {}
+  }
 
-  // Fetch user info to confirm token is valid and create profile
+  try {
+    window.localStorage.setItem('base44_access_token', token);
+    window.localStorage.setItem('token', token);
+  } catch (storageError) {
+    clearStoredSession();
+    setError('Your browser blocked sign-in storage. Allow site data for ALEFIT, then try again.');
+    return;
+  }
+
+  // Confirm the provider token before sending the user into a signed-in page.
   fetch('/api/apps/' + APP_ID + '/auth/me', {
     headers: { 'Authorization': 'Bearer ' + token }
-  }).then(function(r) { return r.json(); }).then(function(user) {
-    if (user && user.id) {
-      localStorage.setItem('alefit_user', JSON.stringify(user));
+  }).then(function(response) {
+    return response.json().catch(function() { return null; }).then(function(user) {
+      if (!response.ok || !user || !user.id) {
+        var message = response.status >= 500 ?
+          'Sign-in is temporarily unavailable. Please try again in a moment.' :
+          'Google sign-in could not be verified. Please try signing in again.';
+        throw new Error(message);
+      }
+      return user;
+    });
+  }).then(function(user) {
+    try {
+      window.localStorage.setItem('alefit_user', JSON.stringify(user));
+    } catch (storageError) {
+      throw new Error('Your browser blocked sign-in storage. Allow site data for ALEFIT, then try again.');
     }
-    // Redirect with token in URL so React SPA picks it up
+    // Keep the token query parameter for the existing app-session bootstrap.
     var dest = new URL(fromUrl, window.location.origin);
     dest.searchParams.set('access_token', token);
     window.location.replace(dest.toString());
-  }).catch(function() {
-    // Even if /auth/me fails, proceed with stored token
-    var dest = new URL(fromUrl, window.location.origin);
-    dest.searchParams.set('access_token', token);
-    window.location.replace(dest.toString());
+  }).catch(function(error) {
+    clearStoredSession();
+    var message = error && error.name === 'TypeError' ?
+      'Could not reach the sign-in service. Check your connection and try again.' :
+      (error && error.message) || 'Google sign-in could not be completed. Please try again.';
+    setError(message);
   });
 })();
 </script>

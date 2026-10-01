@@ -466,6 +466,7 @@ def serve_upload(filename):
 
 
 @app.route("/login")
+@app.route("/login.html")
 def login_page():
     resp = make_response(send_file("Login.html"))
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -475,6 +476,7 @@ def login_page():
 
 
 @app.route("/register")
+@app.route("/register.html")
 def register_page():
     resp = make_response(send_file("Register.html"))
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -484,11 +486,13 @@ def register_page():
 
 
 @app.route("/forgot-password")
+@app.route("/forgotpassword.html")
 def forgot_password_page():
     return send_file("ForgotPassword.html")
 
 
 @app.route("/reset-password")
+@app.route("/resetpassword.html")
 def reset_password_page():
     return send_file("ResetPassword.html")
 
@@ -865,29 +869,84 @@ def auth_login(app_id):
         "password": password,
     })
 
-    if status == 200 and data.get("access_token"):
-        user = data.get("user", {})
-        ensure_profile(user.get("id"), email)
-        return jsonify({"access_token": data["access_token"], "user": format_user(user)})
+    if not isinstance(data, dict):
+        data = {}
 
+    if status == 200:
+        access_token = data.get("access_token")
+        user = data.get("user")
+        if not access_token or not isinstance(user, dict) or not user.get("id"):
+            app.logger.warning("Supabase Auth login returned an incomplete success response.")
+            return jsonify({
+                "error": "Sign-in could not be completed. Please try again."
+            }), 503
+        ensure_profile(user.get("id"), email)
+        return jsonify({"access_token": access_token, "user": format_user(user)})
+
+    if status == 429:
+        return jsonify({
+            "error": "Too many sign-in attempts. Please wait a moment and try again."
+        }), 429
     if status == 503:
         return jsonify({
             "error": "Sign-in is temporarily unavailable. Please try again in a moment."
         }), 503
+    if isinstance(status, int) and status >= 500:
+        app.logger.warning("Supabase Auth login returned HTTP %s.", status)
+        return jsonify({
+            "error": "Sign-in is temporarily unavailable. Please try again in a moment."
+        }), 503
 
-    err = data.get("error_description") or data.get("msg") or data.get("error") or "Invalid email or password"
-    return jsonify({"error": err}), 401
+    provider_error = " ".join(
+        str(data.get(key) or "")
+        for key in ("code", "error_code", "error", "message", "msg", "error_description")
+    ).lower()
+    if "email_not_confirmed" in provider_error or "email not confirmed" in provider_error:
+        return jsonify({
+            "error": "Please confirm your email before signing in. Check your inbox for a confirmation link."
+        }), 403
+    if status in (400, 401, 403, 422):
+        return jsonify({"error": "Invalid email or password."}), 401
+
+    app.logger.warning("Supabase Auth login returned unexpected HTTP status %s.", status)
+    return jsonify({
+        "error": "Sign-in is temporarily unavailable. Please try again in a moment."
+    }), 503
 
 
 @app.route("/api/apps/<app_id>/auth/reset-password-request", methods=["POST"])
 def auth_reset_request(app_id):
-    body = request.get_json(force=True) or {}
-    email = (body.get("email") or "").strip()
-    # Build redirect URL from the incoming request so it works on any domain
-    origin = request.headers.get("Origin") or request.host_url.rstrip("/")
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Please enter a valid email address."}), 400
+    email_value = body.get("email")
+    email = email_value.strip().lower() if isinstance(email_value, str) else ""
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return jsonify({"error": "Please enter a valid email address."}), 400
+    if len(email) > 254:
+        return jsonify({"error": "Email address is too long."}), 400
+
+    # Use the current site host, not a caller-supplied Origin, for recovery links.
+    origin = request.host_url.rstrip("/")
     redirect_to = f"{origin}/ResetPassword.html"
-    supabase_auth("POST", "/auth/v1/recover", {"email": email, "redirectTo": redirect_to})
-    return jsonify({"message": "If this email exists, a reset link has been sent."})
+    recover_path = "/auth/v1/recover?redirect_to=" + urllib.parse.quote(
+        redirect_to, safe=""
+    )
+    status, _ = supabase_auth(
+        "POST",
+        recover_path,
+        {"email": email},
+    )
+    if status == 200:
+        return jsonify({"message": "If this email exists, a reset link has been sent."})
+    if status == 429:
+        return jsonify({
+            "error": "Too many password reset requests. Please wait and try again."
+        }), 429
+    app.logger.warning("Password reset request failed with HTTP status %s.", status)
+    return jsonify({
+        "error": "Password recovery is temporarily unavailable. Please try again later."
+    }), 503
 
 
 @app.route("/api/apps/<app_id>/auth/reset-password", methods=["POST"])

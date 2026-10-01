@@ -147,6 +147,75 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(response.get_json()["user"]["id"], "remote-user")
         ensure_profile.assert_called_once_with("remote-user", "athlete@example.test")
 
+    def test_lowercase_login_html_alias_serves_the_login_page(self):
+        response = self.client.get("/login.html")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'id="loginForm"', response.data)
+        response.close()
+
+    def test_rate_limited_login_returns_a_retryable_message(self):
+        with (
+            patch.object(server, "local_user_by_email", return_value=None),
+            patch.object(server, "local_login", return_value=None),
+            patch.object(server, "supabase_auth", return_value=(429, {"error": "rate limit"})),
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/login",
+                json={"email": "athlete@example.test", "password": "correct horse battery"},
+            )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("wait", response.get_json()["error"].lower())
+        self.assertNotIn("rate limit", response.get_json()["error"].lower())
+
+    def test_auth_provider_server_error_is_not_reported_as_bad_credentials(self):
+        with (
+            patch.object(server, "local_user_by_email", return_value=None),
+            patch.object(server, "local_login", return_value=None),
+            patch.object(server, "supabase_auth", return_value=(500, {"error": "internal error"})),
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/login",
+                json={"email": "athlete@example.test", "password": "correct horse battery"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("temporarily unavailable", response.get_json()["error"].lower())
+        self.assertNotIn("internal error", response.get_json()["error"].lower())
+
+    def test_incomplete_provider_login_response_is_treated_as_service_error(self):
+        with (
+            patch.object(server, "local_user_by_email", return_value=None),
+            patch.object(server, "local_login", return_value=None),
+            patch.object(server, "supabase_auth", return_value=(200, {"access_token": "token"})),
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/login",
+                json={"email": "athlete@example.test", "password": "correct horse battery"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("could not be completed", response.get_json()["error"].lower())
+
+    def test_unconfirmed_remote_account_gets_email_confirmation_guidance(self):
+        with (
+            patch.object(server, "local_user_by_email", return_value=None),
+            patch.object(server, "local_login", return_value=None),
+            patch.object(
+                server,
+                "supabase_auth",
+                return_value=(400, {"code": "email_not_confirmed"}),
+            ),
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/login",
+                json={"email": "athlete@example.test", "password": "correct horse battery"},
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("confirm your email", response.get_json()["error"].lower())
+
     def test_google_oauth_returns_url_for_same_site_callback(self):
         redirect_to = (
             "http://localhost/auth/callback"
@@ -348,6 +417,43 @@ class AuthRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertIn("try again", response.get_json()["error"].lower())
+
+    def test_password_reset_does_not_claim_success_during_provider_outage(self):
+        with patch.object(server, "supabase_auth", return_value=(503, {"error": "unavailable"})):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password-request",
+                json={"email": "athlete@example.test"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("temporarily unavailable", response.get_json()["error"].lower())
+
+    def test_password_reset_uses_the_site_callback_as_a_query_parameter(self):
+        with patch.object(server, "supabase_auth", return_value=(200, {})) as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password-request",
+                json={"email": "Athlete@Example.Test"},
+                headers={"Origin": "https://attacker.example"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        method, path, body = auth_call.call_args.args
+        self.assertEqual(method, "POST")
+        self.assertEqual(path.split("?", 1)[0], "/auth/v1/recover")
+        query = parse_qs(urlparse(path).query)
+        self.assertEqual(query["redirect_to"], ["http://localhost/ResetPassword.html"])
+        self.assertEqual(body, {"email": "athlete@example.test"})
+
+    def test_password_reset_rejects_invalid_email_before_provider_call(self):
+        with patch.object(server, "supabase_auth") as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password-request",
+                json={"email": "not-an-email"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"], "Please enter a valid email address.")
+        auth_call.assert_not_called()
 
     def test_malformed_auth_payloads_are_rejected_cleanly(self):
         response = self.client.post(
