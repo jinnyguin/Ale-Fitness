@@ -133,16 +133,28 @@ def supabase_admin(method, path, body=None):
         return 503, {"error": "Auth service unavailable."}
 
 
-def get_supabase_user(token):
+def get_supabase_user_result(token):
     if not token:
-        return None
+        return None, None
     status, data = supabase_auth("GET", "/auth/v1/user", token=token)
-    if status == 200 and data.get("id"):
-        return data
-    return None
+    if status == 200:
+        if (
+            isinstance(data, dict)
+            and isinstance(data.get("id"), str)
+            and data["id"].strip()
+        ):
+            return data, status
+        app.logger.warning("Supabase Auth user lookup returned an incomplete success response.")
+        return None, 503
+    return None, status
 
 
-def get_current_user():
+def get_supabase_user(token):
+    user, _status = get_supabase_user_result(token)
+    return user
+
+
+def get_current_user_with_status():
     auth = request.headers.get("Authorization", "")
     token = None
     if auth.startswith("Bearer "):
@@ -152,12 +164,16 @@ def get_current_user():
     if not token:
         token = request.cookies.get("sb_token")
     if token and token.startswith("local."):
-        return local_user_from_token(token), token
-    user = get_supabase_user(token)
-    if not user and token:
-        # This also lets locally-created accounts survive a later Supabase
-        # outage without forcing the user to sign in again.
         user = local_user_from_token(token)
+        return user, token, 200 if user else 401
+    if not token:
+        return None, None, None
+    user, status = get_supabase_user_result(token)
+    return user, token, 200 if user else status
+
+
+def get_current_user():
+    user, token, _status = get_current_user_with_status()
     return user, token
 
 
@@ -875,7 +891,13 @@ def auth_login(app_id):
     if status == 200:
         access_token = data.get("access_token")
         user = data.get("user")
-        if not access_token or not isinstance(user, dict) or not user.get("id"):
+        if (
+            not isinstance(access_token, str)
+            or not access_token
+            or not isinstance(user, dict)
+            or not isinstance(user.get("id"), str)
+            or not user["id"].strip()
+        ):
             app.logger.warning("Supabase Auth login returned an incomplete success response.")
             return jsonify({
                 "error": "Sign-in could not be completed. Please try again."
@@ -932,13 +954,18 @@ def auth_reset_request(app_id):
     recover_path = "/auth/v1/recover?redirect_to=" + urllib.parse.quote(
         redirect_to, safe=""
     )
-    status, _ = supabase_auth(
+    status, data = supabase_auth(
         "POST",
         recover_path,
         {"email": email},
     )
-    if status == 200:
+    if status == 200 and isinstance(data, dict):
         return jsonify({"message": "If this email exists, a reset link has been sent."})
+    if status == 200:
+        app.logger.warning("Password reset request returned an incomplete success response.")
+        return jsonify({
+            "error": "Password recovery is temporarily unavailable. Please try again later."
+        }), 503
     if status == 429:
         return jsonify({
             "error": "Too many password reset requests. Please wait and try again."
@@ -951,13 +978,36 @@ def auth_reset_request(app_id):
 
 @app.route("/api/apps/<app_id>/auth/reset-password", methods=["POST"])
 def auth_reset_password(app_id):
-    body = request.get_json(force=True) or {}
-    token = body.get("reset_token") or ""
-    new_password = body.get("new_password") or ""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Please submit a valid password reset form."}), 400
+    token = body.get("reset_token")
+    new_password = body.get("new_password")
+    if not isinstance(token, str) or not token.strip():
+        return jsonify({"error": "This reset link is invalid or has expired."}), 400
+    token = token.strip()
+    if not isinstance(new_password, str) or len(new_password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters."}), 400
+    if len(new_password) > 128:
+        return jsonify({"error": "Password must be 128 characters or fewer."}), 400
     status, data = supabase_auth("PUT", "/auth/v1/user", {"password": new_password}, token=token)
-    if status == 200:
+    if status == 200 and isinstance(data, dict):
         return jsonify({"message": "Password updated successfully"})
-    return jsonify({"error": "Invalid or expired reset token"}), 400
+    if status == 200:
+        app.logger.warning("Password reset completion returned an incomplete success response.")
+        return jsonify({
+            "error": "Password recovery is temporarily unavailable. Please try again later."
+        }), 503
+    if status == 429:
+        return jsonify({
+            "error": "Too many password reset attempts. Please wait and try again."
+        }), 429
+    if status in (400, 401, 403, 404, 422):
+        return jsonify({"error": "This reset link is invalid or has expired."}), 400
+    app.logger.warning("Password reset completion failed with HTTP status %s.", status)
+    return jsonify({
+        "error": "Password recovery is temporarily unavailable. Please try again later."
+    }), 503
 
 
 @app.route("/api/apps/<app_id>/auth/change-password", methods=["POST"])
@@ -1014,8 +1064,16 @@ def get_profile_extras(user_id):
 
 @app.route("/api/apps/<app_id>/auth/me", methods=["GET"])
 def auth_me(app_id):
-    user, token = get_current_user()
+    user, token, auth_status = get_current_user_with_status()
     if not user:
+        if auth_status == 429:
+            return jsonify({
+                "error": "Sign-in verification is temporarily rate limited. Please try again."
+            }), 429
+        if auth_status == 503 or (isinstance(auth_status, int) and auth_status >= 500):
+            return jsonify({
+                "error": "Sign-in verification is temporarily unavailable. Please try again."
+            }), 503
         return jsonify({"error": "Unauthorized"}), 401
     result = format_user(user)
     ensure_profile(result["id"], result["email"], result["full_name"])

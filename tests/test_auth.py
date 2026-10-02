@@ -185,18 +185,23 @@ class AuthRouteTests(unittest.TestCase):
         self.assertNotIn("internal error", response.get_json()["error"].lower())
 
     def test_incomplete_provider_login_response_is_treated_as_service_error(self):
-        with (
-            patch.object(server, "local_user_by_email", return_value=None),
-            patch.object(server, "local_login", return_value=None),
-            patch.object(server, "supabase_auth", return_value=(200, {"access_token": "token"})),
-        ):
-            response = self.client.post(
-                f"/api/apps/{APP_ID}/auth/login",
-                json={"email": "athlete@example.test", "password": "correct horse battery"},
-            )
+        incomplete_responses = (
+            {"access_token": "token"},
+            {"access_token": 123, "user": {"id": "remote-user"}},
+        )
+        for provider_data in incomplete_responses:
+            with (
+                patch.object(server, "local_user_by_email", return_value=None),
+                patch.object(server, "local_login", return_value=None),
+                patch.object(server, "supabase_auth", return_value=(200, provider_data)),
+            ):
+                response = self.client.post(
+                    f"/api/apps/{APP_ID}/auth/login",
+                    json={"email": "athlete@example.test", "password": "correct horse battery"},
+                )
 
-        self.assertEqual(response.status_code, 503)
-        self.assertIn("could not be completed", response.get_json()["error"].lower())
+            self.assertEqual(response.status_code, 503)
+            self.assertIn("could not be completed", response.get_json()["error"].lower())
 
     def test_unconfirmed_remote_account_gets_email_confirmation_guidance(self):
         with (
@@ -303,7 +308,11 @@ class AuthRouteTests(unittest.TestCase):
             "user_metadata": {"full_name": "Google Athlete"},
         }
         with (
-            patch.object(server, "get_current_user", return_value=(oauth_user, "oauth-token")),
+            patch.object(
+                server,
+                "get_current_user_with_status",
+                return_value=(oauth_user, "oauth-token", 200),
+            ),
             patch.object(server, "ensure_profile") as ensure_profile,
             patch.object(server, "get_profile_extras", return_value={}),
         ):
@@ -317,6 +326,64 @@ class AuthRouteTests(unittest.TestCase):
         ensure_profile.assert_called_once_with(
             "google-user", "google@example.test", "Google Athlete"
         )
+
+    def test_auth_me_reports_provider_outage_as_retryable(self):
+        with patch.object(server, "supabase_auth", return_value=(503, {"error": "unavailable"})):
+            response = self.client.get(
+                f"/api/apps/{APP_ID}/auth/me",
+                headers={"Authorization": "Bearer oauth-token"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("temporarily unavailable", response.get_json()["error"].lower())
+
+    def test_auth_me_reports_provider_rate_limit_as_retryable(self):
+        with patch.object(server, "supabase_auth", return_value=(429, {"error": "rate limit"})):
+            response = self.client.get(
+                f"/api/apps/{APP_ID}/auth/me",
+                headers={"Authorization": "Bearer oauth-token"},
+            )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("try again", response.get_json()["error"].lower())
+
+    def test_auth_me_treats_incomplete_provider_success_as_service_error(self):
+        with patch.object(server, "supabase_auth", return_value=(200, [])):
+            response = self.client.get(
+                f"/api/apps/{APP_ID}/auth/me",
+                headers={"Authorization": "Bearer oauth-token"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("temporarily unavailable", response.get_json()["error"].lower())
+
+    def test_auth_me_keeps_local_session_independent_of_provider(self):
+        with (
+            patch.object(server, "local_user_from_token", return_value=LOCAL_USER),
+            patch.object(server, "ensure_profile"),
+            patch.object(server, "get_profile_extras", return_value={}),
+            patch.object(server, "supabase_auth") as auth_call,
+        ):
+            response = self.client.get(
+                f"/api/apps/{APP_ID}/auth/me",
+                headers={"Authorization": "Bearer local.signed.token"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["id"], LOCAL_USER["id"])
+        auth_call.assert_not_called()
+
+    def test_auth_me_rejects_invalid_remote_token_as_unauthorized(self):
+        with (
+            patch.object(server, "LOCAL_AUTH_SECRET", ""),
+            patch.object(server, "supabase_auth", return_value=(401, {"error": "invalid token"})),
+        ):
+            response = self.client.get(
+                f"/api/apps/{APP_ID}/auth/me",
+                headers={"Authorization": "Bearer invalid-remote-token"},
+            )
+
+        self.assertEqual(response.status_code, 401)
 
     def test_wrong_local_password_is_rejected_without_remote_fallback(self):
         with (
@@ -444,6 +511,16 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(query["redirect_to"], ["http://localhost/ResetPassword.html"])
         self.assertEqual(body, {"email": "athlete@example.test"})
 
+    def test_password_reset_request_rejects_malformed_provider_success(self):
+        with patch.object(server, "supabase_auth", return_value=(200, ["unexpected"])):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password-request",
+                json={"email": "athlete@example.test"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("temporarily unavailable", response.get_json()["error"].lower())
+
     def test_password_reset_rejects_invalid_email_before_provider_call(self):
         with patch.object(server, "supabase_auth") as auth_call:
             response = self.client.post(
@@ -454,6 +531,76 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()["error"], "Please enter a valid email address.")
         auth_call.assert_not_called()
+
+    def test_password_reset_completion_rejects_invalid_payload_and_password(self):
+        with patch.object(server, "supabase_auth") as auth_call:
+            malformed = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json=["invalid", "payload"],
+            )
+            short_password = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={"reset_token": "recovery-token", "new_password": "short"},
+            )
+            long_password = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={"reset_token": "recovery-token", "new_password": "p" * 129},
+            )
+            missing_token = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={"reset_token": " ", "new_password": "correct horse battery"},
+            )
+
+        self.assertEqual(malformed.status_code, 400)
+        self.assertEqual(short_password.status_code, 400)
+        self.assertEqual(long_password.status_code, 400)
+        self.assertEqual(missing_token.status_code, 400)
+        auth_call.assert_not_called()
+
+    def test_password_reset_completion_sends_valid_password_to_provider(self):
+        with patch.object(server, "supabase_auth", return_value=(200, {})) as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={
+                    "reset_token": " recovery-token ",
+                    "new_password": "correct horse battery",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        auth_call.assert_called_once_with(
+            "PUT",
+            "/auth/v1/user",
+            {"password": "correct horse battery"},
+            token="recovery-token",
+        )
+
+    def test_password_reset_completion_rejects_malformed_provider_success(self):
+        with patch.object(server, "supabase_auth", return_value=(200, ["unexpected"])):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={"reset_token": "recovery-token", "new_password": "correct horse battery"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("temporarily unavailable", response.get_json()["error"].lower())
+
+    def test_password_reset_completion_keeps_provider_errors_distinct(self):
+        with patch.object(server, "supabase_auth", return_value=(429, {"error": "rate limit"})):
+            rate_limited = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={"reset_token": "recovery-token", "new_password": "correct horse battery"},
+            )
+        self.assertEqual(rate_limited.status_code, 429)
+        self.assertIn("wait", rate_limited.get_json()["error"].lower())
+
+        with patch.object(server, "supabase_auth", return_value=(503, {"error": "unavailable"})):
+            unavailable = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={"reset_token": "recovery-token", "new_password": "correct horse battery"},
+            )
+        self.assertEqual(unavailable.status_code, 503)
+        self.assertIn("temporarily unavailable", unavailable.get_json()["error"].lower())
 
     def test_malformed_auth_payloads_are_rejected_cleanly(self):
         response = self.client.post(

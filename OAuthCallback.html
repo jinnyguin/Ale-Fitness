@@ -106,11 +106,21 @@
     headers: { 'Authorization': 'Bearer ' + token }
   }).then(function(response) {
     return response.json().catch(function() { return null; }).then(function(user) {
-      if (!response.ok || !user || !user.id) {
-        var message = response.status >= 500 ?
-          'Sign-in is temporarily unavailable. Please try again in a moment.' :
-          'Google sign-in could not be verified. Please try signing in again.';
-        throw new Error(message);
+      if (
+        !response.ok ||
+        !user ||
+        typeof user !== 'object' ||
+        Array.isArray(user) ||
+        typeof user.id !== 'string' ||
+        !user.id.trim()
+      ) {
+        var error = new Error(response.status === 429 ?
+          'Sign-in verification is busy. Please return and try again in a moment.' :
+          response.status >= 500 ?
+            'Sign-in is temporarily unavailable. Please return and try again in a moment.' :
+            'Google sign-in could not be verified. Please try signing in again.');
+        error.clearSession = response.status === 401 || response.status === 403;
+        throw error;
       }
       return user;
     });
@@ -118,6 +128,7 @@
     try {
       window.localStorage.setItem('alefit_user', JSON.stringify(user));
     } catch (storageError) {
+      clearStoredSession();
       throw new Error('Your browser blocked sign-in storage. Allow site data for ALEFIT, then try again.');
     }
     // Keep the token query parameter for the existing app-session bootstrap.
@@ -125,7 +136,7 @@
     dest.searchParams.set('access_token', token);
     window.location.replace(dest.toString());
   }).catch(function(error) {
-    clearStoredSession();
+    if (error && error.clearSession) clearStoredSession();
     var message = error && error.name === 'TypeError' ?
       'Could not reach the sign-in service. Check your connection and try again.' :
       (error && error.message) || 'Google sign-in could not be completed. Please try again.';

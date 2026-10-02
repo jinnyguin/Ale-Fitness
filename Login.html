@@ -356,7 +356,16 @@
   }
 
   async function saveSession(data) {
-    if (!data || typeof data.access_token !== 'string' || !data.access_token) {
+    if (
+      !data ||
+      typeof data.access_token !== 'string' ||
+      !data.access_token ||
+      !data.user ||
+      typeof data.user !== 'object' ||
+      Array.isArray(data.user) ||
+      typeof data.user.id !== 'string' ||
+      !data.user.id.trim()
+    ) {
       throw new Error('The sign-in service did not return a valid session. Please try again.');
     }
     try {
@@ -376,16 +385,40 @@
       headers: { 'Authorization': 'Bearer ' + token }
     }).then(function(response) {
       if (manualSignInStarted) return;
-      if (response.ok) {
-        window.location.replace(fromUrl);
-      } else if (response.status === 401 || response.status === 403) {
+      if (response.status === 401 || response.status === 403) {
         clearStoredSession();
-      } else {
-        showError('We could not verify your saved sign-in right now. You can try signing in below.');
+        return null;
       }
-    }).catch(function() {
+      if (!response.ok) {
+        throw new Error(response.status === 429 ?
+          'Sign-in verification is busy. Please try again in a moment.' :
+          'We could not verify your saved sign-in right now. You can try signing in below.');
+      }
+      return response.json().catch(function() {
+        throw new Error('The sign-in service returned an invalid session response. You can try signing in below.');
+      }).then(function(user) {
+        if (
+          !user ||
+          typeof user !== 'object' ||
+          Array.isArray(user) ||
+          typeof user.id !== 'string' ||
+          !user.id.trim()
+        ) {
+          throw new Error('The sign-in service returned an invalid session response. You can try signing in below.');
+        }
+        return user;
+      });
+    }).then(function(user) {
+      if (user && !manualSignInStarted) {
+        window.location.replace(fromUrl);
+      }
+    }).catch(function(error) {
       if (!manualSignInStarted) {
-        showError('We could not reach the sign-in service to verify your saved session. Please try again.');
+        var message = error && error.name === 'TypeError' ?
+          'We could not reach the sign-in service to verify your saved session. Please try again.' :
+          (error && error.message) ||
+          'We could not verify your saved sign-in right now. You can try signing in below.';
+        showError(message);
       }
     });
   }
@@ -420,12 +453,23 @@
         throw new Error('The sign-in service returned an invalid response. Please try again.');
       }
 
-      if (resp.ok && data.access_token) {
+      if (
+        resp.ok &&
+        data.access_token &&
+        data.user &&
+        typeof data.user === 'object' &&
+        !Array.isArray(data.user) &&
+        typeof data.user.id === 'string' &&
+        data.user.id.trim()
+      ) {
         if (window.trackEvent) {
           try { window.trackEvent('login_succeeded', {source: 'login'}); } catch (trackError) {}
         }
         await saveSession(data);
         return;
+      }
+      if (resp.ok) {
+        throw new Error('The sign-in service did not return a valid session. Please try again.');
       }
 
       var fallback = resp.status === 429 ?
