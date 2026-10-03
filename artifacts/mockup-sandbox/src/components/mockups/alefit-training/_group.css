@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --af-bg: #090a08;
+  --af-panel: #11130f;
+  --af-panel-raised: #171a14;
+  --af-line: rgba(236, 240, 222, .12);
+  --af-muted: #9b9f92;
+  --af-paper: #f1f2e9;
+  --af-lime: #d4ff00;
+  --af-lime-dim: rgba(212, 255, 0, .12);
+  --af-court: #e8b679;
+  --af-font-display: "Barlow Condensed", sans-serif;
+  --af-font-body: "DM Sans", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; margin: 0; background: var(--af-bg); }
+body { color: var(--af-paper); font-family: var(--af-font-body); }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid var(--af-lime); outline-offset: 3px; }
+
+.af-frame {
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse at 85% 0%, rgba(116, 134, 48, .12), transparent 28rem),
+    var(--af-bg);
+}
+.af-topbar {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 max(18px, calc((100vw - 1120px) / 2));
+  border-bottom: 1px solid var(--af-line);
+  background: rgba(9, 10, 8, .92);
+}
+.af-wordmark { display: inline-flex; align-items: center; gap: 8px; font: 900 1.25rem/.85 var(--af-font-display); letter-spacing: .08em; }
+.af-wordmark i { width: 7px; height: 7px; display: block; background: var(--af-lime); transform: rotate(45deg); }
+.af-top-meta { color: var(--af-muted); font-size: .65rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+.af-main { width: min(100% - 32px, 1040px); margin: auto; padding: 30px 0 112px; }
+.af-main.af-main-nonav { padding-bottom: 34px; }
+.af-kicker { color: var(--af-lime); font-size: .62rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+.af-title { margin: 8px 0 7px; font: 800 clamp(2.2rem, 8vw, 4.3rem)/.86 var(--af-font-display); letter-spacing: .01em; text-transform: uppercase; }
+.af-subtitle { max-width: 600px; margin: 0; color: var(--af-muted); font-size: .83rem; line-height: 1.55; }
+.af-section-label { color: var(--af-muted); font-size: .6rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.af-card { border: 1px solid var(--af-line); background: var(--af-panel); }
+.af-button {
+  min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 0 16px; border: 1px solid var(--af-lime); background: var(--af-lime); color: #10120b;
+  font-size: .67rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; transition: transform .18s, background .18s;
+}
+.af-button:hover { transform: translateY(-1px); background: #e2ff56; }
+.af-button-quiet { border-color: var(--af-line); background: transparent; color: var(--af-paper); }
+.af-button-quiet:hover { background: rgba(255,255,255,.04); }
+.af-nav {
+  position: fixed; z-index: 10; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: min(100%, 480px); min-height: 68px; display: grid; grid-template-columns: repeat(4,1fr);
+  padding: 8px 12px max(8px, env(safe-area-inset-bottom)); border: 1px solid var(--af-line);
+  border-bottom: 0; background: rgba(15, 17, 13, .97); backdrop-filter: blur(16px);
+}
+.af-nav-link { display: grid; place-content: center; justify-items: center; gap: 4px; color: #878c7f; font-size: .57rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.af-nav-link svg { width: 17px; height: 17px; stroke-width: 1.7; }
+.af-nav-link.active { color: var(--af-lime); }
+.af-pill { display: inline-flex; align-items: center; min-height: 25px; padding: 0 8px; border: 1px solid var(--af-line); color: var(--af-muted); font-size: .57rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.af-pill-lime { border-color: rgba(212,255,0,.4); color: var(--af-lime); }
+.af-divider { height: 1px; background: var(--af-line); }
+.af-arrow { width: 16px; height: 16px; }
+
+@media (min-width: 760px) {
+  .af-main { padding-top: 42px; }
+  .af-nav { position: static; transform: none; width: min(100% - 32px, 1040px); margin: -70px auto 12px; border: 0; border-top: 1px solid var(--af-line); background: transparent; backdrop-filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

@@ -69,6 +69,13 @@
   function sessions() {
     return currentWeek().sessions || [];
   }
+  function requestedSession() {
+    var sessionId = new URLSearchParams(window.location.search).get("session");
+    if (!sessionId) return null;
+    return sessions().filter(function (session) {
+      return session && session.id === sessionId;
+    })[0] || null;
+  }
   function feedbackId(session) {
     return "workout:" + record.id + ":" + session.id;
   }
@@ -78,6 +85,8 @@
       (plan.appliedFeedbackIds || []).indexOf(id) !== -1;
   }
   function sessionToShow() {
+    var requested = requestedSession();
+    if (requested) return requested;
     var scheduled = window.ALEFITTrainingEngine.sessionForDate(sessions(), new Date());
     if (!scheduled) return null;
     if (hasWorkoutLoggedToday() && !isLogged(scheduled)) return null;
@@ -178,8 +187,9 @@
     var avatar = document.getElementById("header-avatar");
     avatar.textContent = name.charAt(0).toUpperCase();
     if (user && user.avatar_url) avatar.innerHTML = '<img src="' + esc(user.avatar_url) + '" alt="">';
+    var activeView = getView() === "workout" ? "plan" : getView();
     document.querySelectorAll("[data-view]").forEach(function (link) {
-      link.classList.toggle("active", link.dataset.view === getView());
+      link.classList.toggle("active", link.dataset.view === activeView);
     });
   }
   function flash(message, isError) {
@@ -194,18 +204,38 @@
   function latestCheckin() {
     return readiness.filter(function (item) { return String(item.recorded_at || item.created_date || "").slice(0, 10) === todayKey(); })[0];
   }
+  function nextScheduledSession() {
+    var dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    var todayIndex = (new Date().getDay() + 6) % 7;
+    var future = sessions().filter(function (session) {
+      return dayOrder.indexOf(session.day) > todayIndex && !isLogged(session);
+    }).sort(function (a, b) {
+      return dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+    });
+    return future[0] || null;
+  }
   function todayView() {
     currentSession = currentSession || sessionToShow();
     var week = currentWeek();
     if (!currentSession) {
       var completedToday = hasWorkoutLoggedToday();
-      app.innerHTML = headerMarkup(completedToday ? "Today’s work complete" : "Recovery day",
-        completedToday ? "Recover before your next scheduled session." : "Make space to recover.", plan.recovery) +
-        '<div class="grid grid-2"><article class="hero-card"><div><span class="tag">' +
-        (completedToday ? "Training saved for today" : "No extra session today") +
-        '</span><h2>' + (completedToday ? "You’ve already logged training today." : "Your existing sport load already counts.") + '</h2><p>' +
-        esc(plan.recovery) + '</p></div><div class="actions"><a class="button" href="/today.html?view=plan">Review my plan</a></div></article>' +
-        '<article class="card"><span class="eyebrow">Recovery suggestion</span><h3>Check in with your body.</h3><p>Choose complete rest, an easy walk, or gentle mobility. The next hard session should meet your readiness, not fight it.</p><a class="button secondary small" href="/today.html?view=coach">Ask Coach</a></article></div>';
+      var next = nextScheduledSession();
+      var nextSessionLink = next ?
+        '<div class="af-next-session"><span class="eyebrow">Up next · ' + esc(next.day) +
+        '</span><b>' + esc(next.name) + '</b><span>' + esc(next.minutes) +
+        ' min · ' + esc((next.exercises || []).length) + ' movements</span><a class="link-button" href="/today.html?view=workout&amp;session=' +
+        encodeURIComponent(next.id) + '">Preview session <span aria-hidden="true">→</span></a></div>' : "";
+      app.innerHTML = headerMarkup("Today · " + displayDate(),
+        completedToday ? "Training is logged." : "Leave room to recover.", "") +
+        '<div class="af-rest-layout"><section class="hero-card af-rest-card"><div>' +
+        '<span class="tag">' + (completedToday ? "Training saved for today" : "Recovery day") +
+        '</span><h2>' + (completedToday ? "Your work is done for today." : "Your sport load already counts.") +
+        '</h2><p>' + esc(plan.recovery) + '</p></div>' + nextSessionLink +
+        '<div class="actions"><a class="button secondary" href="/today.html?view=plan">View this week</a>' +
+        '<a class="link-button" href="/today.html?view=coach">Ask Coach</a></div></section>' +
+        '<aside class="card af-recovery-note"><span class="eyebrow">Keep it easy</span>' +
+        '<h3>Recovery is part of the plan.</h3><p>Choose complete rest, an easy walk, or gentle mobility. The next hard session should meet your readiness, not fight it.</p>' +
+        '<p class="af-sport-note">Missed sessions stay on their original days. Nothing is added as catch-up.</p></aside></div>';
       return;
     }
     var session = adaptedSession || currentSession;
@@ -213,6 +243,7 @@
     var completed = Object.keys(completedMovements).filter(function (key) { return completedMovements[key]; }).length;
     var total = (session.exercises || []).length;
     var checkin = latestCheckin();
+    var todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
     var rolloverNotice = dateChangePending ?
       '<div class="notice day-rollover" role="status">' +
       (activeWorkout ?
@@ -221,39 +252,45 @@
       (!activeWorkout ?
         '<br><button type="button" class="button secondary small" id="switch-today-session">Switch to today’s session</button>' :
         "") + '</div>' : "";
-    app.innerHTML = headerMarkup("Today · " + displayDate(), "Train for the person you are today.", plan.summary) +
-      rolloverNotice + '<div class="grid grid-2"><section class="hero-card"><div><span class="tag">Week ' + esc(week.week) + " · " +
-      esc(week.phaseLabel || week.label) + '</span><h2>' + esc(session.name) + '</h2><p>' +
-      esc(session.day + " · " + session.minutes + " minutes · " + (week.emphasis || "Goal-directed work")) +
-      '</p></div><div><div class="meta"><span><b>' + total + '</b> movements</span><span><b>' +
-      (logged ? "Complete" : adaptedSession ? "Adapted" : "Ready") + '</b> for today</span></div><div class="actions">' +
-      (logged ? '<span class="notice">This session is saved. Its original snapshot stays unchanged.</span>' :
+    app.innerHTML = headerMarkup("Today · " + displayDate(), activeWorkout ? "Your workout." : "Your next session.", "") +
+      rolloverNotice + '<div class="af-today-layout"><div class="af-today-main"><section class="hero-card af-today-hero">' +
+      '<div><div class="af-hero-tags"><span class="tag">Week ' + esc(week.week) + ' · ' +
+      esc(week.phaseLabel || week.label) + '</span><span class="af-status">' +
+      (logged ? "Saved" : activeWorkout ? "In progress" : adaptedSession ? "Adjusted for today" : session.day === todayName ? "Today" : "Scheduled · " + esc(session.day)) +
+      '</span></div><h2>' + esc(session.name) + '</h2><p class="af-session-emphasis">' +
+      esc(week.emphasis || plan.focus || "Goal-directed work") + '</p></div>' +
+      '<div class="af-hero-bottom"><div class="af-session-facts"><span>' + esc(session.minutes) +
+      ' min</span><span>' + total + ' movements</span><span>' + (logged ? "Complete" : activeWorkout ? completed + " of " + total + " done" : "Ready when you are") + '</span></div>' +
+      (logged ? '<span class="notice">Saved. The original session snapshot is unchanged.</span>' :
         '<button class="button" id="start-workout">' + (activeWorkout ? "Workout in progress" : "Start workout") + '</button>') +
-      '</div></div></section>' +
-      '<aside class="card checkin"><span class="eyebrow">Readiness check</span><h3>How should today feel?</h3><p>Tell the plan what your energy, soreness, and time look like. We adjust today without rewriting the block.</p>' +
+      '</div></section><section class="card af-session-work"><div class="af-section-heading"><div><span class="eyebrow">' +
+      (activeWorkout ? "In this session" : "Session preview") + '</span><h3>' + esc(session.name) +
+      '</h3></div><span class="af-completion-count">' + completed + ' / ' + total + '</span></div>' +
+      '<div class="movement-list">' + exerciseList(session.exercises, activeWorkout && !logged) +
+      '</div>' + (activeWorkout && !logged ?
+      '<div class="af-workout-feedback"><div class="field"><label for="workout-difficulty">How did this feel?</label><select id="workout-difficulty">' +
+      '<option value="too-easy"' + (workoutDifficulty === "too-easy" ? " selected" : "") + '>Easier than expected</option>' +
+      '<option value="appropriate"' + (workoutDifficulty === "appropriate" ? " selected" : "") + '>About right</option>' +
+      '<option value="too-hard"' + (workoutDifficulty === "too-hard" ? " selected" : "") + '>Harder than expected</option>' +
+      '</select></div><label class="movement af-pain-check"><span><b>Any pain during this session?</b>' +
+      '<small>Stop a movement that causes pain; do not push through it.</small></span>' +
+      '<input id="workout-pain" type="checkbox"' + (workoutPain ? " checked" : "") + '></label>' +
+      '<div class="actions"><button class="button" id="finish-workout">Finish workout</button>' +
+      '<button class="button secondary" id="pause-workout">Save for later</button></div></div>' : "") +
+      '<p id="page-message" role="status"></p></section>' +
+      '<section class="af-why-plan"><span class="eyebrow">Why this session</span><p>' +
+      esc((plan.explanations || [])[0] || plan.summary) + '</p><a class="link-button" href="/today.html?view=plan">View the weekly plan <span aria-hidden="true">→</span></a></section></div>' +
+      '<aside class="card checkin af-readiness"><details id="readiness-panel"' + (checkin ? ' open' : '') +
+      '><summary><span><b>Adjust for today</b><small>Energy, soreness, available time, or extra sport</small></span><span class="af-disclosure-mark" aria-hidden="true">+</span></summary>' +
+      '<div class="af-readiness-body"><p>Make a small adjustment without rewriting the training block.</p>' +
       '<div class="field"><label for="energy">Energy</label><select id="energy"><option value="okay">Okay</option><option value="low">Low</option><option value="high">High</option></select></div>' +
       '<div class="field"><label for="soreness">Soreness</label><select id="soreness"><option value="low">Low</option><option value="moderate">Moderate</option><option value="high">High</option></select></div>' +
       '<div class="field"><label for="minutes">Minutes available</label><input id="minutes" type="number" min="10" max="120" value="' + esc(session.minutes) + '"></div>' +
-      '<div class="field"><label for="extra">Extra activity</label><input id="extra" maxlength="120" placeholder="Practice, game, or another hard effort"></div>' +
-      '<label class="movement"><span><b>Any pain or discomfort?</b><small>Stop painful movements and seek qualified guidance.</small></span><input id="pain" type="checkbox"></label>' +
-      '<button class="button secondary small" id="adapt">Adjust today</button></aside></div>' +
-      '<div class="grid grid-3" style="margin-top:14px"><div class="metric"><b>' + loggedCount() + '</b><span>Sessions logged</span></div><div class="metric"><b>' +
-      esc(week.week) + '</b><span>Current week</span></div><div class="metric"><b>' + esc((week.phaseLabel || "Adaptive").split(" ")[0]) + '</b><span>Current phase</span></div></div>' +
-      '<section class="card" style="margin-top:14px"><div class="view-header"><div><span class="eyebrow">' +
-      (activeWorkout ? "Workout in progress" : "Session preview") + '</span><h3>' + esc(session.name) + '</h3></div><span class="tag">' +
-      completed + " / " + total + " complete</span></div><div class=\"movement-list\">" + exerciseList(session.exercises, activeWorkout && !logged) +
-       '</div>' + (activeWorkout && !logged ?
-       '<div class="field"><label for="workout-difficulty">How did the work feel?</label><select id="workout-difficulty">' +
-       '<option value="too-easy"' + (workoutDifficulty === "too-easy" ? " selected" : "") + '>Easier than expected</option>' +
-       '<option value="appropriate"' + (workoutDifficulty === "appropriate" ? " selected" : "") + '>About right</option>' +
-       '<option value="too-hard"' + (workoutDifficulty === "too-hard" ? " selected" : "") + '>Harder than expected</option>' +
-       '</select></div><label class="movement"><span><b>Any pain during this session?</b>' +
-       '<small>Stop a movement that causes pain; do not push through it.</small></span>' +
-       '<input id="workout-pain" type="checkbox"' + (workoutPain ? " checked" : "") + '></label>' +
-       '<div class="actions"><button class="button" id="finish-workout">Finish workout</button>' +
-       '<button class="button secondary" id="pause-workout">Save for later</button></div>' : "") +
-      '<p id="page-message"></p></section><section class="card soft" style="margin-top:14px"><span class="eyebrow">Why this is your plan</span><p>' +
-      esc((plan.explanations || [])[0] || plan.summary) + '</p><a class="link-button" href="/today.html?view=plan">See the full adaptive block →</a></section>';
+      '<div class="field"><label for="extra">Sport or other hard effort</label><input id="extra" maxlength="120" placeholder="Practice, game, or another event"></div>' +
+      '<label class="movement af-pain-check"><span><b>Any pain or discomfort?</b><small>Stop painful movements and seek qualified guidance.</small></span><input id="pain" type="checkbox"></label>' +
+      '<button class="button secondary small" id="adapt">Adjust today</button></div></details>' +
+      '<div class="af-readiness-note"><span class="eyebrow">Current phase</span><b>Week ' + esc(week.week) +
+      ' · ' + esc(week.phaseLabel || week.label) + '</b><p>' + esc(week.recovery || plan.recovery) + '</p></div></aside></div>';
     if (checkin) {
       var energy = document.getElementById("energy"); if (energy) energy.value = checkin.energy || "okay";
       var soreness = document.getElementById("soreness"); if (soreness) soreness.value = checkin.soreness || "low";
@@ -389,7 +426,10 @@
   }
   function planView() {
     var week = currentWeek();
-    var sessions = week.sessions || [];
+    var dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    var sessions = (week.sessions || []).slice().sort(function (a, b) {
+      return dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+    });
     var weekDays = [
       { name: "Monday", short: "Mon" },
       { name: "Tuesday", short: "Tue" },
@@ -414,24 +454,47 @@
       return {src:"/images/3b6f70f20_generated_82bc43e3.png",alt:"Dumbbells ready for a strength session"};
     }
     var scheduledDays = {};
+    var sportDays = {};
+    (plan.schedule || []).forEach(function (item) {
+      if (item && item.type === "sport") sportDays[String(item.day || "").toLowerCase()] = item;
+    });
     sessions.forEach(function (session) {
       scheduledDays[String(session.day || "").toLowerCase()] = session;
     });
     var dayStrip = weekDays.map(function (day) {
       var session = scheduledDays[day.name.toLowerCase()];
+      var sportDay = !session && sportDays[day.name.toLowerCase()];
       var isToday = day.name === todayName;
       var label = day.name + (isToday ? ", today" : "") +
-        (session ? " · Training scheduled: " + session.name : " · No session scheduled");
-      return '<div class="ap-plan-day' + (session ? ' is-scheduled' : '') + (isToday ? ' is-today' : '') +
+        (session ? " · Training scheduled: " + session.name :
+          sportDay ? " · Sport scheduled: " + sportDay.title : " · No session scheduled");
+      return '<div class="ap-plan-day' + (session ? ' is-scheduled' : '') +
+        (sportDay ? ' is-sport' : '') + (isToday ? ' is-today' : '') +
         '" aria-label="' + esc(label) + '"' + (isToday ? ' aria-current="date"' : '') + '>' +
         '<span class="ap-plan-day-name">' + esc(day.short) + '</span>' +
-        '<span class="ap-plan-day-mark" aria-hidden="true">' + (session ? '•' : '—') + '</span>' +
-        '<span class="ap-plan-day-status">' + (session ? 'Train' : 'Open') + '</span>' +
+        '<span class="ap-plan-day-mark" aria-hidden="true">' + (session ? '•' : sportDay ? '◆' : '—') + '</span>' +
+        '<span class="ap-plan-day-status">' + (session ? 'Train' : sportDay ? 'Sport' : 'Open') + '</span>' +
         (isToday ? '<span class="ap-plan-today-label">Today</span>' : '') + '</div>';
     }).join("");
+    function availableDays(session) {
+      return weekDays.filter(function (day) {
+        return day.name !== session.day &&
+          !sessions.some(function (other) { return other.id !== session.id && other.day === day.name; }) &&
+          !sportDays[day.name.toLowerCase()];
+      });
+    }
     var sessionCards = sessions.map(function (session) {
       var artwork = sessionArtwork(session);
       var logged = isLogged(session);
+      var choices = availableDays(session);
+      var moveMarkup = !logged && choices.length ?
+        '<div class="ap-plan-move"><label class="sr-only" for="move-day-' + esc(session.id) +
+        '">Move ' + esc(session.name) + ' to another day</label><select id="move-day-' +
+        esc(session.id) + '" data-move-day="' + esc(session.id) + '">' +
+        choices.map(function (day) {
+          return '<option value="' + esc(day.name) + '">' + esc(day.short) + '</option>';
+        }).join("") + '</select><button type="button" class="button secondary small" data-reschedule="' +
+        esc(session.id) + '">Move</button></div>' : "";
       return '<article class="ap-plan-session">' +
         (artwork ? '<div class="ap-plan-session-art"><img src="' + artwork.src + '" alt="' + esc(artwork.alt) +
           '"><span class="ap-plan-session-day">' + esc(session.day) + '</span></div>' : '') +
@@ -439,8 +502,9 @@
         (logged ? 'Logged' : 'Scheduled') + '</div><h3>' + esc(session.name) + '</h3>' +
         '<div class="ap-plan-session-meta"><span><b>' + esc(session.minutes) + '</b> min</span><i aria-hidden="true"></i><span><b>' +
         esc(session.exercises.length) + '</b> movements</span></div>' +
-        '<a class="link-button ap-plan-open" href="/today.html" aria-label="Open ' + esc(session.name) +
-        '">Open session <span aria-hidden="true">↗</span></a></div></article>';
+        '<a class="link-button ap-plan-open" href="/today.html?view=workout&amp;session=' +
+        encodeURIComponent(session.id) + '" aria-label="Open ' + esc(session.name) +
+        '">View session <span aria-hidden="true">↗</span></a>' + moveMarkup + '</div></article>';
     }).join("");
     app.innerHTML = headerMarkup("My plan", "One plan. Built around you.", plan.summary) +
       '<section class="ap-plan-week-strip" aria-label="Week ' + esc(week.week) + ' schedule">' +
@@ -462,7 +526,8 @@
       '<div class="ap-plan-guidance-row"><b>Progression</b><span>' + esc(week.progression) + '</span></div></div></aside></div>' +
       '<section class="ap-plan-workouts"><div class="ap-plan-section-heading"><div><span class="eyebrow">This week, in detail</span>' +
       '<h2>Your sessions</h2></div><span class="ap-plan-session-count"><b>' + esc(sessions.length) + '</b> scheduled</span></div>' +
-      '<div class="ap-plan-session-grid">' + sessionCards + '</div></section>' +
+      '<div class="ap-plan-session-grid">' + sessionCards + '</div><p id="page-message" role="status"></p>' +
+      '<p class="ap-plan-reschedule-note">Move a workout to an open day. Sport practices and completed sessions stay protected.</p></section>' +
       '<section class="card ap-plan-future"><div class="ap-plan-future-copy"><span class="eyebrow">Beyond this week</span>' +
       '<h2>What changes next</h2><p>Primary movements stay recognizable long enough to measure. Support work, volume, effort, conditioning, and recovery respond to your readiness and feedback.</p></div>' +
       '<div class="ap-plan-future-weeks">' + (plan.weeks || []).filter(function (item) {
@@ -471,26 +536,172 @@
         return '<div class="ap-plan-future-row"><b>Week ' + esc(item.week) + " · " +
           esc(item.phaseLabel || item.label) + '</b><span>' + esc(item.emphasis) + '</span></div>';
       }).join("") + '</div></section>';
+    document.querySelectorAll("[data-reschedule]").forEach(function (button) {
+      button.onclick = function () {
+        var selector = document.querySelector('[data-move-day="' + button.dataset.reschedule + '"]');
+        if (selector) saveReschedule(button.dataset.reschedule, selector.value, button);
+      };
+    });
   }
+
+  async function saveReschedule(sessionId, targetDay, button) {
+    var result = window.ALEFITTrainingEngine.rescheduleSession(plan, sessionId, targetDay);
+    if (!result.ok) {
+      flash(result.reason === "sport-day-conflict" ?
+        "Keep this sport session on its scheduled day." :
+        "That day is not available for this workout.", true);
+      return;
+    }
+    if (!result.changed) {
+      flash("This workout is already scheduled for that day.", false);
+      return;
+    }
+    button.disabled = true;
+    button.textContent = "Saving…";
+    try {
+      var response = await fetch("/api/apps/" + APP + "/onboarding-plan", {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({
+          onboarding_id: record.onboarding_id || record.id,
+          replace_id: record.id,
+          preferences: record.preferences || plan.profile,
+          generated_plan: result.plan
+        })
+      });
+      if (response.status === 401) return goLogin();
+      if (!response.ok) throw new Error("schedule save failed");
+      plan = result.plan;
+      record.generated_plan = result.plan;
+      if (window.trackEvent) window.trackEvent("workout_rescheduled", {
+        session_id: sessionId,
+        from_day: result.previousDay,
+        to_day: targetDay
+      });
+      render();
+      flash("Workout moved to " + targetDay + ". Sport days and the rest of the training block are unchanged.", false);
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Move";
+      flash("Could not confirm the change. Refresh your plan before retrying.", true);
+    }
+  }
+
+  function workoutDetailView() {
+    var session = requestedSession() || currentSession || sessionToShow();
+    if (!session) {
+      app.innerHTML = headerMarkup("Workout detail", "Session unavailable.", "This workout is no longer in the current week.") +
+        '<a class="button secondary" href="/today.html?view=plan">Back to my plan</a>';
+      return;
+    }
+    var week = currentWeek();
+    var logged = isLogged(session);
+    var estimated = session.estimatedMinutes || session.minutes;
+    var exercises = session.exercises || [];
+    app.innerHTML = headerMarkup("Week " + esc(week.week) + " · " + esc(session.day),
+      "Workout detail", "The movements, effort, and rest periods for this session.") +
+      '<section class="hero-card af-workout-detail-hero"><div><span class="tag">' +
+      esc(week.phaseLabel || week.label || "Training block") + '</span><h2>' + esc(session.name) +
+      '</h2><p>' + esc(week.emphasis || plan.focus || "Goal-directed work") + '</p></div>' +
+      '<div class="af-detail-summary"><span><b>' + esc(estimated) + '</b> min</span>' +
+      '<span><b>' + exercises.length + '</b> movements</span><span><b>' + esc(plan.focus || "Training") +
+      '</b> focus</span></div><div class="actions">' +
+      (logged ? '<span class="notice">This session is already saved. Its completed snapshot stays unchanged.</span>' :
+        '<button type="button" class="button" id="start-selected-session">Start this workout</button>') +
+      '<a class="button secondary" href="/today.html?view=plan">Back to this week</a></div></section>' +
+      '<section class="card af-detail-movements"><div class="af-section-heading"><div><span class="eyebrow">Session plan</span>' +
+      '<h2>Move with intent.</h2></div><span class="af-session-count">' + exercises.length + ' movements</span></div>' +
+      '<div class="movement-list">' + exerciseList(exercises, false) + '</div></section>' +
+      '<section class="af-why-plan"><span class="eyebrow">Why it is here</span><p>' +
+      esc((plan.explanations || [])[0] || plan.summary) + '</p><p>' +
+      esc(week.recovery || plan.recovery) + '</p></section>';
+    var start = document.getElementById("start-selected-session");
+    if (start) start.onclick = function () {
+      currentSession = session;
+      adaptedSession = null;
+      activeWorkout = true;
+      var url = new URL(window.location.href);
+      url.searchParams.set("view", "today");
+      url.searchParams.set("session", session.id);
+      window.history.replaceState({}, "", url.pathname + url.search);
+      render();
+    };
+  }
+
   function progressView() {
     var total = (plan.weeks || []).reduce(function (sum, week) { return sum + (week.sessions || []).length; }, 0);
     var completed = loggedCount();
     var current = currentWeek();
+    var profile = plan.profile || record.preferences || {};
+    function readable(value) {
+      return String(value || "").replace(/[_-]+/g, " ").replace(/\b[a-z]/g, function (letter) {
+        return letter.toUpperCase();
+      });
+    }
+    var baseline = [];
+    if (profile.sport === "running" || profile.sport === "cross-country") {
+      if (profile.runDistance) baseline.push(["Target distance", readable(profile.runDistance)]);
+      if (profile.weeklyRunVolume != null && profile.weeklyRunVolume !== "") {
+        baseline.push(["Recent weekly running", Number(profile.weeklyRunVolume) + " min"]);
+      }
+      if (profile.longestRun != null && profile.longestRun !== "") {
+        baseline.push(["Longest comfortable run", Number(profile.longestRun) + " min"]);
+      }
+      if (profile.raceDetail) baseline.push(["Race date or pace", profile.raceDetail]);
+    } else if (profile.sport === "strength") {
+      if (profile.familiarity) baseline.push(["Lift experience", readable(profile.familiarity)]);
+      if (profile.workingWeights) baseline.push(["Working weights", profile.workingWeights]);
+      if (profile.goals && profile.goals.length) baseline.push(["Training goals", profile.goals.map(readable).join(", ")]);
+    } else {
+      if (profile.position) baseline.push(["Role or position", readable(profile.position)]);
+      if (profile.sportFocus) baseline.push(["Sport focus", readable(profile.sportFocus)]);
+      if (profile.sportExperience) baseline.push(["Sport experience", readable(profile.sportExperience)]);
+      if (profile.goals && profile.goals.length) baseline.push(["Training goals", profile.goals.map(readable).join(", ")]);
+    }
+    if (profile.sportSessionsPerWeek != null && profile.sportSessionsPerWeek !== "") {
+      var load = Number(profile.sportSessionsPerWeek) + " sport sessions / week";
+      if (profile.sportSessionMinutes) load += " · " + Number(profile.sportSessionMinutes) + " min";
+      baseline.push(["Current sport load", load]);
+    }
+    if (!baseline.length) {
+      baseline.push(["Primary focus", readable(plan.focus || profile.sport || "Training")]);
+      if (profile.experience) baseline.push(["Training background", readable(profile.experience)]);
+    }
+    var loggedMovements = logs.reduce(function (sum, log) {
+      return sum + Number((log.feedback || {}).completed_movements || 0);
+    }, 0);
+    var recentLogs = logs.slice(0, 6);
     var values = (plan.weeks || []).map(function (week) {
       return logs.filter(function (log) { return log.session_snapshot && log.feedback &&
         Number(log.session_snapshot.week || 0) === Number(week.week) && log.feedback.status !== "skipped"; }).length;
     });
-    app.innerHTML = headerMarkup("Progress", "Notice what is changing.", "No projected transformations. Your progress is the work you completed, the feedback you gave, and the next plan decision it earned.") +
-      '<div class="grid grid-3"><div class="metric"><b>' + completed + '</b><span>Sessions logged</span></div><div class="metric"><b>' +
-      (total ? Math.round(completed / total * 100) : 0) + '%</b><span>Block completed</span></div><div class="metric"><b>' + esc(current.week || 1) + '</b><span>Current week</span></div></div>' +
-      '<section class="card" style="margin-top:14px"><span class="eyebrow">Work completed by week</span><div class="bar-chart">' +
-      values.map(function (value, index) { var max = Math.max(1, Math.max.apply(Math, values)); return '<div class="bar ' + (index + 1 === Number(plan.currentWeek) ? "current" : "") + '" style="height:' + (value / max * 100) + '%" title="Week ' + (index + 1) + ': ' + value + ' sessions"></div>'; }).join("") +
+    var max = Math.max(1, Math.max.apply(Math, values));
+    app.innerHTML = headerMarkup("Progress · " + esc(readable(profile.sport || plan.focus)),
+      "Progress you can trust.", "Your record is built from completed work and the feedback that changes your next block.") +
+      '<div class="grid grid-3 af-progress-metrics"><div class="metric"><b>' + completed + '</b><span>Sessions logged</span></div><div class="metric"><b>' +
+      loggedMovements + '</b><span>Movements completed</span></div><div class="metric"><b>' + esc(current.week || 1) + '</b><span>Current week</span></div></div>' +
+      '<div class="af-progress-layout"><section class="card af-sport-baseline"><div class="af-section-heading"><div><span class="eyebrow">Your starting point</span>' +
+      '<h2>' + esc(readable(profile.sport || plan.focus || "Training")) + '</h2></div><a class="link-button" href="/Register.html">Update inputs <span aria-hidden="true">↗</span></a></div>' +
+      '<div class="af-baseline-list">' + baseline.map(function (item) {
+        return '<div class="af-baseline-row"><span>' + esc(item[0]) + '</span><b>' + esc(item[1]) + '</b></div>';
+      }).join("") + '</div><p class="af-data-note">These are the baseline details you shared. We show performance changes only when you log them.</p></section>' +
+      '<section class="card af-week-progress"><div class="af-section-heading"><div><span class="eyebrow">Training record</span><h2>Work completed by week</h2></div>' +
+      '<span class="af-session-count">' + completed + ' logged</span></div><div class="bar-chart">' +
+      values.map(function (value, index) { return '<div class="bar ' + (index + 1 === Number(plan.currentWeek) ? "current" : "") + '" style="height:' + (value / max * 100) + '%" title="Week ' + (index + 1) + ': ' + value + ' sessions"></div>'; }).join("") +
       '</div><div class="bar-labels">' + values.map(function (_, index) { return '<span>W' + (index + 1) + '</span>'; }).join("") + '</div></section>' +
-      '<div class="grid grid-2" style="margin-top:14px"><section class="card"><span class="eyebrow">Recent sessions</span><div class="list">' +
-      logs.slice(0, 6).map(function (log) { return '<div class="list-row"><b>' + esc((log.session_snapshot || {}).name || "Workout") + '</b><span>' +
-        esc((log.feedback || {}).status || "logged") + '</span></div>'; }).join("") + (logs.length ? "" : '<p>No sessions logged yet. Your first completed workout will start the record.</p>') +
-      '</div></section><section class="card soft"><span class="eyebrow">What the plan learned</span><p>' + esc(plan.progression) + '</p><p>' +
-      esc((plan.explanations || [])[2] || plan.recovery) + '</p><a class="button small" href="/today.html">Train today</a></section></div>';
+      '</div><div class="grid grid-2 af-progress-bottom"><section class="card"><div class="af-section-heading"><div><span class="eyebrow">Recent training</span><h2>Your log</h2></div>' +
+      '<span class="af-session-count">' + recentLogs.length + ' recent</span></div><div class="af-log-list">' +
+      recentLogs.map(function (log) {
+        var feedback = log.feedback || {};
+        var snapshot = log.session_snapshot || {};
+        return '<article class="af-log-row"><div><b>' + esc(snapshot.name || "Workout") + '</b><span>' +
+          esc(feedback.status || "logged") + (feedback.completed_movements != null ? " · " + esc(feedback.completed_movements) + " movements" : "") +
+          '</span>' + (feedback.notes ? '<small>' + esc(feedback.notes) + '</small>' : '') +
+          '</div><span class="af-log-difficulty">' + esc(readable(feedback.difficulty || "—")) + '</span></article>';
+      }).join("") + (recentLogs.length ? "" : '<p>No sessions logged yet. Your first completed workout will start the record.</p>') +
+      '</div></section><section class="card soft af-plan-learning"><span class="eyebrow">What the plan learned</span><p>' +
+      esc(plan.progression) + '</p><p>' + esc((plan.explanations || [])[2] || plan.recovery) +
+      '</p><a class="button small" href="/today.html">Train today</a></section></div>';
   }
   function coachView() {
     app.innerHTML = headerMarkup("Coach", "Ask about the plan.", "Your coach has the current block, recent sessions, and the decisions behind the next workout.") +
@@ -568,6 +779,7 @@
     if (getView() === "progress") return progressView();
     if (getView() === "coach") return coachView();
     if (getView() === "profile") return profileView();
+    if (getView() === "workout") return workoutDetailView();
     return todayView();
   }
   async function load() {

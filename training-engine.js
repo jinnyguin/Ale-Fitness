@@ -1552,12 +1552,76 @@
     })[0] || null;
   }
 
+  function rescheduleSession(plan, sessionId, targetDay) {
+    if (!plan || !Array.isArray(plan.weeks) || DAYS.indexOf(targetDay) === -1) {
+      return {ok:false,reason:"invalid-day"};
+    }
+    var weekNumber = Math.max(1, numeric(plan.currentWeek, 1));
+    var sourceWeek = plan.weeks[weekNumber - 1];
+    var sourceSessions = sourceWeek && sourceWeek.sessions || [];
+    var sourceSession = sourceSessions.filter(function (session) {
+      return session && session.id === sessionId;
+    })[0];
+    if (!sourceSession) return {ok:false,reason:"session-not-found"};
+    if (sourceSession.day === targetDay) {
+      return {ok:true,changed:false,plan:clone(plan),previousDay:sourceSession.day,targetDay:targetDay};
+    }
+    if (sourceSessions.some(function (session) {
+      return session && session.id !== sessionId && session.day === targetDay;
+    })) {
+      return {ok:false,reason:"training-day-conflict"};
+    }
+    if ((plan.schedule || []).some(function (item) {
+      return item && item.type === "sport" && item.day === targetDay;
+    })) {
+      return {ok:false,reason:"sport-day-conflict"};
+    }
+
+    var output = clone(plan);
+    var week = output.weeks[weekNumber - 1];
+    var session = week.sessions.filter(function (item) { return item.id === sessionId; })[0];
+    var previousDay = session.day;
+    session.day = targetDay;
+
+    var originalSchedule = Array.isArray(output.schedule) ? output.schedule : [];
+    var sportSchedule = originalSchedule.filter(function (item) {
+      return item && item.type === "sport";
+    });
+    var trainingById = {};
+    originalSchedule.forEach(function (item) {
+      if (item && item.type === "training" && item.sessionId) trainingById[item.sessionId] = item;
+    });
+    output.schedule = DAYS.map(function (day) {
+      var sport = sportSchedule.filter(function (item) { return item.day === day; })[0];
+      if (sport) return sport;
+      var scheduled = week.sessions.filter(function (item) { return item.day === day; })[0];
+      if (scheduled) {
+        var prior = trainingById[scheduled.id] || {};
+        return Object.assign({}, prior, {
+          day:day,
+          type:"training",
+          title:scheduled.name || prior.title || "ALEFIT session",
+          sessionId:scheduled.id,
+          workload:prior.workload || "moderate"
+        });
+      }
+      return {
+        day:day,
+        type:"recovery",
+        title:"Complete rest or gentle mobility",
+        workload:"low"
+      };
+    });
+    return {ok:true,changed:true,plan:output,previousDay:previousDay,targetDay:targetDay};
+  }
+
   var api = {
     exerciseDatabase:EXERCISES,
     sportFocusSupport:SPORT_FOCUS_SUPPORT,
     generate:generate,
     adaptSession:adaptSession,
     applyFeedback:applyFeedback,
+    rescheduleSession:rescheduleSession,
     sessionForDate:sessionForDate,
     parseWorkload:parseWorkload
   };

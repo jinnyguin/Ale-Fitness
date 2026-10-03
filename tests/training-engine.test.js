@@ -69,6 +69,41 @@ assert.strictEqual(
 );
 assert.equal(engine.sessionForDate(datedSessions, new Date("invalid")), null);
 
+const schedulePlan = plan({
+  sport: "basketball",
+  goals: ["jump", "durability"],
+  equipment: ["dumbbells"],
+  days: 2,
+  duration: 45,
+  experience: "regular",
+  consistency: "medium",
+  load: "practice Tue, practice Thu, game Sat"
+});
+const originalMonday = schedulePlan.weeks[0].sessions[0];
+const originalFutureDay = schedulePlan.weeks[1].sessions[0].day;
+const movedMonday = engine.rescheduleSession(schedulePlan, originalMonday.id, "Friday");
+assert(movedMonday.ok && movedMonday.changed, "an unoccupied recovery day should accept a workout");
+assert.equal(movedMonday.plan.weeks[0].sessions[0].day, "Friday");
+assert.equal(movedMonday.plan.weeks[1].sessions[0].day, originalFutureDay, "rescheduling must not rewrite later weeks");
+assert.equal(schedulePlan.weeks[0].sessions[0].day, "Monday", "rescheduling must leave the saved input untouched");
+assert.equal(movedMonday.plan.schedule.find((item) => item.day === "Monday").type, "recovery");
+assert.equal(movedMonday.plan.schedule.find((item) => item.day === "Friday").sessionId, originalMonday.id);
+assert.equal(
+  engine.rescheduleSession(schedulePlan, originalMonday.id, "Tuesday").reason,
+  "sport-day-conflict",
+  "sport sessions must remain protected when moving ALEFIT work"
+);
+assert.equal(
+  engine.rescheduleSession(schedulePlan, originalMonday.id, "Wednesday").reason,
+  "training-day-conflict",
+  "a workout cannot be moved onto another scheduled workout"
+);
+assert.equal(
+  engine.rescheduleSession(schedulePlan, originalMonday.id, "Funday").reason,
+  "invalid-day",
+  "rescheduling accepts only weekdays"
+);
+
 // Profile A: beginner basketball athlete, dumbbells, two ALEFIT days, three practices.
 const profileA = plan({
   sport: "basketball",

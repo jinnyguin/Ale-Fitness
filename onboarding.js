@@ -446,10 +446,20 @@
             return '<option value="' + esc(option[0]) + '">' + esc(option[1]) + "</option>";
           }).join("") + "</select></div></div>";
       }
+      var detailKeys = ["position", "season", "runDistance", "weeklyRunVolume",
+        "longestRun", "raceDetail", "familiarity", "workingWeights", "activity",
+        "sportDetail", "sportFocus", "sportExperience", "sportSessionsPerWeek",
+        "sportSessionMinutes", "sportIntensity"];
+      var hasSavedDetails = detailKeys.some(function (key) {
+        return p[key] !== undefined && p[key] !== null && p[key] !== "" && p[key] !== "not-sure";
+      });
       html += '<div class="sport-followups" id="sport-followups" aria-live="polite">' +
+        '<details class="sport-detail-accordion"' + (hasSavedDetails ? " open" : "") + '><summary>' +
+        '<span><b>Optional ' + esc(selected[1]) + ' details</b><small>Share anything you know to fine-tune the first block.</small></span>' +
+        '<span class="sport-detail-mark" aria-hidden="true">+</span></summary><div class="sport-detail-content">' +
         '<h2>Details for ' + esc(selected[1]) + '</h2>' +
         (fields || '<p>No extra details for this focus. Continue to choose your outcomes.</p>') +
-        "</div>";
+        '</div></details></div>';
     }
     return html;
   }

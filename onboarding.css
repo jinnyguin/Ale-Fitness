@@ -305,3 +305,73 @@ html,body{background:#000}
 .up-footer{background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.96) 20%,#000 100%)}
 .account{background:#080808}
 .account-plan-summary{border-color:var(--line);background:#000}
+
+/* Keep sport selection clear and let athletes reveal optional detail only when useful. */
+.topbar { padding-bottom: 8px; }
+.sign-in, .text-btn { font-size: .72rem; letter-spacing: .07em; }
+.progress-wrap { overflow: hidden; border-radius: 999px; }
+.progress { border-radius: inherit; }
+.onboarding { margin-top: clamp(34px, 8vh, 76px); }
+.tile { min-height: 88px; border-radius: 13px; }
+.tile:hover { background: rgba(255,255,255,.045); }
+.tile.selected { border-color: var(--lime); background: rgba(212,255,0,.055); }
+.tile.selected:after { top: 12px; right: 14px; letter-spacing: .07em; }
+.selected-sport {
+  align-items: center;
+  gap: 16px;
+  margin: 22px 0 12px;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+}
+.selected-sport strong { display: block; margin: 6px 0; font-size: 1.1rem; }
+.selected-sport small { display: block; max-width: 520px; line-height: 1.45; }
+.selected-sport .button { flex: 0 0 auto; border-radius: 10px; }
+.picker-instruction { margin: 17px 0 0; font-size: .85rem; }
+.sport-search-field { margin: 20px 0 2px; }
+.sport-search-field input { border-radius: 10px; }
+.sport-followups { margin-top: 13px; padding: 0; border: 0; background: transparent; }
+.sport-detail-accordion {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #080808;
+}
+.sport-detail-accordion summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 17px 18px;
+  cursor: pointer;
+  list-style: none;
+}
+.sport-detail-accordion summary::-webkit-details-marker { display: none; }
+.sport-detail-accordion summary:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: -3px;
+}
+.sport-detail-accordion summary b,
+.sport-detail-accordion summary small { display: block; }
+.sport-detail-accordion summary b { color: var(--white); font-size: .91rem; }
+.sport-detail-accordion summary small { margin-top: 5px; color: var(--muted); font-size: .75rem; line-height: 1.4; }
+.sport-detail-mark { color: var(--lime); font-size: 1.2rem; transition: transform .18s ease; }
+.sport-detail-accordion[open] .sport-detail-mark { transform: rotate(45deg); }
+.sport-detail-content { padding: 0 18px 18px; border-top: 1px solid rgba(255,255,255,.08); }
+.sport-detail-content h2 { margin-top: 19px; font-size: 1.7rem; }
+.sport-detail-content h3 { margin: 21px 0 8px; font-size: 1.35rem; }
+.sport-detail-content .field { margin: 15px 0; }
+.sport-detail-content .field input,
+.sport-detail-content .field select { min-height: 46px; border-radius: 10px; }
+.sport-detail-content .sport-intake-grid { gap: 0 14px; }
+.sport-load-note { font-size: .78rem; line-height: 1.5; }
+.sport-picker .answers { margin-top: 12px; }
+.footer .button { border-radius: 11px; letter-spacing: .04em; }
+@media(max-width:620px) {
+  .onboarding { margin-top: 24px; }
+  .selected-sport { align-items: stretch; }
+  .selected-sport .button { width: auto; }
+  .sport-detail-accordion summary { padding: 15px; }
+  .sport-detail-content { padding: 0 15px 15px; }
+  .sport-detail-content .sport-intake-grid { grid-template-columns: 1fr; }
+}
