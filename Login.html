@@ -322,10 +322,10 @@
       return '/';
     }
   }
-  var fromUrl = safeReturnPath(params.get('from_url'));
+  var fromUrl = safeReturnPath(params.get('from_url') || '/today.html?view=plan');
   if (/^\/Register\.html(?:[?#]|$)/i.test(fromUrl)) {
-    document.getElementById('auth-progress-hint').textContent = 'Sign in to save your reviewed plan';
-    document.getElementById('login-copy').textContent = 'Your opening block is ready. Sign in and return to save it to your ALEFIT account.';
+    document.getElementById('auth-progress-hint').textContent = 'Sign in to continue personalized onboarding';
+    document.getElementById('login-copy').textContent = 'Sign in to continue your personalized onboarding or open your saved training dashboard.';
   }
 
   var form = document.getElementById('loginForm');

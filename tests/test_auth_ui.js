@@ -205,8 +205,28 @@ async function testManualLoginStoresOnlyACompleteSession() {
 
   assert.equal(browser.values.get("token"), "new-token");
   assert.equal(JSON.parse(browser.values.get("alefit_user")).id, "user-1");
-  assert.equal(browser.location.replacedWith, "/");
+  assert.equal(browser.location.replacedWith, "/today.html?view=plan");
   assert.equal(trackedEvents, 1);
+}
+
+async function testSignInFromRegistrationReturnsToOnboarding() {
+  const browser = makeBrowser({
+    search: "?from_url=%2FRegister.html",
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: "returning-user-token",
+        user: { id: "user-1", email: "athlete@example.test" },
+      }),
+    }),
+  });
+  browser.elements.get("email").value = "athlete@example.test";
+  browser.elements.get("password").value = "correct horse battery";
+  await browser.elements.get("loginForm").listeners.submit({ preventDefault() {} });
+
+  assert.equal(browser.location.replacedWith, "/Register.html");
+  assert.equal(browser.values.get("token"), "returning-user-token");
 }
 
 async function testIncompleteManualLoginIsRejectedWithoutSuccessTracking() {
@@ -332,6 +352,7 @@ async function run() {
     testInvalidSavedSessionIsCleared,
     testValidSavedSessionRedirects,
     testManualLoginStoresOnlyACompleteSession,
+    testSignInFromRegistrationReturnsToOnboarding,
     testIncompleteManualLoginIsRejectedWithoutSuccessTracking,
     testBlockedStorageShowsActionableError,
     testGoogleCallbackKeepsTokenDuringProviderOutage,

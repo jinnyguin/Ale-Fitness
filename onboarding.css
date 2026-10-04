@@ -375,3 +375,61 @@ html,body{background:#000}
   .sport-detail-content { padding: 0 15px 15px; }
   .sport-detail-content .sport-intake-grid { grid-template-columns: 1fr; }
 }
+
+.account-next-step {
+  margin-top: 18px;
+  padding: 13px 15px;
+  border-left: 2px solid var(--lime);
+  background: rgba(212,255,0,.055);
+  color: #d5dbca;
+  font-size: .88rem;
+  line-height: 1.5;
+}
+.account-loading:empty { display: none; }
+.account-loading:not(:empty) {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: .84rem;
+}
+.account-loading:not(:empty)::before,
+.auth-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(212,255,0,.25);
+  border-top-color: var(--lime);
+  border-radius: 50%;
+  animation: alefit-spin .8s linear infinite;
+}
+.account-success {
+  width: min(100%,620px);
+  margin: 0 auto 14px;
+  padding: 12px 15px;
+  border: 1px solid rgba(212,255,0,.28);
+  background: rgba(212,255,0,.07);
+  color: #e1edbe;
+  font-size: .88rem;
+  line-height: 1.45;
+}
+.account-login-link {
+  margin-top: 18px;
+  text-align: center;
+  font-size: .84rem;
+}
+.account-login-link a {
+  color: var(--lime);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.account-checking { text-align: center; }
+.account-checking .auth-spinner {
+  width: 28px;
+  height: 28px;
+  margin-top: 22px;
+}
+h1[tabindex="-1"]:focus { outline: none; }
+@keyframes alefit-spin { to { transform: rotate(360deg); } }

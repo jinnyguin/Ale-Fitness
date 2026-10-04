@@ -21,6 +21,7 @@
       window.crypto.randomUUID() : "onboarding-" + Date.now() + "-" + Math.random().toString(36).slice(2))
   };
   var googleSignupReturn = new URLSearchParams(window.location.search).get("google_signup") === "1";
+  var accountNotice = "";
   state.showSports = false;
   state.prefs.goals = Array.isArray(state.prefs.goals) ? state.prefs.goals : [];
   state.prefs.equipment = Array.isArray(state.prefs.equipment) ? state.prefs.equipment :
@@ -283,14 +284,42 @@
     return node.innerHTML;
   }
   function token() {
-    return localStorage.getItem("base44_access_token") || localStorage.getItem("token");
+    try {
+      return localStorage.getItem("base44_access_token") || localStorage.getItem("token");
+    } catch (error) {
+      return null;
+    }
   }
   function returnToSignIn() {
     persist();
-    localStorage.removeItem("base44_access_token");
-    localStorage.removeItem("token");
-    localStorage.removeItem("alefit_user");
+    try {
+      localStorage.removeItem("base44_access_token");
+      localStorage.removeItem("token");
+      localStorage.removeItem("alefit_user");
+    } catch (error) {}
     window.location.replace("/Login.html?from_url=%2FRegister.html");
+  }
+  function setAccountProgress() {
+    if (progress) progress.style.width = "0%";
+    var progressWrap = document.querySelector(".progress-wrap");
+    if (progressWrap) {
+      progressWrap.setAttribute("aria-label", "ALEFIT account setup");
+      progressWrap.setAttribute("aria-valuenow", "0");
+      progressWrap.setAttribute("aria-valuetext", "Account setup");
+    }
+    var progressLabel = document.getElementById("progress-label");
+    if (progressLabel) progressLabel.textContent = "Account setup";
+    var progressDetail = document.getElementById("progress-detail");
+    if (progressDetail) progressDetail.textContent = "Your personalized onboarding comes next";
+  }
+  function updateSignedInLinks() {
+    if (!token()) return;
+    [document.querySelector(".topbar .sign-in"), document.querySelector(".up-sign-in")]
+      .forEach(function (link) {
+        if (!link) return;
+        link.href = "/today.html?view=plan";
+        link.textContent = "My plan";
+      });
   }
   function tile(value, title, copy, selected) {
     return '<button type="button" class="tile ' + (selected ? "selected" : "") +
@@ -482,6 +511,7 @@
     progress.style.width = progressPercent + "%";
     var progressWrap = document.querySelector(".progress-wrap");
     if (progressWrap) {
+      progressWrap.setAttribute("aria-label", "Personalized onboarding progress");
       progressWrap.setAttribute("aria-valuenow", String(progressPercent));
       progressWrap.setAttribute("aria-valuetext", state.step === 6 ?
         "Plan review" : "Step " + (state.step + 1) + " of 6");
@@ -489,6 +519,9 @@
     var progressLabel = document.getElementById("progress-label");
     if (progressLabel) progressLabel.textContent = state.step === 6 ?
       "Plan review · 7 of 7" : "Step " + (state.step + 1) + " of 6";
+    var progressDetail = document.getElementById("progress-detail");
+    if (progressDetail) progressDetail.textContent = state.step === 6 ?
+      "Your plan preview · save when ready" : "Your plan is built around your answers";
     var p = state.prefs;
     var html = "";
     if (state.step === 0) {
@@ -531,7 +564,10 @@
     } else {
       html = preview();
     }
-    root.innerHTML = html;
+    root.innerHTML = (accountNotice ?
+      '<p class="account-success" role="status">' + esc(accountNotice) + "</p>" : "") + html;
+    accountNotice = "";
+    updateSignedInLinks();
     var age = document.getElementById("age");
     if (age) age.value = p.age || "";
     var limitations = document.getElementById("limitations");
@@ -894,7 +930,7 @@
       '<img src="/images/alefit-logo.png" alt="ALEFIT"></a><div class="up-top-meta">' +
       '<span class="up-review-state">Plan ready</span><a class="up-sign-in" href="/Login.html?from_url=%2FRegister.html">Sign in</a>' +
       '</div></header><div class="up-progress" role="progressbar" aria-label="Plan builder progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span></span></div>' +
-      '<div class="up-progress-caption"><strong>Plan review</strong><span>6 questions · preview before account</span></div>' +
+      '<div class="up-progress-caption"><strong>Plan review</strong><span>Review your answers before saving</span></div>' +
       '<div class="up-content"><section class="up-intro" aria-labelledby="preview-title"><div>' +
       '<div class="up-kicker">Your plan <span>/</span> Coach’s read</div>' +
       '<h1 class="up-title" id="preview-title" tabindex="-1">' + introTitle + '</h1>' +
@@ -1072,32 +1108,31 @@
   }
   function accountPlanSummary() {
     var plan = state.plan || {};
+    if (!plan.name && !plan.summary) return "";
     return '<div class="account-plan-summary"><span class="eyebrow">Your plan is ready</span><strong>' +
       esc(plan.name || "Your training plan") + '</strong><p>' +
       esc(plan.summary || "Save your reviewed plan to your ALEFIT account.") + "</p></div>";
   }
   function showAccount() {
+    persist();
+    setAccountProgress();
     var shell = document.querySelector(".shell");
     if (shell) shell.classList.remove("program-review-mode");
     root.innerHTML = '<section class="account">' + accountPlanSummary() +
-      '<span class="eyebrow">Account setup</span><h1>Save my plan and start today.</h1><p class="sub">Create your account to keep this block and access your personalized training experience.</p>' +
+      '<span class="eyebrow">Account setup</span><h1>Create your ALEFIT account.</h1><p class="sub">Next, build a personalized training profile around your sport, goals, experience, schedule, equipment, and preferences.</p>' +
+      '<p class="account-next-step" role="status">Your answers and plan preview come right after account setup.</p>' +
+      '<p class="account-loading" id="account-status" role="status" aria-live="polite"></p>' +
       '<button type="button" class="button account-google" id="google-signup">' +
       '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.9 6.1-15Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.2A20.4 20.4 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.6a12.3 12.3 0 0 1 0-7.2v-5.2H5.8a20.1 20.1 0 0 0 0 17.6l6.8-5.2Z"/><path fill="#EA4335" d="M24 12c3 0 5.6 1 7.7 3.1l5.8-5.8C34 5.9 29.4 4 24 4A20.4 20.4 0 0 0 5.8 15.2l6.8 5.2C14.2 15.6 18.7 12 24 12Z"/></svg>' +
       '<span>Continue with Google</span></button><div class="account-oauth-divider" aria-hidden="true">or create an account with email</div>' +
       '<form id="form" novalidate>' +
-      '<div class="field"><label for="name">Full name</label><input id="name" type="text" required minlength="2" maxlength="80" placeholder="Your name"></div>' +
-      '<div class="field"><label for="email">Email</label><input id="email" type="email" required maxlength="254" placeholder="your@email.com"></div>' +
-      '<div class="field"><label for="password">Password</label><input id="password" type="password" required minlength="8" maxlength="128" placeholder="Minimum 8 characters"></div>' +
+      '<div class="field"><label for="name">Full name</label><input id="name" type="text" autocomplete="name" required minlength="2" maxlength="80" placeholder="Your name"></div>' +
+      '<div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required maxlength="254" placeholder="your@email.com"></div>' +
+      '<div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="Minimum 8 characters"></div>' +
       '</form>' +
-      '<div class="footer"><button type="button" class="button secondary" id="account-back">Back</button><button type="button" class="button" id="create">Create account & save plan</button></div>' +
+      '<div class="footer"><button type="button" class="button" id="create">Create account & continue</button></div>' +
+      '<p class="account-login-link">Already have an account? <a href="/Login.html?from_url=%2FRegister.html">Sign in</a></p>' +
       '</section>';
-    var progressWrap = document.querySelector(".progress-wrap");
-    if (progressWrap) {
-      progressWrap.setAttribute("aria-valuenow", "100");
-      progressWrap.setAttribute("aria-valuetext", "Account setup");
-    }
-    var progressLabel = document.getElementById("progress-label");
-    if (progressLabel) progressLabel.textContent = "Account setup · Plan reviewed";
     var form = document.getElementById("form");
     var googleButton = document.getElementById("google-signup");
     var googleButtonMarkup = googleButton.innerHTML;
@@ -1118,30 +1153,19 @@
       } catch (error) {
         googleButton.disabled = false;
         googleButton.innerHTML = googleButtonMarkup;
-        showError(error.message || "Google sign-in could not be started. Your plan is still saved in this tab.");
+        showError(error.message || "Google sign-in could not be started. Your onboarding progress is still saved in this tab.");
       }
     };
-    document.getElementById("account-back").onclick = function() {
-      state.step -= 1;
-      render();
-      focusHeading();
-    };
     document.getElementById("create").onclick = register;
-    focusHeading();
   }
   function showAccountNextStep(title, message, returnMessage) {
     persist();
+    setAccountProgress();
     root.innerHTML = '<section class="account">' + accountPlanSummary() +
       '<span class="eyebrow">Account created</span>' +
       '<h1>' + esc(title) + '</h1><p class="sub">' + esc(message) + '</p>' +
       '<p class="sub">' + esc(returnMessage) + '</p>' +
-      '<div class="footer"><button type="button" class="button secondary" id="confirmation-back">Back to plan</button>' +
-      '<button type="button" class="button" id="confirmation-login">Go to sign in</button></div></section>';
-    document.getElementById("confirmation-back").onclick = function() {
-      state.step = 6;
-      render();
-      focusHeading();
-    };
+      '<div class="footer"><button type="button" class="button" id="confirmation-login">Continue to sign in</button></div></section>';
     document.getElementById("confirmation-login").onclick = function() {
       window.location.href = "/Login.html?from_url=" + encodeURIComponent("/Register.html");
     };
@@ -1188,46 +1212,94 @@
       return;
     }
     button.disabled = true;
+    button.setAttribute("aria-busy", "true");
     button.textContent = "Creating account…";
+    var accountStatus = document.getElementById("account-status");
+    if (accountStatus) accountStatus.textContent = "Creating your ALEFIT account…";
     try {
-      var response = await fetch("/api/apps/" + APP + "/auth/register", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name: document.getElementById("name").value.trim(), email: document.getElementById("email").value.trim(), password: document.getElementById("password").value })
-      });
-      var data = await response.json();
+      var response;
+      try {
+        response = await fetch("/api/apps/" + APP + "/auth/register", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ full_name: document.getElementById("name").value.trim(), email: document.getElementById("email").value.trim(), password: document.getElementById("password").value })
+        });
+      } catch (networkError) {
+        throw new Error("We couldn't reach the signup service. Check your connection and try again.");
+      }
+      var data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        data = {};
+      }
       if (data.confirmation_required) {
         showAccountNextStep(
           "Check your email.",
-          data.message || "Your account was created. Confirm your email to return to your plan.",
-          "Your reviewed plan is still saved in this browser. After you confirm your email, return here to save it."
+          "Your account was created. Confirm your email before continuing.",
+          "Your onboarding progress is saved in this tab. After confirming, return here and sign in so ALEFIT can resume your profile."
         );
         return;
       }
       if (data.account_created) {
         showAccountNextStep(
           "Your account is ready.",
-          data.message || "Sign in to save your plan.",
-          "Your reviewed plan is still saved in this browser. Sign in and return here to save it to your account."
+          "Sign in to continue your personalized onboarding.",
+          "Your onboarding progress is saved in this tab and will be ready when you sign in."
         );
         return;
       }
-      if (!response.ok || !data.access_token) throw new Error(data.error || data.message || "Account could not be created.");
-      localStorage.setItem("base44_access_token", data.access_token);
-      localStorage.setItem("token", data.access_token);
-      if (data.user) localStorage.setItem("alefit_user", JSON.stringify(data.user));
+      if (!response.ok) {
+        var signupError = response.status === 409 ?
+          "An account with this email already exists. Sign in or use a different email." :
+          response.status === 429 ?
+            "Too many signup attempts. Wait a moment, then try again." :
+            response.status >= 500 ?
+              "Signup is temporarily unavailable. Your progress is saved; please try again shortly." :
+              (data.error || data.message || "Please check your details and try again.");
+        throw new Error(signupError);
+      }
+      if (typeof data.access_token !== "string" || !data.access_token ||
+          !data.user || typeof data.user.id !== "string" || !data.user.id.trim()) {
+        throw new Error("The signup service did not return a complete session. Please try again or sign in.");
+      }
+      try {
+        localStorage.setItem("base44_access_token", data.access_token);
+        localStorage.setItem("token", data.access_token);
+        localStorage.setItem("alefit_user", JSON.stringify(data.user));
+      } catch (storageError) {
+        try {
+          localStorage.removeItem("base44_access_token");
+          localStorage.removeItem("token");
+          localStorage.removeItem("alefit_user");
+        } catch (cleanupError) {}
+        showAccountNextStep(
+          "Your account is ready.",
+          "Your browser blocked ALEFIT from saving your sign-in. Allow site storage, then sign in to continue.",
+          "Your onboarding progress is saved in this tab."
+        );
+        return;
+      }
       if (window.trackEvent) window.trackEvent("account_created", { source: "onboarding" });
-      savePlan();
+      accountNotice = "Your account is ready. Let's build your personalized training plan.";
+      if (state.step === 6 && state.plan) {
+        savePlan();
+        return;
+      }
+      render();
+      focusHeading();
     } catch (error) {
       button.disabled = false;
-      button.textContent = "Create account & save plan";
-      showError(error.message || "Account could not be created. Your plan is still here.");
+      button.removeAttribute("aria-busy");
+      button.textContent = "Create account & continue";
+      if (accountStatus) accountStatus.textContent = "";
+      showError(error.message || "Account could not be created. Your onboarding answers are still here.");
     }
   }
   async function checkExisting() {
     var response;
     try {
       response = await fetch("/api/apps/" + APP + "/entities/OnboardingPlan?limit=1", { headers: { Authorization: "Bearer " + token() } });
-      if (response.status === 401) return returnToSignIn();
+      if (response.status === 401 || response.status === 403) return returnToSignIn();
       if (!response.ok) throw new Error("Could not verify your existing plan.");
       var data = await response.json();
       var records = Array.isArray(data) ? data : (data.data || data.items || []);
@@ -1294,17 +1366,49 @@
   render=function(){
     if(state.step===6&&!state.context&&token()){loadContextThenRender();return;}
     originalRender();
-    if(googleSignupReturn){
-      googleSignupReturn = false;
-      if(state.step===6&&state.plan&&token()){
-        window.history.replaceState(null,"","/Register.html");
-        checkExisting();
-      } else if(!token()){
-        showError("Google sign-in did not finish. Your reviewed plan is still saved in this browser.");
-      } else {
-        showError("Google sign-in is complete, but this browser could not restore your plan. Return to plan review and try again.");
-      }
-    }
   };
-  render();
+  function showAccountCheckError() {
+    setAccountProgress();
+    root.innerHTML = '<section class="account"><span class="eyebrow">Account check</span>' +
+      '<h1>We couldn’t check your training status.</h1>' +
+      '<p class="sub">Your sign-in is saved. Retry when your connection is stable so ALEFIT can resume the right step.</p>' +
+      '<div class="footer"><button type="button" class="button" id="retry-account-check">Try again</button></div></section>';
+    document.getElementById("retry-account-check").onclick = routeSignedInUser;
+    focusHeading();
+  }
+  async function routeSignedInUser() {
+    root.innerHTML = '<section class="account account-checking" role="status">' +
+      '<span class="eyebrow">Account ready</span><h1>Checking your training status…</h1>' +
+      '<p class="sub">We’re opening your saved plan or continuing your personalized onboarding.</p>' +
+      '<div class="auth-spinner" aria-hidden="true"></div></section>';
+    try {
+      var response = await fetch("/api/apps/" + APP + "/entities/OnboardingPlan?limit=1", {
+        headers: { Authorization: "Bearer " + token() }
+      });
+      if (response.status === 401 || response.status === 403) return returnToSignIn();
+      if (!response.ok) throw new Error("Could not check saved onboarding.");
+      var data = await response.json();
+      var records = Array.isArray(data) ? data : (data.data || data.items || []);
+      if (records.length && !(state.step === 6 && state.plan)) {
+        window.location.replace("/today.html?view=plan");
+        return;
+      }
+      if (googleSignupReturn) {
+        accountNotice = "You're signed in. Let's build your personalized training plan.";
+        googleSignupReturn = false;
+        window.history.replaceState(null, "", "/Register.html");
+      }
+      render();
+    } catch (error) {
+      showAccountCheckError();
+    }
+  }
+  if (token()) {
+    routeSignedInUser();
+  } else {
+    showAccount();
+    if (googleSignupReturn) {
+      showError("Google sign-in did not finish. Your onboarding progress is still saved in this browser.");
+    }
+  }
 }());
