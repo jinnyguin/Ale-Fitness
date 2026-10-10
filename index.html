@@ -31,6 +31,11 @@
   <script src="/program-images.js"></script>
   <link crossorigin href="assets/index-AqnWfqV4.css" rel="stylesheet"/>
   <style>
+    /* Keep the landing ticker moving at twice its original speed. */
+    .animate-scroll-left{animation-duration:15s!important}
+    @media(prefers-reduced-motion:reduce){
+      .animate-scroll-left{animation:none!important}
+    }
     img[alt="Athlete gripping a barbell with chalk on hands"],
     img[src*="bbcf3126a_generated_52fdbe43"]{display:none!important;visibility:hidden!important;opacity:0!important}
     header img[alt="AleFit"]{visibility:hidden!important}
