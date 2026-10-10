@@ -2,3 +2,4 @@
 - [Photo scanner vision AI](photo-scanner-vision-ai.md) — Scanner uses OpenRouter free vision server-side; Groq is blocked by edge security from this environment.
 - [Auth provider resilience](auth-provider-resilience.md) — Keep local auth as a fallback when the configured remote auth host is unavailable; never treat the database secret as a provider admin key.
 - [Adaptive programming blocks](adaptive-programming.md) — Keep primary movements measurable, rotate constrained support work, and namespace later blocks without rewriting completed sessions.
+- [Dashboard direction](dashboard-direction.md) — Dark-and-lime mobile reference is inspiration, not an exact copy; preserve Alefit identity and real plan content.
