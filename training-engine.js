@@ -10,7 +10,7 @@
     "basketball", "football", "soccer", "baseball", "swimming", "track",
     "running", "cross-country", "volleyball", "tennis", "rugby", "lacrosse",
     "hockey", "golf", "cycling", "rowing", "combat-sports", "strength",
-    "hiit", "mobility", "general"
+    "hiit", "crossfit", "mobility", "general"
   ];
   var PROGRAM_PATHS = {
     basketball: "/programs/basketball.html",
@@ -23,6 +23,7 @@
     "cross-country": "/programs/crosscountry.html",
     strength: "/programs/strength.html",
     hiit: "/programs/hiit.html",
+    crossfit: "/my-plan.html",
     mobility: "/programs/mobility.html",
     general: "/programs/strength.html",
     volleyball: "/my-plan.html",
@@ -107,6 +108,10 @@
     "combat-sports":{
       demand:"footwork, rotational control, and repeatable round endurance",
       conditioning:"Use brief controlled rounds; sparring and technical practice count toward hard workload."
+    },
+    crossfit:{
+      demand:"repeatable lifting technique, varied work capacity, and recovery between hard efforts",
+      conditioning:"Alternate skill and strength work with controlled conditioning; avoid stacking maximal efforts."
     }
   };
   var STRENGTH_STYLE_GUIDANCE = {
@@ -161,6 +166,7 @@
     exercise({id:"lateral-step",name:"Lateral step and stick",movementPattern:"lateral",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:["supported balance"],qualities:["sport","movement"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,4],reps:"5–8 / side",rest:"60–90 sec"}}),
     exercise({id:"calf-raise",name:"Calf raise",movementPattern:"calf",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:[],qualities:["endurance","durability"],impact:"low",fatigue:"low",alternatives:[],prescription:{sets:[2,4],reps:"12–25",rest:"45–75 sec"}}),
     exercise({id:"easy-run",name:"Easy run / run-walk",movementPattern:"locomotion",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:["comfortable walking"],qualities:["endurance"],impact:"medium",fatigue:"medium",alternatives:["easy-cycle","brisk-walk"],prescription:{sets:[1,1],reps:"10–60 min",rest:"—"}}),
+    exercise({id:"long-run",name:"Easy long run / run-walk",movementPattern:"locomotion",requiredEquipment:["bodyweight"],difficulty:"beginner",prerequisites:["comfortable walking"],qualities:["endurance"],impact:"medium",fatigue:"medium",alternatives:["easy-run","brisk-walk"],prescription:{sets:[1,1],reps:"15–90 min",rest:"—"}}),
     exercise({id:"tempo-run",name:"Controlled tempo intervals",movementPattern:"locomotion",requiredEquipment:["field"],difficulty:"intermediate",prerequisites:["consistent easy running"],qualities:["endurance","speed"],impact:"medium",fatigue:"medium",alternatives:["easy-run"],prescription:{sets:[4,8],reps:"1–3 min",rest:"1–2 min easy"}}),
     exercise({id:"easy-cycle",name:"Easy cycle",movementPattern:"conditioning",requiredEquipment:["bike","gym"],difficulty:"beginner",prerequisites:[],qualities:["endurance"],impact:"low",fatigue:"low",alternatives:["brisk-walk"],prescription:{sets:[1,1],reps:"15–45 min",rest:"—"}}),
     exercise({id:"easy-row",name:"Steady rowing machine",movementPattern:"conditioning",requiredEquipment:["rower"],difficulty:"beginner",prerequisites:[],qualities:["endurance","sport"],impact:"low",fatigue:"medium",alternatives:["dumbbell-row","easy-cycle","brisk-walk"],prescription:{sets:[1,1],reps:"10–30 min",rest:"—"}}),
@@ -283,9 +289,11 @@
     return {logs:logs, readiness:readiness, tooHard:tooHard, skipped:skipped, pain:pain, lowRecovery:lowRecovery};
   }
 
-  function chooseTrainingDays(workload, count) {
+  function chooseTrainingDays(workload, count, availableDays) {
+    var allowed = Array.isArray(availableDays) ?
+      availableDays.map(function (day) { return Number(day); }) : [];
     var candidates = DAYS.map(function (_, index) { return index; }).filter(function (index) {
-      return !workload[index];
+      return !workload[index] && (!allowed.length || allowed.indexOf(index) !== -1);
     });
     var selected = [];
     while (selected.length < count && candidates.length) {
@@ -328,6 +336,7 @@
     "combat-sports":["lateral-step","band-rotation","split-squat","brisk-walk"],
     strength:["back-squat","bench-press","rdl","dumbbell-row"],
     hiit:["acceleration","goblet-squat","brisk-walk","mobility-flow"],
+    crossfit:["goblet-squat","push-up","dumbbell-row","acceleration"],
     mobility:["mobility-flow","prone-swimmer","dead-bug","split-squat"],
     general:["brisk-walk","easy-cycle","mobility-flow","goblet-squat"]
   };
@@ -392,6 +401,10 @@
       "cardio-intervals":"acceleration","strength-circuits":"goblet-squat",
       "mixed-conditioning":"brisk-walk","low-impact":"mobility-flow"
     },
+    crossfit:{
+      competition:"acceleration","strength-skill":"back-squat",
+      conditioning:"brisk-walk",general:"goblet-squat"
+    },
     mobility:{
       "hips-ankles":"mobility-flow","shoulders-thoracic":"prone-swimmer",
       "full-body-control":"dead-bug"
@@ -437,6 +450,8 @@
         ["easy-run", "split-squat", "calf-raise", "dead-bug", "mobility-flow"];
     } else if (sport === "swimming") {
       ids = ["swim-technique", "dumbbell-row", "split-squat", "dead-bug", "mobility-flow"];
+    } else if (sport === "crossfit") {
+      ids = ["goblet-squat", "push-up", "dumbbell-row", "brisk-walk", "dead-bug"];
     } else if (focus === "power") {
       ids = ["broad-jump", "acceleration", "goblet-squat", "dumbbell-row", "dead-bug"];
     } else if (focus === "muscle") {
@@ -669,6 +684,11 @@
         build:["split-squat","glute-bridge","push-up","band-row","dead-bug"],
         intensification:["step-up","rdl","floor-press","band-lateral","dead-bug"],
         deload:["tempo-squat","hip-hinge","prone-swimmer","brisk-walk","mobility-flow"]
+      },
+      crossfit:{
+        build:["goblet-squat","push-up","dumbbell-row","step-up","dead-bug"],
+        performance:["acceleration","broad-jump","goblet-squat","dumbbell-row","dead-bug"],
+        deload:["tempo-squat","glute-bridge","push-up","mobility-flow","dead-bug"]
       }
     };
     var defaults = {
@@ -745,6 +765,17 @@
       var raceFinish = profile.raceDetail && week === 3 ? " + 4 × 20 sec relaxed strides" : "";
       return {sets:1,reps:Math.round(safeRunMinutes(profile, runSessionCount) * factors[week - 1]) + " min easy" + raceFinish,
         rest:"—",effort:"conversational, RPE 4–5"};
+    }
+    if (item.id === "long-run") {
+      var longest = numeric(profile.longestRun, 0);
+      var baseLong = safeRunMinutes(profile, runSessionCount);
+      var weeklyShare = numeric(profile.weeklyRunVolume, 0) > 0 ?
+        numeric(profile.weeklyRunVolume, 0) / Math.max(1, runSessionCount) : baseLong;
+      var sessionLimit = Math.max(1, numeric(profile.duration, 45) - 10);
+      var longMinutes = Math.min(baseLong, weeklyShare, sessionLimit, longest > 0 ? longest + 5 : baseLong);
+      var longFactors = [0.85, 0.92, 1, 0.75];
+      return {sets:1,reps:Math.max(1, Math.round(longMinutes * longFactors[week - 1])) +
+        " min easy; run-walk is welcome",rest:"—",effort:"conversational, RPE 3–4"};
     }
     if (item.id === "tempo-run") {
       var interval = /10k|half|marathon/i.test(profile.runDistance || "") ? "3 min controlled" :
@@ -900,7 +931,22 @@
         safeDays = Math.min(safeDays, Math.max(1, Math.floor(recentRunMinutes / 5)));
       }
     }
-    var trainingDays = chooseTrainingDays(workload, safeDays);
+    var trainingDays = chooseTrainingDays(workload, safeDays, profile.availableDays);
+    if ((sport === "running" || sport === "cross-country") &&
+        profile.preferredLongRunDay !== "" && profile.preferredLongRunDay != null) {
+      var preferredLongDay = Number(profile.preferredLongRunDay);
+      var allowedLongDay = !Array.isArray(profile.availableDays) || !profile.availableDays.length ||
+        profile.availableDays.map(Number).indexOf(preferredLongDay) !== -1;
+      if (allowedLongDay && !workload[preferredLongDay] &&
+          trainingDays.indexOf(preferredLongDay) === -1 && safeDays > 0) {
+        if (trainingDays.length >= safeDays) trainingDays.pop();
+        trainingDays.push(preferredLongDay);
+      }
+      if (trainingDays.indexOf(preferredLongDay) !== -1) {
+        trainingDays = trainingDays.filter(function (day) { return day !== preferredLongDay; });
+        trainingDays.push(preferredLongDay);
+      }
+    }
     var exerciseLimit = numeric(profile.duration, 45) <= 35 ? 3 :
       numeric(profile.duration, 45) <= 55 ? 4 : 5;
     if (sportInSeason) exerciseLimit = Math.min(exerciseLimit, 3);
@@ -929,6 +975,7 @@
       if (primaryCandidate) phaseExercises.push(primaryCandidate);
       var variationIds = weekExerciseIds.slice(1).concat(baseIds.slice(1));
       EXERCISES.forEach(function (item) {
+        if (item.id === "long-run" && sport !== "running" && sport !== "cross-country") return;
         if (item.qualities.some(function (quality) { return styleQualities.indexOf(quality) !== -1; })) {
           variationIds.push(item.id);
         }
@@ -941,8 +988,11 @@
       });
       var sessions = trainingDays.map(function (dayIndex, sessionIndex) {
         var sessionPrimary = phaseExercises[0] || chooseExercise(primaryId, equipment, impactLimit);
-        if ((sport === "running" || sport === "cross-country") && sessionIndex === 1 &&
-            profile.experience !== "new" && profile.consistency !== "low") {
+        if ((sport === "running" || sport === "cross-country") && trainingDays.length > 1 &&
+            sessionIndex === trainingDays.length - 1) {
+          sessionPrimary = chooseExercise("long-run", equipment, impactLimit) || sessionPrimary;
+        } else if ((sport === "running" || sport === "cross-country") && sessionIndex === 1 &&
+            trainingDays.length > 2 && profile.experience !== "new" && profile.consistency !== "low") {
           sessionPrimary = chooseExercise("tempo-run", equipment, impactLimit) || sessionPrimary;
         }
         var supportPool = phaseExercises.filter(function (item) {
@@ -1063,13 +1113,31 @@
           }
         }
         usedWorkoutSignatures[workoutExerciseSignature(fitted.exercises)] = true;
+        var running = sport === "running" || sport === "cross-country";
+        var runKind = running && primary ? primary.id : "";
+        var why = runKind === "long-run" ?
+          "Your preferred longer-session day gives you time to build aerobic durability at an easy effort." :
+          runKind === "tempo-run" ?
+            "A controlled quality session supports your pace goal without turning the effort into an all-out test." :
+            running ?
+              "An easy, conversational session builds a repeatable running base from your current volume." :
+              phase.reason + " This session prioritizes " + (primary && primary.name ?
+                primary.name.toLowerCase() : "your main movement") + " for " + sport + ".";
         return {
           id:"week-" + week + "-day-" + dayIndex,
           day:DAYS[dayIndex],
-          name:focus.charAt(0).toUpperCase() + focus.slice(1) + " · " +
-            phase.label + " · Workout " + String.fromCharCode(65 + sessionIndex),
+          name:runKind === "long-run" ? "Easy long run" :
+            runKind === "tempo-run" ? "Controlled running quality" :
+              running && runKind === "easy-run" ? "Easy run / run-walk" :
+                focus.charAt(0).toUpperCase() + focus.slice(1) + " · " +
+                  phase.label + " · Workout " + String.fromCharCode(65 + sessionIndex),
           minutes:numeric(profile.duration, 45),
           estimatedMinutes:fitted.estimatedMinutes,
+          why:why,
+          warmup:running ? "5–8 min brisk walk and gentle leg mobility; start the first minutes very easy." :
+            "3–5 min easy movement and comfortable, pain-free range of motion.",
+          cooldown:running ? "Walk easily for 3–5 min; stop if pain changes your stride." :
+            "2–4 min easy movement, then note any soreness or pain.",
           exercises:fitted.exercises
         };
       });

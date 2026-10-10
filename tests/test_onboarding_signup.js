@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
+const trainingEngine = require("../training-engine.js");
 
 const onboardingScript = fs.readFileSync("onboarding.js", "utf8");
 
@@ -12,6 +13,7 @@ function makeElement(id, root, getElementById) {
     innerHTML: id === "google-signup" ? "<span>Continue with Google</span>" : "",
     disabled: false,
     style: {},
+    dataset: {},
     attributes: {},
     listeners: {},
     classList: {
@@ -35,7 +37,7 @@ function makeElement(id, root, getElementById) {
   return element;
 }
 
-function makeBrowser({ fetchImpl, token = "", search = "" } = {}) {
+function makeBrowser({ fetchImpl, token = "", search = "", draft } = {}) {
   const elements = new Map();
   const root = {
     innerHTML: "",
@@ -93,6 +95,7 @@ function makeBrowser({ fetchImpl, token = "", search = "" } = {}) {
     values.set("base44_access_token", token);
     values.set("token", token);
   }
+  if (draft) values.set("alefit_onboarding_draft", JSON.stringify(draft));
   const storage = {
     getItem(key) { return values.get(key) || null; },
     setItem(key, value) { values.set(key, String(value)); },
@@ -110,7 +113,7 @@ function makeBrowser({ fetchImpl, token = "", search = "" } = {}) {
     history: { replaceState() {} },
     crypto: { randomUUID: () => "onboarding-test-id" },
     requestAnimationFrame(callback) { callback(); },
-    ALEFITTrainingEngine: null,
+    ALEFITTrainingEngine: trainingEngine,
     trackEvent() {},
   };
   const context = {
@@ -129,43 +132,45 @@ function makeBrowser({ fetchImpl, token = "", search = "" } = {}) {
   return { root, elements, getElementById, location, values, progressWrap };
 }
 
-async function testNewSignupContinuesIntoFirstOnboardingQuestion() {
-  let resolveSignup;
-  let requestCount = 0;
-  const browser = makeBrowser({
-    fetchImpl: async (url) => {
-      requestCount += 1;
-      assert.match(url, /\/auth\/register$/);
-      return new Promise((resolve) => { resolveSignup = resolve; });
-    },
-  });
-  assert.match(browser.root.innerHTML, /Create your ALEFIT account/);
-  const form = browser.elements.get("form");
-  browser.getElementById("name").value = "Test Athlete";
-  browser.getElementById("email").value = "athlete@example.test";
-  browser.getElementById("password").value = "correct horse battery";
-
-  const create = browser.elements.get("create");
-  const firstSubmit = create.onclick({ preventDefault() {} });
-  assert.equal(create.disabled, true);
-  assert.match(create.textContent, /Creating account/);
-  await create.onclick({ preventDefault() {} });
-  assert.equal(requestCount, 1, "duplicate submits must not create a second account");
-
-  resolveSignup({
-    ok: true,
-    status: 201,
-    json: async () => ({
-      access_token: "new-user-token",
-      user: { id: "new-user", email: "athlete@example.test" },
-    }),
-  });
-  await firstSubmit;
-
-  assert.match(browser.root.innerHTML, /Your account is ready\. Let&#39;s build your personalized training plan\./);
+async function testGuestStartsWithOnboardingBeforeAccount() {
+  const browser = makeBrowser();
   assert.match(browser.root.innerHTML, /What are you training for\?/);
-  assert.equal(browser.values.get("token"), "new-user-token");
-  assert.equal(browser.progressWrap.attributes["aria-valuetext"], "Step 1 of 6");
+  assert.doesNotMatch(browser.root.innerHTML, /Create your ALEFIT account/);
+  assert.match(browser.root.innerHTML, /crossfit/);
+}
+
+async function testSignupSavesGuestPlanAndOpensToday() {
+  const onboardingPrefs = {
+    sport:"running", goals:["conditioning"], experience:"new", consistency:"low",
+    equipment:["bodyweight"], days:2, duration:45, age:"adult",
+    weeklyRunVolume:10, longestRun:5, availableDays:[0, 3, 6],
+    preferredLongRunDay:6, limitations:"", load:""
+  };
+  const browser = makeBrowser({
+    draft:{step:6, prefs:onboardingPrefs, plan:null, onboardingId:"signup-plan-test"},
+    fetchImpl:async (url, options) => {
+      if (/\/auth\/register$/.test(url)) return {
+        ok:true, status:201,
+        json:async () => ({access_token:"test-token", user:{id:"test-user",email:"runner@example.test"}})
+      };
+      assert.match(url, /\/onboarding-plan$/);
+      const payload = JSON.parse(options.body);
+      assert.equal(payload.preferences.sport, "running");
+      assert.equal(payload.preferences.preferredLongRunDay, 6);
+      assert.equal(payload.generated_plan.weeks.length, 4);
+      return {ok:true, status:200};
+    }
+  });
+  assert.match(browser.root.innerHTML, /Plan review/);
+  browser.elements.get("next").onclick({preventDefault(){}});
+  browser.getElementById("name").value = "Test Runner";
+  browser.getElementById("email").value = "runner@example.test";
+  browser.getElementById("password").value = "correct horse battery";
+  await browser.elements.get("create").onclick({preventDefault(){}});
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(browser.location.replacedWith, "/today.html");
+  assert.equal(browser.values.get("token"), "test-token");
+  assert.equal(browser.values.get("alefit_onboarding_draft"), undefined);
 }
 
 async function testSignupFailureShowsRetryableHelpfulError() {
@@ -196,7 +201,7 @@ async function testReturningUserWithPlanIsSentToDashboard() {
     }),
   });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(browser.location.replacedWith, "/today.html?view=plan");
+  assert.equal(browser.location.replacedWith, "/today.html");
 }
 
 async function testSignedInUserWithoutPlanStartsOnboarding() {
@@ -215,8 +220,8 @@ async function testSignedInUserWithoutPlanStartsOnboarding() {
 
 async function run() {
   const tests = [
-    testNewSignupContinuesIntoFirstOnboardingQuestion,
-    testSignupFailureShowsRetryableHelpfulError,
+    testGuestStartsWithOnboardingBeforeAccount,
+    testSignupSavesGuestPlanAndOpensToday,
     testReturningUserWithPlanIsSentToDashboard,
     testSignedInUserWithoutPlanStartsOnboarding,
   ];

@@ -1250,7 +1250,7 @@ def save_onboarding_plan(app_id):
         "basketball", "football", "soccer", "baseball", "swimming", "track",
         "running", "cross-country", "volleyball", "tennis", "rugby", "lacrosse",
         "hockey", "golf", "cycling", "rowing", "combat-sports", "strength",
-        "hiit", "mobility", "general",
+        "hiit", "crossfit", "mobility", "general",
     }
     allowed_paths = {
         "/programs/baseball.html", "/programs/basketball.html",

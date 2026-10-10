@@ -28,7 +28,9 @@ function firstSets(result) {
 
 function workoutSignatures(result) {
   return result.weeks.flatMap((week) => week.sessions.map((session) =>
-    session.exercises.map((item) => item.id).sort().join("|")
+    session.exercises.map((item) =>
+      [item.id, item.sets, item.reps].join(":")
+    ).sort().join("|")
   ));
 }
 
@@ -355,7 +357,7 @@ const kettlebellWithoutKit = plan({
 });
 assert.equal(kettlebellWithoutKit.first[0].id, "hip-hinge",
   "a strength style must fall back to available safe equipment");
-assert.equal(Object.keys(engine.sportFocusSupport).length, 21);
+assert.equal(Object.keys(engine.sportFocusSupport).length, 22);
 Object.keys(engine.sportFocusSupport).forEach((sport) => {
   engine.sportFocusSupport[sport].forEach((id) => {
     assert(
@@ -613,11 +615,22 @@ assert(/in-season maintenance volume/i.test(inSeasonUnlocked.progression));
 
 // Running distance, volume, longest run, and race detail alter prescriptions.
 const runnerBase = {
-  sport:"running", goals:["conditioning"], equipment:["field"], days:2,
+  sport:"running", goals:["conditioning"], equipment:["field"], days:3,
   duration:60, experience:"regular", consistency:"steady", weeklyRunVolume:120, longestRun:40
 };
 const distinctRunnerPlan = plan(runnerBase);
 assert.equal(distinctRunnerPlan.weeks[0].sessions[1].exercises[0].id, "tempo-run");
+assert.equal(distinctRunnerPlan.weeks[0].sessions[2].exercises[0].id, "long-run");
+const preferredDayRunner = plan(Object.assign({}, runnerBase, {
+  days:2,
+  availableDays:[0, 4, 6],
+  preferredLongRunDay:6
+}));
+assert.deepEqual(
+  preferredDayRunner.weeks[0].sessions.map((session) => session.day),
+  ["Monday", "Sunday"],
+  "respect available weekdays and keep the long run on the preferred day"
+);
 assert.equal(
   new Set(workoutSignatures(distinctRunnerPlan)).size,
   workoutSignatures(distinctRunnerPlan).length,

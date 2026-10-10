@@ -266,6 +266,9 @@
       '</div></section><section class="card af-session-work"><div class="af-section-heading"><div><span class="eyebrow">' +
       (activeWorkout ? "In this session" : "Session preview") + '</span><h3>' + esc(session.name) +
       '</h3></div><span class="af-completion-count">' + completed + ' / ' + total + '</span></div>' +
+      '<div class="session-prep"><p><b>Why this workout?</b> ' + esc(session.why || (plan.explanations || [])[0] || plan.summary) +
+      '</p><p><b>Warm-up</b> ' + esc(session.warmup || "3–5 min of easy movement.") +
+      '</p><p><b>Cool-down</b> ' + esc(session.cooldown || "2–4 min of easy movement.") + '</p></div>' +
       '<div class="movement-list">' + exerciseList(session.exercises, activeWorkout && !logged) +
       '</div>' + (activeWorkout && !logged ?
       '<div class="af-workout-feedback"><div class="field"><label for="workout-difficulty">How did this feel?</label><select id="workout-difficulty">' +
@@ -611,9 +614,11 @@
       '<a class="button secondary" href="/today.html?view=plan">Back to this week</a></div></section>' +
       '<section class="card af-detail-movements"><div class="af-section-heading"><div><span class="eyebrow">Session plan</span>' +
       '<h2>Move with intent.</h2></div><span class="af-session-count">' + exercises.length + ' movements</span></div>' +
+      '<div class="session-prep"><p><b>Warm-up</b> ' + esc(session.warmup || "3–5 min of easy movement.") +
+      '</p><p><b>Cool-down</b> ' + esc(session.cooldown || "2–4 min of easy movement.") + '</p></div>' +
       '<div class="movement-list">' + exerciseList(exercises, false) + '</div></section>' +
       '<section class="af-why-plan"><span class="eyebrow">Why it is here</span><p>' +
-      esc((plan.explanations || [])[0] || plan.summary) + '</p><p>' +
+      esc(session.why || (plan.explanations || [])[0] || plan.summary) + '</p><p>' +
       esc(week.recovery || plan.recovery) + '</p></section>';
     var start = document.getElementById("start-selected-session");
     if (start) start.onclick = function () {

@@ -13,7 +13,7 @@
   }
   var state = {
     step: Number(saved.step || 0),
-    prefs: saved.prefs || { goals: [], equipment: [] },
+    prefs: saved.prefs || { goals: [], equipment: [], availableDays: [] },
     plan: saved.plan || null,
     existingId: saved.existingId || null,
     sportAnswers: saved.sportAnswers || {},
@@ -26,6 +26,7 @@
   state.prefs.goals = Array.isArray(state.prefs.goals) ? state.prefs.goals : [];
   state.prefs.equipment = Array.isArray(state.prefs.equipment) ? state.prefs.equipment :
     (state.prefs.equipment ? [state.prefs.equipment] : []);
+  state.prefs.availableDays = Array.isArray(state.prefs.availableDays) ? state.prefs.availableDays : [];
   if (!sessionStorage.getItem("alefit_onboarding_analytics_started")) {
     sessionStorage.setItem("alefit_onboarding_analytics_started", "1");
     if (window.trackEvent) window.trackEvent("onboarding_started", { source: "register" });
@@ -51,6 +52,7 @@
     ["combat-sports", "Combat sports", "Power, movement and round endurance"],
     ["strength", "Strength", "Choose your strength-training style"],
     ["hiit", "HIIT", "Work capacity and control"],
+    ["crossfit", "CrossFit / functional fitness", "Skill, strength and varied conditioning"],
     ["mobility", "Mobility", "Move with more range"],
     ["general", "General fitness", "Train for your life"]
   ];
@@ -74,6 +76,7 @@
     "combat-sports": [["power", "Explosive strength"], ["conditioning", "Round endurance"], ["mobility", "Mobility and control"]],
     strength: [["strength", "Build strength"], ["muscle", "Build muscle"], ["conditioning", "Work capacity"]],
     hiit: [["conditioning", "Work capacity"], ["fitness", "General fitness"], ["movement", "Move better"]],
+    crossfit: [["conditioning", "Competition conditioning"], ["strength", "Build strength"], ["power", "Improve power"]],
     mobility: [["mobility", "More range"], ["durability", "Move comfortably"], ["movement", "Better control"]],
     general: [["strength", "Get stronger"], ["fitness", "Build fitness"], ["movement", "Move better"]]
   };
@@ -161,6 +164,10 @@
     hiit: { label:"Session style", options:[
       ["cardio-intervals", "Cardio intervals"], ["strength-circuits", "Strength circuits"],
       ["mixed-conditioning", "Mixed conditioning"], ["low-impact", "Low-impact intervals"]
+    ]},
+    crossfit: { label:"Training emphasis", options:[
+      ["competition", "Competition preparation"], ["strength-skill", "Strength and technique"],
+      ["conditioning", "Conditioning capacity"], ["general", "Balanced training"]
     ]},
     mobility: { label:"Focus area", options:[
       ["hips-ankles", "Hips and ankles"], ["shoulders-thoracic", "Shoulders and upper back"],
@@ -403,7 +410,7 @@
         (pickerVisible ? "true" : "false") + '" aria-controls="sport-list">' +
         (pickerVisible ? "Keep this sport" : "Change sport") + "</button></div>";
     } else {
-      html += '<p class="picker-instruction">Choose one sport or training focus. Search the 21 options below.</p>';
+      html += '<p class="picker-instruction">Choose one sport or training focus. Search the available options below.</p>';
     }
     html += '<div class="sport-picker' + (pickerVisible ? "" : " is-collapsed") +
       '" id="sport-list" aria-label="Available sports"' + (pickerVisible ? "" : " hidden") +
@@ -556,7 +563,17 @@
         '<div class="answers">' + [["2", "2 days / week", "Minimal, focused exposure"], ["3", "3 days / week", "Balanced progress"], ["4", "4 days / week", "Higher capacity"]].map(function (item) {
           return tile(item[0], item[1], item[2], String(p.days) === item[0]);
         }).join("") + '</div><div class="field"><label for="duration">Minutes per session</label><input id="duration" type="number" min="20" max="120" value="' + esc(p.duration || 45) + '"></div>' +
-        '<div class="field"><label for="load">Practice or game load</label><input id="load" maxlength="120" placeholder="Example: practice Tue/Thu, game Saturday" value="' + esc(p.load || "") + '"></div>');
+        '<div class="field"><label for="load">Practice or game load</label><input id="load" maxlength="120" placeholder="Example: practice Tue/Thu, game Saturday" value="' + esc(p.load || "") + '"></div>' +
+        '<fieldset class="field"><legend>Which days are usually available? <span>(optional)</span></legend><div class="available-days">' +
+        ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(function (day, index) {
+          return '<label><input type="checkbox" data-available-day value="' + index + '"' +
+            (p.availableDays.indexOf(index) > -1 ? " checked" : "") + '> ' + day + '</label>';
+        }).join("") + '</div></fieldset>' +
+        ((p.sport === "running" || p.sport === "cross-country") ?
+          '<div class="field"><label for="preferred-long-day">Preferred long-run day <span>(optional)</span></label><select id="preferred-long-day"><option value="">No preference</option>' +
+          ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(function (day, index) {
+            return '<option value="' + index + '"' + (String(p.preferredLongRunDay) === String(index) ? " selected" : "") + '>' + day + '</option>';
+          }).join("") + '</select></div>' : ""));
     } else if (state.step === 5) {
       html = question(5, "What should we work around?", "Age and limitations help us choose sensible volume. This is training context, not a diagnosis.",
         '<div class="field"><label for="age">Age range</label><select id="age"><option value="">Choose one</option><option value="under18">Under 18</option><option value="adult">18–54</option><option value="over55">55+</option></select></div>' +
@@ -1079,6 +1096,10 @@
     if (state.step === 4 && document.getElementById("duration")) {
       p.duration = Number(document.getElementById("duration").value);
       p.load = document.getElementById("load").value.trim();
+      p.availableDays = Array.prototype.slice.call(document.querySelectorAll("[data-available-day]:checked"))
+        .map(function (input) { return Number(input.value); });
+      var longDay = document.getElementById("preferred-long-day");
+      p.preferredLongRunDay = longDay && longDay.value !== "" ? Number(longDay.value) : "";
     }
     if (state.step === 5 && document.getElementById("age")) {
       p.age = document.getElementById("age").value;
@@ -1119,8 +1140,8 @@
     var shell = document.querySelector(".shell");
     if (shell) shell.classList.remove("program-review-mode");
     root.innerHTML = '<section class="account">' + accountPlanSummary() +
-      '<span class="eyebrow">Account setup</span><h1>Create your ALEFIT account.</h1><p class="sub">Next, build a personalized training profile around your sport, goals, experience, schedule, equipment, and preferences.</p>' +
-      '<p class="account-next-step" role="status">Your answers and plan preview come right after account setup.</p>' +
+      '<span class="eyebrow">Save your plan</span><h1>Create your ALEFIT account.</h1><p class="sub">Your personalized plan preview is ready. Create an account to save it and open your dashboard.</p>' +
+      '<p class="account-next-step" role="status">Your answers and plan preview are saved in this tab while you create your account.</p>' +
       '<p class="account-loading" id="account-status" role="status" aria-live="polite"></p>' +
       '<button type="button" class="button account-google" id="google-signup">' +
       '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.9 6.1-15Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.2A20.4 20.4 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.6a12.3 12.3 0 0 1 0-7.2v-5.2H5.8a20.1 20.1 0 0 0 0 17.6l6.8-5.2Z"/><path fill="#EA4335" d="M24 12c3 0 5.6 1 7.7 3.1l5.8-5.8C34 5.9 29.4 4 24 4A20.4 20.4 0 0 0 5.8 15.2l6.8 5.2C14.2 15.6 18.7 12 24 12Z"/></svg>' +
@@ -1243,8 +1264,8 @@
       if (data.account_created) {
         showAccountNextStep(
           "Your account is ready.",
-          "Sign in to continue your personalized onboarding.",
-          "Your onboarding progress is saved in this tab and will be ready when you sign in."
+          "Sign in to save your personalized plan.",
+          "Your answers and plan preview are saved in this tab and will be saved to your account after sign-in."
         );
         return;
       }
@@ -1315,10 +1336,12 @@
   }
   async function savePlan() {
     var button = document.getElementById("next") || document.getElementById("create");
-    if (!button || button.dataset.saving === "true") return;
-    button.dataset.saving = "true";
-    button.disabled = true;
-    button.textContent = "Saving plan…";
+    if (button && button.dataset.saving === "true") return;
+    if (button) {
+      button.dataset.saving = "true";
+      button.disabled = true;
+      button.textContent = "Saving plan…";
+    }
     var url = "/api/apps/" + APP + "/onboarding-plan";
     try {
       var response = await fetch(url, {
@@ -1337,12 +1360,14 @@
       if (window.trackEvent) window.trackEvent("plan_created", {
         days: Number(state.prefs.days || 0)
       });
-      window.location.replace("/today.html?view=plan");
+      window.location.replace("/today.html");
     } catch (error) {
-      button.dataset.saving = "false";
-      button.disabled = false;
-      button.textContent = "Retry save";
-      button.onclick = function (event) { event.preventDefault(); savePlan(); };
+      if (button) {
+        button.dataset.saving = "false";
+        button.disabled = false;
+        button.textContent = "Retry save";
+        button.onclick = function (event) { event.preventDefault(); savePlan(); };
+      }
       showError("Your account is ready, but the plan was not saved. Retry without creating the account again.");
     }
   }
@@ -1390,13 +1415,19 @@
       var data = await response.json();
       var records = Array.isArray(data) ? data : (data.data || data.items || []);
       if (records.length && !(state.step === 6 && state.plan)) {
-        window.location.replace("/today.html?view=plan");
+        window.location.replace("/today.html");
         return;
       }
       if (googleSignupReturn) {
         accountNotice = "You're signed in. Let's build your personalized training plan.";
         googleSignupReturn = false;
         window.history.replaceState(null, "", "/Register.html");
+      }
+      if (state.step === 6 && state.plan && !records.length) {
+        state.context = { workoutLogs: [], readiness: [] };
+        render();
+        savePlan();
+        return;
       }
       render();
     } catch (error) {
@@ -1406,7 +1437,7 @@
   if (token()) {
     routeSignedInUser();
   } else {
-    showAccount();
+    render();
     if (googleSignupReturn) {
       showError("Google sign-in did not finish. Your onboarding progress is still saved in this browser.");
     }
