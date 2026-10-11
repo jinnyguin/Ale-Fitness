@@ -438,4 +438,16 @@ html,body{background:#000}
   margin-top: 22px;
 }
 h1[tabindex="-1"]:focus { outline: none; }
+.question-screen{max-width:620px;animation:question-arrive .2s ease-out}
+.question-screen>.field,.question-screen>fieldset{margin-top:32px;padding:22px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.question-screen>fieldset legend{padding:0 6px;color:var(--muted);font-size:.8rem}
+.question-screen .field label{line-height:1.5;letter-spacing:.08em}
+.question-screen .field label span{font-weight:400;letter-spacing:0}
+.question-screen .footer{flex-wrap:wrap}
+.question-screen .skip{font-size:.68rem;letter-spacing:.04em}
+.question-screen .step-count{float:none;display:block;margin-top:10px;letter-spacing:.08em}
+.question-screen .sub{max-width:490px}
+@keyframes question-arrive{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:620px){.question-screen>.field,.question-screen>fieldset{margin-top:24px;padding:18px}.question-screen .footer .skip{flex:0 0 100%;order:3}.question-screen h1{font-size:clamp(2.8rem,12vw,4.3rem)}}
+@media(prefers-reduced-motion:reduce){.question-screen{animation:none}.progress{transition:none}}
 @keyframes alefit-spin { to { transform: rotate(360deg); } }

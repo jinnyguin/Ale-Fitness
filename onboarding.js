@@ -13,6 +13,8 @@
   }
   var state = {
     step: Number(saved.step || 0),
+    substep: Number(saved.substep || 0),
+    questionId: saved.questionId || null,
     prefs: saved.prefs || { goals: [], equipment: [], availableDays: [] },
     plan: saved.plan || null,
     existingId: saved.existingId || null,
@@ -510,25 +512,138 @@
     if (scrollTarget) scrollTarget.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
+  // Keep the established major steps (including preview at 6). Question IDs
+  // make a saved screen stable even when a sport has different follow-ups.
+  function questionsFor(step) {
+    var p = state.prefs;
+    var questions = [];
+    function add(id, title, copy, optional) {
+      questions.push({ id: id, title: title, copy: copy, optional: !!optional });
+    }
+    if (step === 0) {
+      add("sport", "What are you training for?", "Choose your main sport or training focus. We'll take the rest one question at a time.");
+      var detail = sportDetailFields[p.sport];
+      if (detail) add(detail.key || "sport-detail", detail.label + "?", "Share what you know. It's fine to leave this open.", true);
+      if (p.sport === "running" || p.sport === "cross-country") {
+        add("run-distance", "What distance is ahead?", "No target yet? Choose Not sure.", true);
+        add("run-volume", "How much have you run lately?", "Recent weekly minutes help us start gently. Use 0 if you're starting or unsure.", true);
+        add("longest-run", "Your longest comfortable run?", "Think minutes, not pace. Use 0 if you're starting or unsure.", true);
+        add("race-detail", "A race or pace in mind?", "A date or current pace adds context. You can leave this blank.", true);
+      }
+      if (p.sport && ["general", "strength", "mobility", "hiit"].indexOf(p.sport) === -1)
+        add("season", "Where are you in your season?", "We'll adjust the work around competition. Not sure is a useful answer too.", true);
+      var support = sportFocusFields[p.sport];
+      if (support) {
+        add("sport-focus", support.label, "One priority can help fine-tune your opening block.", true);
+        add("sport-experience", "How long in this sport?", "This is separate from your experience with structured training.", true);
+        add("sport-load", "What's your current sport load?", "Count practices, games, rides or pool sessions. Approximate is fine; exact weekdays come later.", true);
+        add("sport-intensity", "How hard are those sessions?", "We'll leave room to recover around your sport.", true);
+      }
+    } else if (step === 1) {
+      add("goals", "Choose up to three outcomes.", "Your first choice gets the most emphasis in the opening block.");
+    } else if (step === 2) {
+      add("experience", "Where are you starting?", "Honest inputs keep the first block appropriately challenging.");
+      add("consistency", "How consistent lately?", "Think about your recent weeks, not your best week. Not sure is okay.", true);
+      if (p.sport === "strength") {
+        add("familiarity", "How familiar are the basic lifts?", "We'll match movement complexity to your comfort level.", true);
+        add("working-weights", "Any working weights to share?", "A couple of examples is plenty. Leave blank if you're unsure.", true);
+      }
+    } else if (step === 3) {
+      add("equipment", "What can you train with?", "Select every option you can use. A bodyweight-only plan is welcome.");
+    } else if (step === 4) {
+      add("days", "How many days fit your week?", "Choose time for ALEFIT sessions, alongside your sport.");
+      add("duration", "How long can a session be?", "A realistic window beats an ambitious one. Start with 45 minutes if unsure.");
+      add("available-days", "Which weekdays usually work?", "Select days you can train. Leave open and we'll find a balanced rhythm.", true);
+      add("load", "What else is on your calendar?", "Add practices or games and their weekdays, or leave blank if there aren't any.", true);
+      if (p.sport === "running" || p.sport === "cross-country")
+        add("preferred-long-day", "When would a long run fit?", "Choose a day or leave it at No preference.", true);
+    } else if (step === 5) {
+      add("age", "What's your age range?", "This helps us choose sensible training volume.");
+      add("limitations", "Anything to work around?", "Mention limitations or movements to avoid. Leave blank if none. This is training context, not a diagnosis.", true);
+    } else {
+      add("preview", "Plan review", "Your plan preview · save when ready");
+    }
+    return questions;
+  }
+
+  function currentQuestion() {
+    var list = questionsFor(state.step);
+    var savedIndex = list.findIndex(function (item) { return item.id === state.questionId; });
+    state.substep = savedIndex > -1 ? savedIndex : Math.max(0, Math.min(state.substep, list.length - 1));
+    state.questionId = list[state.substep].id;
+    return list[state.substep];
+  }
+
+  function questionProgress() {
+    var total = 0;
+    var before = 0;
+    for (var step = 0; step <= 6; step += 1) {
+      var length = questionsFor(step).length;
+      if (step < state.step) before += length;
+      total += length;
+    }
+    return { index: before + state.substep + 1, total: total };
+  }
+
+  // Reuse the existing input markup and labels, but mount only this question.
+  // Absent fields are never captured, so moving between screens cannot erase them.
+  function shortScreen(html, active, position) {
+    function field(id) {
+      var pattern = new RegExp('<div class="field"><label for="' + id + '">[\\s\\S]*?</div>');
+      var match = html.match(pattern);
+      return match ? match[0] : "";
+    }
+    var body = "";
+    if (active.id === "sport") {
+      body = sportStepBody(state.prefs).split('<div class="sport-followups"')[0];
+    } else if (["goals", "experience", "equipment", "days"].indexOf(active.id) > -1) {
+      var answers = html.match(/<div class="answers">[\s\S]*?<\/div>/);
+      body = answers ? answers[0] : "";
+      if (active.id === "equipment") {
+        var notice = html.match(/<div class="notice">[\s\S]*?<\/div>/);
+        if (notice) body += notice[0];
+      }
+    } else if (active.id === "available-days") {
+      var weekdays = html.match(/<fieldset class="field">[\s\S]*?<\/fieldset>/);
+      body = weekdays ? weekdays[0] : "";
+    } else if (active.id === "sport-load") {
+      body = field("sport-sessions") + field("sport-session-minutes");
+    } else {
+      body = field(active.id);
+    }
+    return '<div class="question-screen" data-question-id="' + active.id + '">' +
+      '<span class="eyebrow">Plan build · ' + ["Your sport", "Your goals", "Starting point", "Equipment", "Your week", "Your context"][state.step] +
+      '<b class="step-count">Question ' + position.index + ' of ' + position.total + '</b></span>' +
+      '<h1 tabindex="-1">' + esc(active.title) + '</h1><p class="sub">' + esc(active.copy) + '</p>' +
+      body + '<div class="footer">' +
+      (position.index > 1 ? '<button type="button" class="button secondary back" id="back">Back</button>' : "") +
+      (active.optional ? '<button type="button" class="text-btn skip" id="skip">Skip for now</button>' : "") +
+      '<button type="button" class="button" id="next">' +
+      (state.step === 5 && active.id === "limitations" ? "Preview my plan" : "Continue") + '</button></div></div>';
+  }
+
   function render() {
+    var active = currentQuestion();
+    var position = questionProgress();
+    if (active.id === "days" && !state.prefs.days) state.prefs.days = 3;
     persist();
     var shell = document.querySelector(".shell");
     if (shell) shell.classList.toggle("program-review-mode", state.step === 6);
-    var progressPercent = Math.round((Math.min(state.step, 6) + 1) / 7 * 100);
+    var progressPercent = Math.round(position.index / position.total * 100);
     progress.style.width = progressPercent + "%";
     var progressWrap = document.querySelector(".progress-wrap");
     if (progressWrap) {
       progressWrap.setAttribute("aria-label", "Personalized onboarding progress");
       progressWrap.setAttribute("aria-valuenow", String(progressPercent));
       progressWrap.setAttribute("aria-valuetext", state.step === 6 ?
-        "Plan review" : "Step " + (state.step + 1) + " of 6");
+        "Plan review" : "Question " + position.index + " of " + position.total);
     }
     var progressLabel = document.getElementById("progress-label");
     if (progressLabel) progressLabel.textContent = state.step === 6 ?
-      "Plan review · 7 of 7" : "Step " + (state.step + 1) + " of 6";
+      "Plan review · " + position.total + " of " + position.total : "Question " + position.index + " of " + position.total;
     var progressDetail = document.getElementById("progress-detail");
     if (progressDetail) progressDetail.textContent = state.step === 6 ?
-      "Your plan preview · save when ready" : "Your plan is built around your answers";
+      "Your plan preview · save when ready" : "One question at a time · saved in this tab";
     var p = state.prefs;
     var html = "";
     if (state.step === 0) {
@@ -562,7 +677,7 @@
       html = question(4, "How much training fits?", "We will protect recovery around your practices and games.",
         '<div class="answers">' + [["2", "2 days / week", "Minimal, focused exposure"], ["3", "3 days / week", "Balanced progress"], ["4", "4 days / week", "Higher capacity"]].map(function (item) {
           return tile(item[0], item[1], item[2], String(p.days) === item[0]);
-        }).join("") + '</div><div class="field"><label for="duration">Minutes per session</label><input id="duration" type="number" min="20" max="120" value="' + esc(p.duration || 45) + '"></div>' +
+        }).join("") + '</div><div class="field"><label for="duration">Minutes per session</label><input id="duration" type="number" min="20" max="120" value="' + esc(p.duration == null ? 45 : p.duration) + '"></div>' +
         '<div class="field"><label for="load">Practice or game load</label><input id="load" maxlength="120" placeholder="Example: practice Tue/Thu, game Saturday" value="' + esc(p.load || "") + '"></div>' +
         '<fieldset class="field"><legend>Which days are usually available? <span>(optional)</span></legend><div class="available-days">' +
         ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(function (day, index) {
@@ -581,6 +696,7 @@
     } else {
       html = preview();
     }
+    if (state.step < 6) html = shortScreen(html, active, position);
     root.innerHTML = (accountNotice ?
       '<p class="account-success" role="status">' + esc(accountNotice) + "</p>" : "") + html;
     accountNotice = "";
@@ -606,6 +722,17 @@
       );
     });
     bind();
+    root.querySelectorAll("input, select, textarea").forEach(function (input) {
+      if (input.id === "sport-search") return;
+      function captureDraft() {
+        input.removeAttribute("aria-invalid");
+        var error = root.querySelector(".error");
+        if (error) error.remove();
+        captureCurrentInputs();
+      }
+      input.addEventListener("input", captureDraft);
+      input.addEventListener("change", captureDraft);
+    });
   }
 
   function buildPlan() {
@@ -905,9 +1032,15 @@
     }).join("");
 
     var answerMarkup = labels.map(function (item) {
+      var editQuestion = {
+        "Training support focus": "sport-focus",
+        "Experience in this sport": "sport-experience",
+        "Current sport load": "sport-load"
+      }[item[0]] || (item[2] === 0 && item[0] !== "Sport" ?
+        (detailField && detailField.key || "sport-detail") : questionsFor(item[2])[0].id);
       return '<div class="up-answer"><div class="up-answer-main"><span class="up-answer-label">' +
         esc(item[0]) + '</span><b class="up-answer-value">' + esc(item[1] || "Not set") +
-        '</b></div><button type="button" class="up-edit edit-answer" data-step="' +
+        '</b></div><button type="button" class="up-edit edit-answer" data-question="' + editQuestion + '" data-step="' +
         esc(item[2]) + '" aria-label="Edit ' + esc(item[0]) + ' answers">Edit</button></div>';
     }).join("");
 
@@ -1024,8 +1157,8 @@
         render();
         if (clickedStep === 0) {
           window.requestAnimationFrame(function () {
-            var followups = document.getElementById("sport-followups");
-            if (followups) followups.scrollIntoView({ block: "start", behavior: "smooth" });
+            var continueButton = document.getElementById("next");
+            if (continueButton) continueButton.focus({ preventScroll: true });
           });
         } else {
           var selectedTile = Array.prototype.slice.call(root.querySelectorAll(".tile"))
@@ -1041,22 +1174,41 @@
       render();
       window.requestAnimationFrame(function () {
         var target = state.showSports ? document.getElementById("sport-list") :
-          document.getElementById("sport-followups");
+          document.getElementById("next");
         if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
+        var focusTarget = document.getElementById(state.showSports ? "sport-search" : "change-sport");
+        if (focusTarget) focusTarget.focus({ preventScroll: true });
       });
     };
     var next = document.getElementById("next");
     if (next) next.onclick = nextStep;
+    var skip = document.getElementById("skip");
+    if (skip) skip.onclick = function () {
+      // A deliberate skip clears only this screen; defaults are captured as usual.
+      root.querySelectorAll("input, select, textarea").forEach(function (input) {
+        if (input.type === "checkbox") input.checked = false;
+        else if (input.tagName === "SELECT") input.value = input.options[0].value;
+        else input.value = ["run-volume", "longest-run"].indexOf(input.id) > -1 ? "0" : "";
+      });
+      nextStep();
+    };
     var back = document.getElementById("back");
     if (back) back.onclick = function () {
       captureCurrentInputs();
-      state.step -= 1;
+      if (state.substep > 0) state.substep -= 1;
+      else {
+        state.step = Math.max(0, state.step - 1);
+        state.substep = questionsFor(state.step).length - 1;
+      }
+      state.questionId = null;
       render();
       focusHeading();
     };
     root.querySelectorAll(".edit-answer").forEach(function (button) {
       button.onclick = function () {
         state.step = Number(button.dataset.step);
+        state.substep = 0;
+        state.questionId = button.dataset.question || null;
         render();
         focusHeading();
       };
@@ -1093,37 +1245,70 @@
         p[id === "working-weights" ? "workingWeights" : id] = el.value.trim();
       });
     }
-    if (state.step === 4 && document.getElementById("duration")) {
-      p.duration = Number(document.getElementById("duration").value);
-      p.load = document.getElementById("load").value.trim();
-      p.availableDays = Array.prototype.slice.call(document.querySelectorAll("[data-available-day]:checked"))
+    if (state.step === 4) {
+      var duration = document.getElementById("duration");
+      if (duration) p.duration = duration.value.trim() === "" ? "" : Number(duration.value);
+      var load = document.getElementById("load");
+      if (load) p.load = load.value.trim();
+      if (root.querySelectorAll("[data-available-day]").length) p.availableDays = Array.prototype.slice.call(root.querySelectorAll("[data-available-day]:checked"))
         .map(function (input) { return Number(input.value); });
       var longDay = document.getElementById("preferred-long-day");
-      p.preferredLongRunDay = longDay && longDay.value !== "" ? Number(longDay.value) : "";
+      if (longDay) p.preferredLongRunDay = longDay.value !== "" ? Number(longDay.value) : "";
     }
-    if (state.step === 5 && document.getElementById("age")) {
-      p.age = document.getElementById("age").value;
-      p.limitations = document.getElementById("limitations").value.trim();
+    if (state.step === 5) {
+      var age = document.getElementById("age");
+      if (age) p.age = age.value;
+      var limitations = document.getElementById("limitations");
+      if (limitations) p.limitations = limitations.value.trim();
     }
     persist();
   }
   function nextStep() {
     var p = state.prefs;
+    var active = currentQuestion();
     captureCurrentInputs();
-    if (state.step === 0) {
+    if (active.id === "sport") {
       if (!p.sport) return showError("Choose a training focus to continue.");
     }
     if (state.step === 1 && !p.goals.length) return showError("Choose at least one outcome.");
-    if (state.step === 2 && !p.experience) return showError("Choose your training experience.");
+    if (active.id === "experience" && !p.experience) return showError("Choose your training experience.");
     if (state.step === 3 && !p.equipment.length) return showError("Choose at least one equipment option.");
-    if (state.step === 4) {
-      if (p.duration < 20 || p.duration > 120) return showError("Enter a session duration from 20 to 120 minutes.");
+    if (active.id === "days" && !p.days) return showError("Choose how many days fit your week.");
+    if (active.id === "duration") {
+      if (!Number.isFinite(p.duration) || p.duration < 20 || p.duration > 120) {
+        var duration = document.getElementById("duration");
+        duration.setAttribute("aria-invalid", "true");
+        duration.focus();
+        return showError("Enter a session duration from 20 to 120 minutes.");
+      }
     }
-    if (state.step === 5) {
-      if (!p.age) return showError("Choose an age range so we can set sensible volume.");
+    if (active.id === "age") {
+      if (!p.age) {
+        var age = document.getElementById("age");
+        age.setAttribute("aria-invalid", "true");
+        age.focus();
+        return showError("Choose an age range so we can set sensible volume.");
+      }
+    }
+    var invalidNumber = Array.prototype.slice.call(root.querySelectorAll('input[type="number"]')).find(function (input) {
+      if (input.value.trim() === "") return false;
+      var value = Number(input.value);
+      return !Number.isFinite(value) || value < Number(input.min) || value > Number(input.max) ||
+        (input.id === "sport-sessions" && value % 1 !== 0);
+    });
+    if (invalidNumber) {
+      invalidNumber.setAttribute("aria-invalid", "true");
+      invalidNumber.focus();
+      return showError("Enter a value from " + invalidNumber.min + " to " + invalidNumber.max +
+        (invalidNumber.id === "sport-sessions" ? " in whole sessions." : "."));
     }
     if (state.step === 6) return token() ? checkExisting() : showAccount();
-    state.step += 1;
+    if (state.substep + 1 < questionsFor(state.step).length) state.substep += 1;
+    else {
+      state.step += 1;
+      state.substep = 0;
+    }
+    state.questionId = null;
     render();
     focusHeading();
   }

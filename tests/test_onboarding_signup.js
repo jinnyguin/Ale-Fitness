@@ -9,6 +9,9 @@ function makeElement(id, root, getElementById) {
   const element = {
     id,
     value: "",
+    type: "",
+    tagName: "DIV",
+    checked: false,
     textContent: "",
     innerHTML: id === "google-signup" ? "<span>Continue with Google</span>" : "",
     disabled: false,
@@ -17,11 +20,13 @@ function makeElement(id, root, getElementById) {
     attributes: {},
     listeners: {},
     classList: {
+      add() {},
       remove() {},
       toggle() {},
     },
     setAttribute(name, value) { this.attributes[name] = String(value); },
     removeAttribute(name) { delete this.attributes[name]; },
+    hasAttribute(name) { return name in this.attributes; },
     addEventListener(name, callback) { this.listeners[name] = callback; },
     querySelectorAll() { return []; },
     querySelector(selector) {
@@ -39,6 +44,9 @@ function makeElement(id, root, getElementById) {
 
 function makeBrowser({ fetchImpl, token = "", search = "", draft } = {}) {
   const elements = new Map();
+  let controls = [];
+  let tiles = [];
+  let edits = [];
   const root = {
     innerHTML: "",
     errors: [],
@@ -53,14 +61,67 @@ function makeBrowser({ fetchImpl, token = "", search = "", draft } = {}) {
       if (selector === "h1") return getElementById("heading");
       return null;
     },
-    querySelectorAll() { return []; },
+    querySelectorAll(selector) {
+      if (selector === ".tile" || selector === "#sport-options .tile") return tiles;
+      if (selector === ".edit-answer") return edits;
+      if (selector === "input, select, textarea") return controls;
+      if (selector === 'input[type="number"]') return controls.filter((node) => node.type === "number");
+      if (selector === "[data-available-day]") return controls.filter((node) => node.availableDay);
+      if (selector === "[data-available-day]:checked") return controls.filter((node) => node.availableDay && node.checked);
+      return [];
+    },
     appendChild(node) { this.errors.push(node); },
   };
   const getElementById = (id) => {
     if (id === "onboarding") return root;
+    if (!["progress", "progress-label", "progress-detail", "heading"].includes(id) &&
+        !new RegExp(`id="${id}"`).test(root.innerHTML)) return null;
     if (!elements.has(id)) elements.set(id, makeElement(id, root, getElementById));
     return elements.get(id);
   };
+  let markup = "";
+  Object.defineProperty(root, "innerHTML", {
+    get() { return markup; },
+    set(value) {
+      markup = value;
+      elements.clear();
+      controls = [];
+      tiles = [];
+      edits = [];
+      root.errors = [];
+      const attribute = (tag, name) => (tag.match(new RegExp(`\\b${name}="([^"]*)"`)) || [])[1] || "";
+      for (const match of value.matchAll(/<(select|textarea)\b([^>]*?)>([\s\S]*?)<\/\1>/g)) {
+        const node = getElementById(attribute(match[2], "id"));
+        node.tagName = match[1].toUpperCase();
+        node.options = [...match[3].matchAll(/<option([^>]*)>(.*?)<\/option>/g)]
+          .map((option) => ({ value: attribute(option[1], "value"), selected: /\bselected\b/.test(option[1]) }));
+        node.value = match[1] === "select" ? (node.options.find((option) => option.selected) || node.options[0] || {}).value || "" : match[3];
+        controls.push(node);
+      }
+      for (const match of value.matchAll(/<input\b([^>]*)>/g)) {
+        const id = attribute(match[1], "id");
+        const node = id ? getElementById(id) : makeElement("", root, getElementById);
+        node.tagName = "INPUT";
+        node.type = attribute(match[1], "type") || "text";
+        node.value = attribute(match[1], "value");
+        node.min = attribute(match[1], "min");
+        node.max = attribute(match[1], "max");
+        node.availableDay = /data-available-day/.test(match[1]);
+        node.checked = /\bchecked\b/.test(match[1]);
+        controls.push(node);
+      }
+      for (const match of value.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
+        const id = attribute(match[1], "id");
+        const node = id ? getElementById(id) : makeElement("", root, getElementById);
+        node.dataset.value = attribute(match[1], "data-value");
+        node.dataset.step = attribute(match[1], "data-step");
+        node.dataset.question = attribute(match[1], "data-question");
+        node.textContent = match[2].replace(/<[^>]+>/g, "");
+        if (/\bclass="tile /.test(match[1])) tiles.push(node);
+        if (/edit-answer/.test(match[1])) edits.push(node);
+      }
+    },
+  });
   const progressWrap = makeElement("progress-wrap", root, getElementById);
   const shell = makeElement("shell", root, getElementById);
   const document = {
@@ -129,7 +190,7 @@ function makeBrowser({ fetchImpl, token = "", search = "", draft } = {}) {
     console,
   };
   vm.runInNewContext(onboardingScript, context);
-  return { root, elements, getElementById, location, values, progressWrap };
+  return { root, elements, getElementById, location, values, progressWrap, window };
 }
 
 async function testGuestStartsWithOnboardingBeforeAccount() {
@@ -175,12 +236,14 @@ async function testSignupSavesGuestPlanAndOpensToday() {
 
 async function testSignupFailureShowsRetryableHelpfulError() {
   const browser = makeBrowser({
+    draft: { step: 6, prefs: { sport: "general", goals: ["fitness"], equipment: ["bodyweight"], age: "adult" } },
     fetchImpl: async () => ({
       ok: false,
       status: 503,
       json: async () => ({ error: "DNS or upstream technical detail" }),
     }),
   });
+  click(browser, "next");
   browser.getElementById("name").value = "Test Athlete";
   browser.getElementById("email").value = "athlete@example.test";
   browser.getElementById("password").value = "correct horse battery";
@@ -218,12 +281,283 @@ async function testSignedInUserWithoutPlanStartsOnboarding() {
   assert.doesNotMatch(browser.root.innerHTML, /Create your ALEFIT account/);
 }
 
+function savedDraft(browser) {
+  return JSON.parse(browser.values.get("alefit_onboarding_draft"));
+}
+function click(browser, id) {
+  const button = browser.getElementById(id);
+  assert.ok(button, `Missing button: ${id}`);
+  return button.onclick({ preventDefault() {} });
+}
+function choose(browser, value) {
+  const tile = browser.root.querySelectorAll(".tile").find((node) => node.dataset.value === value);
+  assert.ok(tile, `Missing option: ${value}`);
+  tile.onclick();
+}
+function enter(browser, id, value) {
+  const input = browser.getElementById(id);
+  assert.ok(input, `Missing input: ${id}`);
+  input.value = String(value);
+  (input.listeners.input || input.listeners.change)();
+}
+
+async function testSportChoiceDoesNotExpandDetails() {
+  const browser = makeBrowser();
+  choose(browser, "running");
+  assert.equal(savedDraft(browser).questionId, "sport");
+  assert.equal(browser.getElementById("run-volume"), null);
+  assert.doesNotMatch(browser.root.innerHTML, /sport-detail-accordion|Current weekly sport load/);
+  click(browser, "next");
+  assert.equal(savedDraft(browser).questionId, "sport-detail");
+  assert.equal(savedDraft(browser).step, 0);
+  assert.ok(browser.getElementById("back"), "Back is available within step 0");
+  assert.equal(browser.getElementById("run-distance"), null);
+  assert.match(browser.progressWrap.attributes["aria-valuetext"], /Question 2 of 23/);
+  enter(browser, "sport-detail", "trail");
+  click(browser, "next");
+  assert.equal(savedDraft(browser).questionId, "run-distance");
+  click(browser, "back");
+  assert.equal(browser.getElementById("sport-detail").value, "trail");
+}
+
+async function testLiveDraftReloadAndAbsentFieldsPreserved() {
+  const original = {
+    step: 4, questionId: "duration", prefs: {
+      sport: "running", goals: ["conditioning"], equipment: ["bodyweight"],
+      duration: 45, load: "practice Tue", availableDays: [0, 4], preferredLongRunDay: 4,
+      age: "over55", limitations: "no jumps", weeklyRunVolume: 62
+    }
+  };
+  const browser = makeBrowser({ draft: original });
+  enter(browser, "duration", 35);
+  const draft = savedDraft(browser);
+  assert.equal(draft.prefs.duration, 35, "Saved before Continue");
+  for (const key of ["load", "availableDays", "preferredLongRunDay", "age", "limitations", "weeklyRunVolume"]) {
+    assert.deepEqual(draft.prefs[key], original.prefs[key], `${key} survives absent inputs`);
+  }
+  const reloaded = makeBrowser({ draft });
+  assert.equal(reloaded.getElementById("duration").value, "35");
+  assert.equal(savedDraft(reloaded).questionId, "duration");
+  click(reloaded, "next");
+  assert.equal(savedDraft(reloaded).questionId, "available-days");
+  const weekdays = reloaded.root.querySelectorAll("[data-available-day]");
+  weekdays.forEach((node) => { node.checked = Number(node.value) === 2; });
+  weekdays[2].listeners.change();
+  assert.deepEqual(savedDraft(reloaded).prefs.availableDays, [2]);
+  click(reloaded, "next");
+  enter(reloaded, "load", "game Saturday");
+  assert.deepEqual(savedDraft(reloaded).prefs.availableDays, [2]);
+  assert.equal(savedDraft(reloaded).prefs.duration, 35);
+  click(reloaded, "back");
+  assert.equal(reloaded.root.querySelectorAll("[data-available-day]:checked")[0].value, "2");
+}
+
+async function testAgeAndLimitationsAreIndependent() {
+  const browser = makeBrowser({ draft: { step: 5, prefs: {
+    sport: "general", goals: ["fitness"], equipment: ["bodyweight"], age: "adult", limitations: "avoid impact"
+  } } });
+  assert.equal(browser.getElementById("limitations"), null);
+  enter(browser, "age", "over55");
+  click(browser, "next");
+  assert.equal(browser.getElementById("age"), null);
+  assert.equal(browser.getElementById("limitations").value, "avoid impact");
+  enter(browser, "limitations", "no overhead work");
+  const reload = makeBrowser({ draft: savedDraft(browser) });
+  assert.equal(reload.getElementById("limitations").value, "no overhead work");
+  click(reload, "back");
+  assert.equal(reload.getElementById("age").value, "over55");
+  assert.equal(savedDraft(reload).prefs.limitations, "no overhead work");
+}
+
+async function testSportSwitchRestoresConditionalAnswers() {
+  const browser = makeBrowser({ draft: { step: 0, prefs: {
+    sport: "running", goals: ["speed"], equipment: ["bands"], sportDetail: "trail",
+    runDistance: "10K", weeklyRunVolume: 87, longestRun: 31, raceDetail: "October"
+  } } });
+  click(browser, "change-sport");
+  choose(browser, "strength");
+  assert.equal(savedDraft(browser).prefs.weeklyRunVolume, undefined);
+  click(browser, "next");
+  assert.equal(savedDraft(browser).questionId, "sport-detail");
+  assert.match(browser.root.innerHTML, /Strength training style/);
+  enter(browser, "sport-detail", "powerbuilding");
+  click(browser, "next");
+  assert.equal(savedDraft(browser).questionId, "sport-focus", "No running/season fields for strength");
+  click(browser, "back");
+  click(browser, "back");
+  click(browser, "change-sport");
+  choose(browser, "running");
+  assert.equal(savedDraft(browser).prefs.weeklyRunVolume, 87);
+  assert.equal(savedDraft(browser).prefs.sportDetail, "trail");
+  assert.deepEqual(savedDraft(browser).prefs.goals, ["speed"]);
+  click(browser, "next");
+  assert.equal(browser.getElementById("sport-detail").value, "trail");
+  click(browser, "back");
+  click(browser, "change-sport");
+  choose(browser, "strength");
+  assert.equal(savedDraft(browser).prefs.sportDetail, "powerbuilding");
+  assert.equal(savedDraft(browser).prefs.runDistance, undefined);
+}
+
+async function testRequiredQuestionsAndNumericValidation() {
+  const browser = makeBrowser();
+  click(browser, "next");
+  assert.match(browser.root.errors[0].textContent, /Choose a training focus/);
+  choose(browser, "running");
+  click(browser, "next");
+  click(browser, "skip");
+  click(browser, "skip");
+  assert.equal(savedDraft(browser).questionId, "run-volume");
+  enter(browser, "run-volume", 601);
+  click(browser, "next");
+  assert.equal(savedDraft(browser).questionId, "run-volume");
+  assert.match(browser.root.errors[0].textContent, /0 to 600/);
+  enter(browser, "run-volume", 48);
+  click(browser, "next");
+  enter(browser, "longest-run", -1);
+  click(browser, "next");
+  assert.match(browser.root.errors[0].textContent, /0 to 180/);
+  click(browser, "skip");
+  assert.equal(savedDraft(browser).prefs.longestRun, 0);
+
+  for (const [step, questionId, prefs, message] of [
+    [1, "goals", {}, /outcome/],
+    [2, "experience", {}, /experience/],
+    [3, "equipment", {}, /equipment/],
+    [5, "age", {}, /age range/]
+  ]) {
+    const required = makeBrowser({ draft: { step, questionId, prefs } });
+    click(required, "next");
+    assert.equal(savedDraft(required).step, step);
+    assert.match(required.root.errors[0].textContent, message);
+  }
+  const duration = makeBrowser({ draft: { step: 4, questionId: "duration", prefs: {} } });
+  enter(duration, "duration", "");
+  click(duration, "next");
+  assert.match(duration.root.errors[0].textContent, /20 to 120/);
+  enter(duration, "duration", 121);
+  click(duration, "next");
+  assert.equal(savedDraft(duration).questionId, "duration");
+  enter(duration, "duration", 25);
+  click(duration, "next");
+  assert.equal(savedDraft(duration).questionId, "available-days");
+
+  const load = makeBrowser({ draft: { step: 0, questionId: "sport-load", prefs: { sport: "basketball" } } });
+  enter(load, "sport-sessions", 2.5);
+  click(load, "next");
+  assert.match(load.root.errors[0].textContent, /whole sessions/);
+  enter(load, "sport-sessions", 3);
+  enter(load, "sport-session-minutes", 241);
+  click(load, "next");
+  assert.match(load.root.errors[0].textContent, /0 to 240/);
+}
+
+async function testAllSportsHaveShortContextualScreensAndBack() {
+  const starter = makeBrowser();
+  const sports = starter.root.querySelectorAll(".tile").map((node) => node.dataset.value);
+  assert.equal(sports.length, 22);
+  for (const sport of sports) {
+    const browser = makeBrowser({ draft: { prefs: {
+      sport, goals: ["strength"], experience: "new", equipment: ["bodyweight"], age: "adult"
+    } } });
+    const path = [];
+    for (let guard = 0; savedDraft(browser).step < 6 && guard < 40; guard++) {
+      const draft = savedDraft(browser);
+      path.push(draft.questionId);
+      const inputs = browser.root.querySelectorAll("input, select, textarea").filter((node) => node.id !== "sport-search");
+      if (draft.questionId !== "available-days") {
+        assert.ok(inputs.length <= 2, `${sport}/${draft.questionId} has ${inputs.length} inputs`);
+      }
+      const tileQuestions = ["sport", "goals", "experience", "equipment", "days"];
+      if (!tileQuestions.includes(draft.questionId)) {
+        assert.equal(inputs.length, draft.questionId === "sport-load" ? 2 :
+          draft.questionId === "available-days" ? 7 : 1, `${sport}/${draft.questionId} mounts its real fields`);
+      }
+      const reloaded = makeBrowser({ draft });
+      assert.equal(savedDraft(reloaded).questionId, draft.questionId, `${sport} reload restores ${draft.questionId}`);
+      assert.equal(savedDraft(reloaded).substep, draft.substep);
+      assert.deepEqual(savedDraft(reloaded).prefs, draft.prefs);
+      click(browser, "next");
+    }
+    assert.equal(savedDraft(browser).step, 6, `${sport} reaches preview`);
+    assert.equal(browser.progressWrap.attributes["aria-valuenow"], "100");
+    assert.equal(savedDraft(browser).plan.weeks.length, 4);
+    assert.ok(path.includes("consistency"));
+    assert.ok(path.includes("load"));
+    assert.ok(path.includes("available-days"));
+    assert.ok(path.includes("limitations"));
+    assert.equal(path.includes("preferred-long-day"), ["running", "cross-country"].includes(sport));
+    assert.equal(path.includes("working-weights"), sport === "strength");
+    assert.equal(path.includes("season"), !["general", "strength", "mobility", "hiit"].includes(sport));
+    for (const questionId of path.slice().reverse()) {
+      click(browser, "back");
+      assert.equal(savedDraft(browser).questionId, questionId, `${sport} back to ${questionId}`);
+    }
+    assert.equal(browser.getElementById("back"), null);
+  }
+}
+
+async function testPreviewEditsReachLogicalQuestions() {
+  const browser = makeBrowser({ draft: { step: 6, prefs: {
+    sport: "basketball", position: "wing", sportFocus: "lateral-step",
+    sportExperience: "1-3-years", sportSessionsPerWeek: 3, sportSessionMinutes: 65,
+    sportIntensity: "hard", goals: ["jump"], equipment: ["bodyweight"],
+    experience: "regular", age: "adult", days: 3, duration: 45
+  } } });
+  const edits = browser.root.querySelectorAll(".edit-answer");
+  const ids = edits.map((node) => node.dataset.question);
+  for (const id of ["sport", "position", "sport-focus", "sport-experience", "sport-load", "goals", "experience", "equipment", "days", "age"]) {
+    assert.ok(ids.includes(id), `Preview edit for ${id}`);
+    const fresh = makeBrowser({ draft: savedDraft(browser) });
+    fresh.root.querySelectorAll(".edit-answer").find((node) => node.dataset.question === id).onclick();
+    assert.equal(savedDraft(fresh).questionId, id);
+  }
+  click(browser, "back");
+  assert.equal(savedDraft(browser).questionId, "limitations");
+  click(browser, "next");
+  assert.equal(savedDraft(browser).step, 6);
+  click(browser, "next");
+  assert.match(browser.root.innerHTML, /Create your ALEFIT account/);
+  assert.equal(savedDraft(browser).step, 6, "Auth contract retains preview step");
+}
+
+async function testStableQuestionIdAndLegacyDraftCompatibility() {
+  const browser = makeBrowser({ draft: {
+    step: 2, substep: 0, questionId: "working-weights",
+    prefs: { sport: "strength", familiarity: "confident", workingWeights: "deadlift 185lb" }
+  } });
+  assert.equal(savedDraft(browser).substep, 3, "Stable ID wins over stale numeric index");
+  assert.equal(browser.getElementById("working-weights").value, "deadlift 185lb");
+  enter(browser, "working-weights", "deadlift 195lb");
+  click(browser, "back");
+  assert.equal(savedDraft(browser).questionId, "familiarity");
+  assert.equal(browser.getElementById("familiarity").value, "confident");
+  assert.equal(savedDraft(browser).prefs.workingWeights, "deadlift 195lb");
+  const legacy = makeBrowser({ draft: { step: 4, prefs: { sport: "general", duration: 55 } } });
+  assert.equal(savedDraft(legacy).questionId, "days");
+  assert.equal(savedDraft(legacy).prefs.days, 3);
+  click(legacy, "next");
+  assert.equal(legacy.getElementById("duration").value, "55");
+  enter(legacy, "duration", "");
+  const reload = makeBrowser({ draft: savedDraft(legacy) });
+  assert.equal(reload.getElementById("duration").value, "", "Blank in-progress input survives reload");
+}
+
 async function run() {
   const tests = [
     testGuestStartsWithOnboardingBeforeAccount,
     testSignupSavesGuestPlanAndOpensToday,
+    testSignupFailureShowsRetryableHelpfulError,
     testReturningUserWithPlanIsSentToDashboard,
     testSignedInUserWithoutPlanStartsOnboarding,
+    testSportChoiceDoesNotExpandDetails,
+    testLiveDraftReloadAndAbsentFieldsPreserved,
+    testAgeAndLimitationsAreIndependent,
+    testSportSwitchRestoresConditionalAnswers,
+    testRequiredQuestionsAndNumericValidation,
+    testAllSportsHaveShortContextualScreensAndBack,
+    testPreviewEditsReachLogicalQuestions,
+    testStableQuestionIdAndLegacyDraftCompatibility,
   ];
   for (const test of tests) {
     await test();
