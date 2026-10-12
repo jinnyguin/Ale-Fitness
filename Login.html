@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="/auth-session.js"></script>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login | ALEFIT</title>
@@ -497,12 +498,16 @@
       if (!window.AlefitOAuth || typeof window.AlefitOAuth.startGoogle !== 'function') {
         throw new Error('Google sign-in is unavailable right now. Please use email sign-in.');
       }
-      await window.AlefitOAuth.startGoogle(fromUrl);
+      await window.AlefitOAuth.startGoogle("/Register.html?google_signup=1");
     } catch(err) {
       showError(err.message || 'Google sign-in could not be started. Please try again.');
       googleButton.disabled = false;
       googleButton.innerHTML = googleButtonMarkup;
     }
+  });
+  window.addEventListener('pageshow', function () {
+    googleButton.disabled = false;
+    googleButton.innerHTML = googleButtonMarkup;
   });
   })();
 </script>

@@ -445,7 +445,7 @@ def path_is_protected(path):
 
 
 def inject_guard(html_content):
-    return html_content.replace("<head>", "<head>" + AUTH_GUARD_SCRIPT, 1)
+    return html_content.replace("<head>", '<head><script src="/auth-session.js"></script>' + AUTH_GUARD_SCRIPT, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -589,10 +589,21 @@ def oauth_authorize():
         request.host_url.rstrip("/") + "/auth/callback"
     )
     parsed_redirect = urllib.parse.urlparse(redirect_to)
+    request_hostname = urllib.parse.urlparse(request.host_url).hostname or ""
+    same_callback_host = parsed_redirect.netloc.lower() == request.host.lower()
+    # Replit's HTTPS port preview can omit the external port in the forwarded
+    # Host header. Allow only port 5000 on that exact preview hostname.
+    preview_port = (
+        request_hostname.endswith(".replit.dev")
+        and parsed_redirect.hostname == request_hostname
+        and parsed_redirect.netloc.lower() == request_hostname.lower() + ":5000"
+    )
     if (
         parsed_redirect.scheme not in ("http", "https")
-        or parsed_redirect.netloc.lower() != request.host.lower()
+        or not (same_callback_host or preview_port)
         or parsed_redirect.path != "/auth/callback"
+        or parsed_redirect.username or parsed_redirect.password
+        or parsed_redirect.fragment
     ):
         return jsonify({"error": "Google sign-in must return to this site's authentication callback."}), 400
 
@@ -622,7 +633,49 @@ def oauth_authorize():
         f"?provider={urllib.parse.quote(provider, safe='')}"
         f"&redirect_to={urllib.parse.quote(redirect_to, safe='')}"
     )
+    challenge = request.args.get("code_challenge")
+    if challenge:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{43}", challenge):
+            return jsonify({"error": "Invalid sign-in challenge. Please start again."}), 400
+        url += "&code_challenge=" + challenge + "&code_challenge_method=s256"
     return jsonify({"url": url})
+
+
+@app.route("/api/oauth/session", methods=["POST"])
+def oauth_session():
+    """Exchange a browser-owned PKCE code or refresh the same provider account."""
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"error": "Invalid sign-in request."}), 400
+    if body.get("code"):
+        verifier = body.get("code_verifier", "")
+        if not isinstance(verifier, str) or not re.fullmatch(r"[A-Za-z0-9._~-]{43,128}", verifier):
+            return jsonify({"error": "Sign-in expired. Please start again in this browser."}), 400
+        grant = "pkce"
+        payload = {"auth_code": body["code"], "code_verifier": verifier}
+    elif isinstance(body.get("refresh_token"), str) and body["refresh_token"]:
+        grant = "refresh_token"
+        payload = {"refresh_token": body["refresh_token"]}
+    else:
+        return jsonify({"error": "Sign-in expired. Please start again."}), 400
+    status, data = supabase_auth("POST", "/auth/v1/token?grant_type=" + grant, payload)
+    if status != 200 or not isinstance(data, dict) or not data.get("access_token") or not data.get("refresh_token"):
+        return jsonify({"error": (
+            "Sign-in is temporarily unavailable. Your saved plan is unchanged. Please try again."
+            if status >= 500 or status in (200, 429) else
+            "This sign-in has expired or was already used. Please sign in again."
+        )}), (503 if status >= 500 or status == 200 else 429 if status == 429 else 401)
+    user = data.get("user") or {}
+    if not isinstance(user, dict) or not user.get("id"):
+        return jsonify({"error": "The sign-in service returned an incomplete session."}), 503
+    # Preserve the provider UUID; never merge users based only on an email match.
+    ensure_profile(user["id"], user.get("email", ""),
+                   (user.get("user_metadata") or {}).get("full_name", ""))
+    response = jsonify({key: data.get(key) for key in (
+        "access_token", "refresh_token", "expires_in", "expires_at"
+    )})
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # ---------------------------------------------------------------------------

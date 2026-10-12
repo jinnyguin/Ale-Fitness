@@ -12,3 +12,9 @@ Never use a public application identifier as the local token signing secret. If 
 **Why:** The remote host has been unavailable before, and database credentials are not provider admin keys. App IDs are public and predictable, so using one as an HMAC key would let anyone forge local sessions.
 
 **How to apply:** Only use an explicitly named provider admin secret for provider admin calls. Keep local credentials in the app database with salted password hashing and signed expiring tokens, require a configured session secret, preserve the same `/auth/me` and profile interfaces used by the frontend, and probe the provider with a read-only JSON endpoint before diagnosing auth as healthy.
+
+Restore the original provider project rather than replacing it, and never automatically merge a local fallback identity with a Google identity solely by matching email.
+
+**Why:** Saved training records are owned by provider IDs. Replacing the provider changes those IDs; email-only merging could grant access to another account.
+
+**How to apply:** Keep the provider UUID through Google sign-in and refresh. Linking different identities needs a separate flow proving control of both accounts.

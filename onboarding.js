@@ -1362,6 +1362,10 @@
         showError(error.message || "Google sign-in could not be started. Your onboarding progress is still saved in this tab.");
       }
     };
+    window.onpageshow = function () {
+      googleButton.disabled = false;
+      googleButton.innerHTML = googleButtonMarkup;
+    };
     document.getElementById("create").onclick = register;
   }
   function showAccountNextStep(title, message, returnMessage) {
@@ -1599,7 +1603,7 @@
       if (!response.ok) throw new Error("Could not check saved onboarding.");
       var data = await response.json();
       var records = Array.isArray(data) ? data : (data.data || data.items || []);
-      if (records.length && !(state.step === 6 && state.plan)) {
+      if (records.length && (googleSignupReturn || !(state.step === 6 && state.plan))) {
         window.location.replace("/today.html");
         return;
       }

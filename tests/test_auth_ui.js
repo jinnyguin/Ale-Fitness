@@ -73,7 +73,7 @@ function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = fals
       this.replacedWith = String(value);
     },
   };
-  const window = { location, localStorage };
+  const window = { location, localStorage, addEventListener() {} };
   const document = { getElementById: getElement };
   const context = {
     window,
@@ -88,7 +88,7 @@ function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = fals
   return { elements, values, location, window };
 }
 
-function makeCallbackBrowser({ search = "", hash = "", storageBlocked = false, fetchImpl }) {
+function makeCallbackBrowser({ search = "", hash = "", storageBlocked = false, fetchImpl, pending, exchange }) {
   const elements = new Map();
   const getElement = (id) => {
     if (!elements.has(id)) elements.set(id, makeElement());
@@ -114,7 +114,18 @@ function makeCallbackBrowser({ search = "", hash = "", storageBlocked = false, f
       this.replacedWith = String(value);
     },
   };
-  const window = { location, localStorage };
+  const window = { location, localStorage, AlefitSession: {
+    save(session) {
+      localStorage.setItem("base44_access_token", session.access_token);
+      localStorage.setItem("token", session.access_token);
+      if (session.refresh_token) localStorage.setItem("alefit_refresh_token", session.refresh_token);
+    },
+    timedFetch: fetchImpl,
+    exchange: exchange || (async () => { throw new Error("unexpected exchange"); })
+  }, sessionStorage: {
+    getItem: () => pending ? JSON.stringify(pending) : null,
+    removeItem() {}
+  }};
   const document = {
     getElementById: getElement,
     createElement: () => makeElement(),
@@ -326,7 +337,7 @@ async function testVerifiedGoogleCallbackRedirectsWithSessionToken() {
   assert.equal(JSON.parse(browser.values.get("alefit_user")).id, "user-1");
   assert.equal(
     browser.location.replacedWith,
-    "https://alefit.example/account?access_token=oauth-token",
+    "https://alefit.example/account",
   );
 }
 
@@ -345,8 +356,37 @@ async function testGoogleCallbackHandlesBlockedStorage() {
   assert.match(browser.elements.get("errMsg").textContent, /blocked sign-in storage/i);
 }
 
+async function testPkceCallbackRestoresPendingDestination() {
+  const browser = makeCallbackBrowser({
+    search: "?code=one-time-code",
+    pending: {verifier:"a".repeat(64), started:Date.now(), returnTo:"/Register.html?google_signup=1"},
+    exchange: async (body) => {
+      assert.equal(body.code, "one-time-code");
+      assert.equal(body.code_verifier, "a".repeat(64));
+      return {access_token:"verified", refresh_token:"refresh"};
+    },
+    fetchImpl: async () => ({ok:true,status:200,json:async()=>({id:"same-provider-user"})})
+  });
+  await flushPromises();
+  assert.equal(browser.location.replacedWith, "https://alefit.example/Register.html?google_signup=1");
+  assert.equal(browser.values.get("alefit_refresh_token"), "refresh");
+}
+
+async function testCallbackCancellationAndExpiredTransaction() {
+  for (const options of [{search:"?error=access_denied"}, {hash:"#error=access_denied"},
+    {search:"?code=expired", pending:{started:0,verifier:"a".repeat(64)}}]) {
+    const browser = makeCallbackBrowser(options);
+    await flushPromises();
+    assert.equal(browser.location.replacedWith, null);
+    assert.match(browser.elements.get("errMsg").textContent, /cancelled|expired/i);
+    assert.equal(browser.values.get("token"), undefined);
+  }
+}
+
 async function run() {
   const tests = [
+    testPkceCallbackRestoresPendingDestination,
+    testCallbackCancellationAndExpiredTransaction,
     testSavedSessionSurvivesProviderOutage,
     testMalformedSuccessfulSessionIsNotTrusted,
     testInvalidSavedSessionIsCleared,

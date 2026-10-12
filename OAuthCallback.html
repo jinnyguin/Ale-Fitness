@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="/auth-session.js"></script>
+  <meta name="referrer" content="no-referrer"/>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Signing in… | ALEFIT</title>
@@ -41,7 +43,7 @@
   <p class="error" id="errMsg" style="display:none"></p>
 </div>
 <script>
-(function() {
+(async function() {
   var APP_ID = '6a1f3d189ebdbe71fa7d256c';
   var query = new URLSearchParams(window.location.search);
   function safeReturnPath(raw) {
@@ -54,6 +56,7 @@
     }
   }
   var fromUrl = safeReturnPath(query.get('from_url'));
+  if (/^\/(?:auth\/callback|OAuthCallback\.html)/i.test(fromUrl)) fromUrl = '/Login.html';
 
   function setError(msg) {
     document.getElementById('spinner').style.display = 'none';
@@ -72,6 +75,32 @@
   var hash = window.location.hash.substring(1);
   var params = new URLSearchParams(hash);
   var token = params.get('access_token');
+  var refreshToken = params.get('refresh_token');
+  // Remove credentials before any navigation or subsequent resource request.
+  if (window.history) window.history.replaceState(null, '', '/auth/callback');
+  var providerError = params.get('error_description') || params.get('error') ||
+    query.get('error_description') || query.get('error');
+  if (providerError) {
+    setError(/access_denied|cancel/i.test(providerError) ?
+      'Google sign-in was cancelled. Your saved plan has not changed.' :
+      'Google could not complete sign-in. Please try again or use email sign-in.');
+    return;
+  }
+  if (query.get('code')) {
+    try {
+      var pending = JSON.parse(window.sessionStorage.getItem('alefit_oauth_pending') || 'null');
+      if (!pending || Date.now() - pending.started > 20 * 60 * 1000) {
+        throw new Error('Sign-in expired or opened in a different browser. Return to ALEFIT and try again.');
+      }
+      var session = await window.AlefitSession.exchange({
+        code:query.get('code'), code_verifier:pending.verifier
+      });
+      token = session.access_token;
+      refreshToken = session.refresh_token;
+      fromUrl = safeReturnPath(pending.returnTo);
+      window.sessionStorage.removeItem('alefit_oauth_pending');
+    } catch (error) { setError(error.message); return; }
+  }
 
   // Also check query string (some providers use ?access_token=)
   if (!token) {
@@ -93,8 +122,7 @@
   }
 
   try {
-    window.localStorage.setItem('base44_access_token', token);
-    window.localStorage.setItem('token', token);
+    window.AlefitSession.save({access_token:token, refresh_token:refreshToken});
   } catch (storageError) {
     clearStoredSession();
     setError('Your browser blocked sign-in storage. Allow site data for ALEFIT, then try again.');
@@ -102,7 +130,7 @@
   }
 
   // Confirm the provider token before sending the user into a signed-in page.
-  fetch('/api/apps/' + APP_ID + '/auth/me', {
+  window.AlefitSession.timedFetch('/api/apps/' + APP_ID + '/auth/me', {
     headers: { 'Authorization': 'Bearer ' + token }
   }).then(function(response) {
     return response.json().catch(function() { return null; }).then(function(user) {
@@ -131,9 +159,8 @@
       clearStoredSession();
       throw new Error('Your browser blocked sign-in storage. Allow site data for ALEFIT, then try again.');
     }
-    // Keep the token query parameter for the existing app-session bootstrap.
     var dest = new URL(fromUrl, window.location.origin);
-    dest.searchParams.set('access_token', token);
+    dest.searchParams.delete('access_token');
     window.location.replace(dest.toString());
   }).catch(function(error) {
     if (error && error.clearSession) clearStoredSession();
