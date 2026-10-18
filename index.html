@@ -4,6 +4,19 @@
   <meta charset="utf-8"/>
   <link href="/images/alefit-logo.png" rel="icon" type="image/svg+xml"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem("alefit_member_account") ||
+            localStorage.getItem("base44_access_token") || localStorage.getItem("token")) {
+          document.documentElement.classList.add("member-entry-pending");
+          document.write('<style>html.member-entry-pending body{visibility:hidden}</style>');
+        }
+      } catch (error) {}
+    }());
+  </script>
+  <script src="/member-routing.js"></script>
+  <script src="/member-entry.js"></script>
   <link href="api/apps/manifests/6a1f3d189ebdbe71fa7d256c/manifest.json" rel="manifest"/>
   <title>ALEFIT</title>
   <!-- Add Google adsense verification -->

@@ -310,6 +310,7 @@
   </section>
 </div>
 </main>
+<script src="/member-routing.js"></script>
 <script>
 (function() {
   var APP_ID = '6a1f3d189ebdbe71fa7d256c';
@@ -377,7 +378,11 @@
       clearStoredSession();
       throw new Error('Your browser blocked sign-in storage. Allow site data for ALEFIT, then try again.');
     }
-    window.location.replace(fromUrl);
+    if (window.AlefitMember) {
+      await window.AlefitMember.routeAfterSignIn(data.user, fromUrl);
+    } else {
+      window.location.replace(fromUrl);
+    }
   }
 
   var token = readStoredToken();
@@ -411,7 +416,12 @@
       });
     }).then(function(user) {
       if (user && !manualSignInStarted) {
-        window.location.replace(fromUrl);
+        if (window.AlefitMember) {
+          window.AlefitMember.markSignedIn(user);
+          window.AlefitMember.routeAfterSignIn(user, fromUrl);
+        } else {
+          window.location.replace(fromUrl);
+        }
       }
     }).catch(function(error) {
       if (!manualSignInStarted) {

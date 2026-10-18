@@ -7,9 +7,10 @@
   var progress = document.getElementById("progress");
   var saved = {};
   try {
-    saved = JSON.parse(sessionStorage.getItem(DRAFT) || "{}");
+    saved = JSON.parse(localStorage.getItem(DRAFT) || sessionStorage.getItem(DRAFT) || "{}");
   } catch (error) {
-    sessionStorage.removeItem(DRAFT);
+    try { localStorage.removeItem(DRAFT); } catch (storageError) {}
+    try { sessionStorage.removeItem(DRAFT); } catch (storageError) {}
   }
   var state = {
     step: Number(saved.step || 0),
@@ -285,7 +286,9 @@
     ["rower", "Rowing machine", "Indoor rower or erg"]
   ];
   function persist() {
-    sessionStorage.setItem(DRAFT, JSON.stringify(state));
+    var draft = JSON.stringify(state);
+    try { localStorage.setItem(DRAFT, draft); } catch (error) {}
+    try { sessionStorage.setItem(DRAFT, draft); } catch (error) {}
   }
   function esc(value) {
     var node = document.createElement("div");
@@ -1476,6 +1479,7 @@
         localStorage.setItem("base44_access_token", data.access_token);
         localStorage.setItem("token", data.access_token);
         localStorage.setItem("alefit_user", JSON.stringify(data.user));
+        if (window.AlefitMember) window.AlefitMember.markSignedIn(data.user);
       } catch (storageError) {
         try {
           localStorage.removeItem("base44_access_token");
@@ -1546,6 +1550,8 @@
       if (response.status === 401) return returnToSignIn();
       if (!response.ok) throw new Error("Plan save failed.");
       sessionStorage.removeItem(DRAFT);
+      try { localStorage.removeItem(DRAFT); } catch (storageError) {}
+      if (window.AlefitMember) window.AlefitMember.markSetupComplete(true);
       if (window.trackEvent) window.trackEvent("plan_created", {
         days: Number(state.prefs.days || 0)
       });
@@ -1603,6 +1609,7 @@
       if (!response.ok) throw new Error("Could not check saved onboarding.");
       var data = await response.json();
       var records = Array.isArray(data) ? data : (data.data || data.items || []);
+      if (window.AlefitMember) window.AlefitMember.markSetupComplete(records.length > 0);
       if (records.length && (googleSignupReturn || !(state.step === 6 && state.plan))) {
         window.location.replace("/today.html");
         return;

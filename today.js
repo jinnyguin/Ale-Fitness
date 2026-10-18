@@ -794,7 +794,14 @@
       esc((plan.profile.equipment || []).join(", ")) + '</span></div><div class="list-row"><b>Schedule</b><span>' + esc(plan.profile.days + " days · " + plan.profile.duration + " min") +
       '</span></div></div><div class="actions"><a class="button secondary small" href="/Register.html">Adjust plan inputs</a><button class="link-button" id="logout">Sign out</button></div></aside></div>';
     document.getElementById("profile-form").onsubmit = saveProfile;
-    document.getElementById("logout").onclick = function () { localStorage.removeItem("base44_access_token"); localStorage.removeItem("token"); localStorage.removeItem("alefit_user"); window.location.replace("/"); };
+    document.getElementById("logout").onclick = function () {
+      localStorage.removeItem("base44_access_token");
+      localStorage.removeItem("token");
+      localStorage.removeItem("alefit_user");
+      localStorage.removeItem("alefit_refresh_token");
+      localStorage.removeItem("alefit_refresh_owner");
+      window.location.replace("/Login.html?from_url=%2Ftoday.html");
+    };
   }
   async function saveProfile(event) {
     event.preventDefault();

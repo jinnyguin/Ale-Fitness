@@ -153,6 +153,7 @@
       return user;
     });
   }).then(function(user) {
+    if (window.AlefitMember) window.AlefitMember.markSignedIn(user);
     try {
       window.localStorage.setItem('alefit_user', JSON.stringify(user));
     } catch (storageError) {
