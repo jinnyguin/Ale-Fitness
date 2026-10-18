@@ -1,40 +1,16 @@
 ---
-name: ALEFIT auth architecture
-description: How auth flows between Flask backend, Supabase, standalone HTML pages, and React SPA bundle
+name: ALEFIT member return routing
+description: Member recognition, safe reauthentication, and onboarding draft continuity.
 ---
 
-## Stack
-- Flask (server.py, port 5000) + Supabase Auth + Replit Postgres
-- React SPA bundle: assets/index-C7oXusOW.js (compiled, patched in-place)
-- Standalone auth pages: Login.html, Register.html, Account.html, OAuthCallback.html
+Keep remembered-member state separate from authentication. It may route a known member away from public marketing and toward sign-in or their saved training space, but it must never grant access or stand in for a verified session.
 
-## Token flow
-The React SPA SDK reads `access_token` from URL search params first (`Vn("access_token", {removeFromUrl:true})`), then falls back to `localStorage.getItem("base44_access_token")`. After login/register, both Login.html and Register.html must append `?access_token=TOKEN` to the redirect URL so the SPA picks it up immediately.
+**Why:** Members should not lose their place after sign-out or token expiry, while saved account identity alone is not proof of authorization.
 
-**Why:** Without the URL param, the SPA at `/` calls `/entities/User/me` before localStorage is consulted by the SDK init, triggering an auth_required error and login loop.
+**How to apply:** Preserve the member marker when clearing expired or explicitly signed-out sessions; validate access with the existing auth service before opening protected data, and send successful sign-in back to the intended dashboard or setup step.
 
-## Bundle patches applied
-- Image URLs: all `https://media.base44.com/...` replaced with `/images/filename` (7 total)
-- Nav G0 array: Login item is now dynamic — reads localStorage to show "My Account"/Account.html vs "Login"/Login.html
-- Login redirect: `/#signup` → `#signup` (already done earlier)
-- Nav LOGIN link added earlier
+Keep onboarding drafts available across the email-confirmation round trip, including when the confirmation link opens another tab. Clear a draft only after its plan is durably saved to the signed-in account.
 
-## Protected paths (server.py)
-PROTECTED_PATHS: /calorie-tracker, /calorie-tracker.html, /meal-plan, /meal-plan.html, /account, /Account.html
-PROTECTED_PREFIXES: /programs/
+**Why:** Email links can open a separate tab or return to the site after the original signup page is gone.
 
-## OAuth (Google / Apple)
-Route: GET /api/oauth/authorize?provider=google&redirect_to=URL → returns {url: "supabase_oauth_url"}
-Callback page: /auth/callback → OAuthCallback.html reads #access_token from hash, stores to localStorage, redirects with ?access_token= in URL
-**Requires:** Google/Apple OAuth providers must be enabled in Supabase dashboard + callback URL registered
-
-## Supabase admin API
-Uses SUPABASE_SERVICE_KEY (from "Database" env var: sb_secret_3QH-...) for admin/users endpoint — auto-confirms emails, no verification needed.
-
-## Key files
-- server.py — all backend routes
-- Login.html, Register.html — standalone auth pages with Google/Apple buttons
-- Account.html — profile page (protected)
-- OAuthCallback.html — handles Supabase OAuth hash fragment redirect
-- images/ — locally cached images (6 files)
-- assets/index-C7oXusOW.js — patched React SPA bundle
+**How to apply:** Persist draft state locally with a session-storage fallback, preserve same-origin return paths, and remove the draft only after the plan-save request succeeds.

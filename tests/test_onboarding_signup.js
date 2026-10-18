@@ -42,7 +42,7 @@ function makeElement(id, root, getElementById) {
   return element;
 }
 
-function makeBrowser({ fetchImpl, token = "", search = "", draft } = {}) {
+function makeBrowser({ fetchImpl, token = "", search = "", draft, localDraftOnly } = {}) {
   const elements = new Map();
   let controls = [];
   let tiles = [];
@@ -152,16 +152,25 @@ function makeBrowser({ fetchImpl, token = "", search = "", draft } = {}) {
     },
   };
   const values = new Map();
+  const sessionValues = new Map();
   if (token) {
     values.set("base44_access_token", token);
     values.set("token", token);
+    sessionValues.set("base44_access_token", token);
+    sessionValues.set("token", token);
   }
-  if (draft) values.set("alefit_onboarding_draft", JSON.stringify(draft));
-  const storage = {
-    getItem(key) { return values.get(key) || null; },
-    setItem(key, value) { values.set(key, String(value)); },
-    removeItem(key) { values.delete(key); },
-  };
+  if (draft) {
+    values.set("alefit_onboarding_draft", JSON.stringify(draft));
+    sessionValues.set("alefit_onboarding_draft", JSON.stringify(draft));
+  }
+  if (localDraftOnly) values.set("alefit_onboarding_draft", JSON.stringify(localDraftOnly));
+  const makeStorage = (store) => ({
+    getItem(key) { return store.get(key) || null; },
+    setItem(key, value) { store.set(key, String(value)); },
+    removeItem(key) { store.delete(key); },
+  });
+  const localStorage = makeStorage(values);
+  const sessionStorage = makeStorage(sessionValues);
   const location = {
     origin: "https://alefit.example",
     search,
@@ -175,13 +184,17 @@ function makeBrowser({ fetchImpl, token = "", search = "", draft } = {}) {
     crypto: { randomUUID: () => "onboarding-test-id" },
     requestAnimationFrame(callback) { callback(); },
     ALEFITTrainingEngine: trainingEngine,
+    AlefitMember: {
+      markSignedIn(user) { values.set("alefit_member_account", user && user.id || "known"); },
+      markSetupComplete(complete) { values.set("alefit_member_setup_complete", complete ? "1" : "0"); },
+    },
     trackEvent() {},
   };
   const context = {
     window,
     document,
-    localStorage: storage,
-    sessionStorage: storage,
+    localStorage,
+    sessionStorage,
     URLSearchParams,
     fetch: fetchImpl || (async () => { throw new Error("unexpected fetch"); }),
     Math,
@@ -252,6 +265,32 @@ async function testSignupFailureShowsRetryableHelpfulError() {
   assert.equal(browser.elements.get("create").disabled, false);
   assert.match(browser.root.errors[0].textContent, /temporarily unavailable/i);
   assert.doesNotMatch(browser.root.errors[0].textContent, /DNS|upstream/i);
+}
+
+async function testConfirmationRequiredKeepsMemberAndDraftForEmailReturn() {
+  const browser = makeBrowser({
+    draft: {
+      step: 6,
+      onboardingId: "confirmation-draft",
+      prefs: { sport: "basketball", goals: ["conditioning"], equipment: ["bodyweight"], age: "adult" },
+    },
+    fetchImpl: async () => ({
+      ok: true,
+      status: 202,
+      json: async () => ({ confirmation_required: true }),
+    }),
+  });
+  click(browser, "next");
+  browser.getElementById("name").value = "Test Athlete";
+  browser.getElementById("email").value = "athlete@example.test";
+  browser.getElementById("password").value = "correct horse battery";
+  await browser.elements.get("create").onclick({ preventDefault() {} });
+
+  assert.match(browser.root.innerHTML, /Check your email/);
+  assert.match(browser.root.innerHTML, /I confirmed — continue/);
+  assert.equal(browser.values.get("alefit_member_account"), "known");
+  assert.equal(browser.values.get("alefit_member_setup_complete"), "0");
+  assert.ok(browser.values.get("alefit_onboarding_draft"));
 }
 
 async function testReturningUserWithPlanIsSentToDashboard() {
@@ -543,11 +582,27 @@ async function testStableQuestionIdAndLegacyDraftCompatibility() {
   assert.equal(reload.getElementById("duration").value, "", "Blank in-progress input survives reload");
 }
 
+async function testDraftCanResumeFromAnotherTabAfterEmailConfirmation() {
+  const browser = makeBrowser({
+    localDraftOnly: {
+      step: 2,
+      substep: 0,
+      questionId: "working-weights",
+      prefs: { sport: "strength", familiarity: "confident", workingWeights: "deadlift 185lb" },
+    },
+  });
+  assert.equal(browser.getElementById("working-weights").value, "deadlift 185lb");
+  enter(browser, "working-weights", "deadlift 195lb");
+  assert.equal(savedDraft(browser).prefs.workingWeights, "deadlift 195lb");
+  assert.ok(browser.values.get("alefit_onboarding_draft"));
+}
+
 async function run() {
   const tests = [
     testGuestStartsWithOnboardingBeforeAccount,
     testSignupSavesGuestPlanAndOpensToday,
     testSignupFailureShowsRetryableHelpfulError,
+    testConfirmationRequiredKeepsMemberAndDraftForEmailReturn,
     testReturningUserWithPlanIsSentToDashboard,
     testSignedInUserWithoutPlanStartsOnboarding,
     testSportChoiceDoesNotExpandDetails,
@@ -558,6 +613,7 @@ async function run() {
     testAllSportsHaveShortContextualScreensAndBack,
     testPreviewEditsReachLogicalQuestions,
     testStableQuestionIdAndLegacyDraftCompatibility,
+    testDraftCanResumeFromAnotherTabAfterEmailConfirmation,
   ];
   for (const test of tests) {
     await test();

@@ -54,6 +54,13 @@
     return headers;
   }
   function goLogin() {
+    try {
+      var knownUser = JSON.parse(localStorage.getItem("alefit_user") || "null");
+      if (window.AlefitMember) window.AlefitMember.markSignedIn(knownUser);
+      else if (knownUser && knownUser.id) localStorage.setItem("alefit_member_account", knownUser.id);
+    } catch (error) {
+      try { localStorage.setItem("alefit_member_account", "known"); } catch (storageError) {}
+    }
     localStorage.removeItem("base44_access_token");
     localStorage.removeItem("token");
     localStorage.removeItem("alefit_user");
@@ -795,6 +802,13 @@
       '</span></div></div><div class="actions"><a class="button secondary small" href="/Register.html">Adjust plan inputs</a><button class="link-button" id="logout">Sign out</button></div></aside></div>';
     document.getElementById("profile-form").onsubmit = saveProfile;
     document.getElementById("logout").onclick = function () {
+      try {
+        var knownUser = JSON.parse(localStorage.getItem("alefit_user") || "null");
+        if (window.AlefitMember) window.AlefitMember.markSignedIn(knownUser);
+        else if (knownUser && knownUser.id) localStorage.setItem("alefit_member_account", knownUser.id);
+      } catch (error) {
+        try { localStorage.setItem("alefit_member_account", "known"); } catch (storageError) {}
+      }
       localStorage.removeItem("base44_access_token");
       localStorage.removeItem("token");
       localStorage.removeItem("alefit_user");

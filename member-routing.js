@@ -72,6 +72,9 @@
       return;
     }
 
+    // A saved token is enough to remember that this browser had an account;
+    // it is never treated as proof of authentication.
+    if (!read(MEMBER_KEY)) write(MEMBER_KEY, "known");
     try {
       var response = await root.fetch("/api/apps/" + APP_ID + "/auth/me", {
         headers: { Authorization: "Bearer " + accessToken }

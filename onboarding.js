@@ -6,11 +6,17 @@
   var root = document.getElementById("onboarding");
   var progress = document.getElementById("progress");
   var saved = {};
-  try {
-    saved = JSON.parse(localStorage.getItem(DRAFT) || sessionStorage.getItem(DRAFT) || "{}");
-  } catch (error) {
-    try { localStorage.removeItem(DRAFT); } catch (storageError) {}
-    try { sessionStorage.removeItem(DRAFT); } catch (storageError) {}
+  var draftText = null;
+  try { draftText = localStorage.getItem(DRAFT); } catch (storageError) {}
+  if (!draftText) {
+    try { draftText = sessionStorage.getItem(DRAFT); } catch (storageError) {}
+  }
+  if (draftText) {
+    try { saved = JSON.parse(draftText) || {}; }
+    catch (error) {
+      try { localStorage.removeItem(DRAFT); } catch (storageError) {}
+      try { sessionStorage.removeItem(DRAFT); } catch (storageError) {}
+    }
   }
   var state = {
     step: Number(saved.step || 0),
@@ -1371,14 +1377,15 @@
     };
     document.getElementById("create").onclick = register;
   }
-  function showAccountNextStep(title, message, returnMessage) {
+  function showAccountNextStep(title, message, returnMessage, buttonLabel) {
     persist();
     setAccountProgress();
     root.innerHTML = '<section class="account">' + accountPlanSummary() +
       '<span class="eyebrow">Account created</span>' +
       '<h1>' + esc(title) + '</h1><p class="sub">' + esc(message) + '</p>' +
       '<p class="sub">' + esc(returnMessage) + '</p>' +
-      '<div class="footer"><button type="button" class="button" id="confirmation-login">Continue to sign in</button></div></section>';
+      '<div class="footer"><button type="button" class="button" id="confirmation-login">' +
+      esc(buttonLabel || "Continue to sign in") + '</button></div></section>';
     document.getElementById("confirmation-login").onclick = function() {
       window.location.href = "/Login.html?from_url=" + encodeURIComponent("/Register.html");
     };
@@ -1446,14 +1453,23 @@
         data = {};
       }
       if (data.confirmation_required) {
+        if (window.AlefitMember) {
+          window.AlefitMember.markSignedIn();
+          window.AlefitMember.markSetupComplete(false);
+        }
         showAccountNextStep(
           "Check your email.",
           "Your account was created. Confirm your email before continuing.",
-          "Your onboarding progress is saved in this tab. After confirming, return here and sign in so ALEFIT can resume your profile."
+          "Your onboarding answers are saved on this device. Open the confirmation link; ALEFIT will resume your setup. If you return here, continue after confirming.",
+          "I confirmed — continue"
         );
         return;
       }
       if (data.account_created) {
+        if (window.AlefitMember) {
+          window.AlefitMember.markSignedIn();
+          window.AlefitMember.markSetupComplete(false);
+        }
         showAccountNextStep(
           "Your account is ready.",
           "Sign in to save your personalized plan.",
@@ -1549,7 +1565,7 @@
       });
       if (response.status === 401) return returnToSignIn();
       if (!response.ok) throw new Error("Plan save failed.");
-      sessionStorage.removeItem(DRAFT);
+      try { sessionStorage.removeItem(DRAFT); } catch (storageError) {}
       try { localStorage.removeItem(DRAFT); } catch (storageError) {}
       if (window.AlefitMember) window.AlefitMember.markSetupComplete(true);
       if (window.trackEvent) window.trackEvent("plan_created", {
