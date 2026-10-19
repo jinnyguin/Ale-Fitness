@@ -4,3 +4,4 @@
 - [ALEFIT member return routing](alefit-auth.md) — A remembered member marker is routing context only; require authentication and keep setup drafts until their plan is saved.
 - [Adaptive programming blocks](adaptive-programming.md) — Keep primary movements measurable, rotate constrained support work, and namespace later blocks without rewriting completed sessions.
 - [Dashboard direction](dashboard-direction.md) — Dark-and-lime mobile reference is inspiration, not an exact copy; preserve Alefit identity and real plan content.
+- [Live auth verification](alefit-live-auth-verification.md) — Verify the ready Vercel production build and live auth assets before diagnosing a callback as an app-code failure.
