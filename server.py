@@ -20,7 +20,6 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
 LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET", "")
 
@@ -29,7 +28,12 @@ LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET", "")
 # ---------------------------------------------------------------------------
 
 def get_db():
-    conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
+    # Replit provides DATABASE_URL automatically. The linked Vercel project
+    # exposes its database variable as `Database`; accept that as a fallback.
+    database_url = os.environ.get("DATABASE_URL") or os.environ.get("Database", "")
+    if not database_url:
+        raise RuntimeError("Database connection is not configured.")
+    conn = psycopg2.connect(database_url, connect_timeout=10)
     conn.autocommit = True
     return conn
 
