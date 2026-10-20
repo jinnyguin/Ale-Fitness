@@ -8,37 +8,48 @@ import server
 
 
 class DatabaseConfigTests(unittest.TestCase):
-    def test_get_db_uses_legacy_database_variable_when_standard_url_is_missing(self):
-        fake_connection = type("FakeConnection", (), {})()
-        with (
-            patch.dict(os.environ, {"DATABASE_URL": "", "Database": "postgresql://test"}),
-            patch.object(server.psycopg2, "connect", return_value=fake_connection) as connect,
-        ):
-            self.assertIs(server.get_db(), fake_connection)
-
-        connect.assert_called_once_with("postgresql://test", connect_timeout=10)
-
-    def test_get_db_prefers_standard_database_url(self):
+    def test_get_db_uses_supabase_database_url(self):
         fake_connection = type("FakeConnection", (), {})()
         with (
             patch.dict(os.environ, {
-                "DATABASE_URL": "postgresql://primary",
-                "Database": "postgresql://legacy",
+                "SUPABASE_DATABASE_URL": "postgresql://supabase",
+                "DATABASE_URL": "postgresql://legacy",
+                "Database": "postgresql://older",
             }),
             patch.object(server.psycopg2, "connect", return_value=fake_connection) as connect,
         ):
             self.assertIs(server.get_db(), fake_connection)
 
-        connect.assert_called_once_with("postgresql://primary", connect_timeout=10)
+        connect.assert_called_once_with("postgresql://supabase", connect_timeout=10)
 
-    def test_get_db_fails_clearly_when_no_connection_is_configured(self):
+    def test_get_db_requires_supabase_url_instead_of_falling_back(self):
+        fake_connection = type("FakeConnection", (), {})()
         with (
-            patch.dict(os.environ, {"DATABASE_URL": "", "Database": ""}),
-            patch.object(server.psycopg2, "connect") as connect,
+            patch.dict(os.environ, {
+                "SUPABASE_DATABASE_URL": "",
+                "DATABASE_URL": "postgresql://legacy",
+                "Database": "postgresql://older",
+            }),
+            patch.object(server.psycopg2, "connect", return_value=fake_connection) as connect,
         ):
-            with self.assertRaisesRegex(RuntimeError, "Database connection is not configured"):
+            with self.assertRaisesRegex(RuntimeError, "Supabase database connection is not configured"):
                 server.get_db()
+
         connect.assert_not_called()
+
+    def test_local_auth_db_keeps_using_existing_database(self):
+        fake_connection = type("FakeConnection", (), {})()
+        with (
+            patch.dict(os.environ, {
+                "SUPABASE_DATABASE_URL": "postgresql://supabase",
+                "DATABASE_URL": "postgresql://legacy-auth",
+                "Database": "postgresql://older",
+            }),
+            patch.object(server.psycopg2, "connect", return_value=fake_connection) as connect,
+        ):
+            self.assertIs(server.get_local_auth_db(), fake_connection)
+
+        connect.assert_called_once_with("postgresql://legacy-auth", connect_timeout=10)
 
 
 class PlanSaveRouteTests(unittest.TestCase):

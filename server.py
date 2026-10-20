@@ -24,15 +24,23 @@ APP_ID = "6a1f3d189ebdbe71fa7d256c"
 LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET", "")
 
 # ---------------------------------------------------------------------------
-# Postgres helpers (Replit DB for entity storage)
+# Postgres helpers (Supabase for app data; legacy DB remains local-auth storage)
 # ---------------------------------------------------------------------------
 
 def get_db():
-    # Replit provides DATABASE_URL automatically. The linked Vercel project
-    # exposes its database variable as `Database`; accept that as a fallback.
+    database_url = os.environ.get("SUPABASE_DATABASE_URL", "").strip()
+    if not database_url:
+        raise RuntimeError("Supabase database connection is not configured.")
+    conn = psycopg2.connect(database_url, connect_timeout=10)
+    conn.autocommit = True
+    return conn
+
+
+def get_local_auth_db():
+    """Keep local-fallback credentials on their existing database."""
     database_url = os.environ.get("DATABASE_URL") or os.environ.get("Database", "")
     if not database_url:
-        raise RuntimeError("Database connection is not configured.")
+        raise RuntimeError("Local account database connection is not configured.")
     conn = psycopg2.connect(database_url, connect_timeout=10)
     conn.autocommit = True
     return conn
@@ -256,7 +264,7 @@ def ensure_local_auth_table():
         return True
     conn = None
     try:
-        conn = get_db()
+        conn = get_local_auth_db()
         try:
             cur = conn.cursor()
             cur.execute(
@@ -289,7 +297,7 @@ def local_user_by_email(email):
     if not ensure_local_auth_table():
         return None
     try:
-        conn = get_db()
+        conn = get_local_auth_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT * FROM auth_users WHERE LOWER(email)=LOWER(%s)", (email,))
         row = cur.fetchone()
@@ -303,7 +311,7 @@ def local_user_by_id(user_id):
     if not ensure_local_auth_table():
         return None
     try:
-        conn = get_db()
+        conn = get_local_auth_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT * FROM auth_users WHERE id=%s", (user_id,))
         row = cur.fetchone()
@@ -366,7 +374,7 @@ def local_register(email, password, full_name):
         )
     user_id = str(uuid.uuid4())
     try:
-        conn = get_db()
+        conn = get_local_auth_db()
         cur = conn.cursor()
         cur.execute(
             """
@@ -405,7 +413,7 @@ def local_login(email, password):
 
 def _local_password_hash_for(user_id):
     try:
-        conn = get_db()
+        conn = get_local_auth_db()
         cur = conn.cursor()
         cur.execute("SELECT password_hash FROM auth_users WHERE id=%s", (user_id,))
         row = cur.fetchone()
@@ -1078,7 +1086,7 @@ def auth_change_password(app_id):
         return jsonify({"error": "Password must be at least 8 characters."}), 400
     if user.get("_local"):
         try:
-            conn = get_db()
+            conn = get_local_auth_db()
             cur = conn.cursor()
             cur.execute(
                 "UPDATE auth_users SET password_hash=%s, updated_at=NOW() WHERE id=%s",
@@ -1151,14 +1159,21 @@ def auth_me_update(app_id):
     if full_name is not None and not user.get("_local"):
         supabase_auth("PUT", "/auth/v1/user", {"data": {"full_name": full_name}}, token=token)
 
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        if full_name is not None and user.get("_local"):
+    if full_name is not None and user.get("_local"):
+        try:
+            conn = get_local_auth_db()
+            cur = conn.cursor()
             cur.execute(
                 "UPDATE auth_users SET full_name=%s, updated_at=NOW() WHERE id=%s",
                 (full_name, user["id"]),
             )
+            conn.close()
+        except Exception:
+            pass
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
         updates, vals = ["updated_at=NOW()"], []
         if full_name is not None:
             updates.append("full_name=%s"); vals.append(full_name)
@@ -1239,7 +1254,7 @@ def update_me(app_id):
 
 
 # ---------------------------------------------------------------------------
-# Generic entity CRUD — stored in Replit Postgres
+# Generic entity CRUD — stored in Supabase Postgres
 # ---------------------------------------------------------------------------
 
 def require_auth():

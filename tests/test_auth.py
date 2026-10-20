@@ -684,7 +684,7 @@ class AuthRouteTests(unittest.TestCase):
 
         with (
             patch.object(server, "_LOCAL_AUTH_TABLE_READY", False),
-            patch.object(server, "get_db", side_effect=[OSError("offline"), FakeConnection()]),
+            patch.object(server, "get_local_auth_db", side_effect=[OSError("offline"), FakeConnection()]),
         ):
             self.assertFalse(server.ensure_local_auth_table())
             self.assertTrue(server.ensure_local_auth_table())
