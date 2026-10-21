@@ -22,7 +22,36 @@
       </nav>
       <div class="header-right"><span id="header-name" class="header-name"></span><a class="avatar" id="header-avatar" href="/today.html?view=profile" aria-label="Open profile">A</a></div>
     </header>
-    <main class="app-main" id="app" aria-live="polite"><div class="loading">Loading your coaching space…</div></main>
+    <main class="app-main" id="app" aria-live="polite">
+      <section class="coach-loading" role="status" aria-live="polite">
+        <div class="coach-loading-mark" aria-hidden="true">
+          <span class="coach-loading-core">A</span>
+        </div>
+        <p class="coach-loading-eyebrow">Your coaching space</p>
+        <h1>Getting your next session ready</h1>
+        <p class="coach-loading-copy">Bringing your training plan and recent progress together.</p>
+        <div class="coach-loading-card" aria-hidden="true">
+          <div class="coach-loading-card-top">
+            <span class="coach-loading-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12h3l2-7 4 14 3-10 2 3h4"/>
+              </svg>
+            </span>
+            <div class="coach-loading-lines">
+              <span class="coach-loading-line"></span>
+              <span class="coach-loading-line short"></span>
+            </div>
+          </div>
+          <div class="coach-loading-divider"></div>
+          <div class="coach-loading-bars">
+            <span class="coach-loading-bar"></span>
+            <span class="coach-loading-bar"></span>
+            <span class="coach-loading-bar"></span>
+          </div>
+        </div>
+        <p class="coach-loading-note"><span class="coach-loading-pulse" aria-hidden="true"></span>Preparing your plan</p>
+      </section>
+    </main>
     <nav class="mobile-nav" aria-label="Mobile navigation">
       <a data-view="today" href="/today.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3zM9 20v-7h6v7"/></svg>Today</a>
       <a data-view="plan" href="/today.html?view=plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 3h6v4H9zM9 12h6M9 16h6"/></svg>Plan</a>
