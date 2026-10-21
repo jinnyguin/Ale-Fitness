@@ -1210,6 +1210,7 @@ def _remove_profile_avatar(token, object_name):
 
 def get_profile_extras(user_id, token=None):
     """Return bio, a displayable avatar URL, and goals from the profiles table."""
+    conn = None
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -1389,6 +1390,62 @@ def get_me(app_id):
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     return jsonify(format_user(user))
+
+
+@app.route("/api/apps/<app_id>/dashboard-data")
+def dashboard_data(app_id):
+    """Load the signed-in dashboard's initial data with one auth check and DB query."""
+    user, token, err = require_auth()
+    if err:
+        return err
+
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """SELECT id, entity_type, data, created_at, updated_at
+               FROM (
+                   SELECT id, entity_type, data, created_at, updated_at,
+                          ROW_NUMBER() OVER (
+                              PARTITION BY entity_type
+                              ORDER BY created_at DESC
+                          ) AS row_number
+                   FROM entities
+                   WHERE user_id=%s
+                     AND entity_type = ANY(%s)
+               ) recent
+               WHERE (entity_type='OnboardingPlan' AND row_number <= 1)
+                  OR (entity_type='WorkoutLog' AND row_number <= 100)
+                  OR (entity_type='ReadinessCheck' AND row_number <= 30)
+               ORDER BY created_at DESC""",
+            (user["id"], ["OnboardingPlan", "WorkoutLog", "ReadinessCheck"]),
+        )
+        rows = cur.fetchall()
+    except Exception:
+        return jsonify({"error": "Could not load your coaching data. Please try again."}), 503
+    finally:
+        if conn is not None:
+            conn.close()
+
+    result = {
+        "user": format_user(user),
+        "plans": [],
+        "logs": [],
+        "readiness": [],
+    }
+    entity_lists = {
+        "OnboardingPlan": result["plans"],
+        "WorkoutLog": result["logs"],
+        "ReadinessCheck": result["readiness"],
+    }
+    for row in rows:
+        item = dict(row.get("data") or {})
+        item["id"] = row["id"]
+        item["created_date"] = row["created_at"].isoformat() if row.get("created_at") else ""
+        item["updated_date"] = row["updated_at"].isoformat() if row.get("updated_at") else ""
+        entity_lists[row["entity_type"]].append(item)
+    return jsonify(result)
 
 
 @app.route("/api/apps/<app_id>/entities/User/me", methods=["PUT"])
