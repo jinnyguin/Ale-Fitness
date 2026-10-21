@@ -24,6 +24,7 @@
   var dayRefreshTimer = null;
   var dateWatcherStarted = false;
   var appDataReady = false;
+  var userInteractedAfterLoad = false;
   var appHistoryIndex = 0;
   var restoringAppHistory = false;
   var currentAppUrl = window.location.href;
@@ -46,6 +47,7 @@
   }
 
   document.addEventListener("click", function (event) {
+    if (appDataReady) userInteractedAfterLoad = true;
     if (!event.target || !event.target.closest) return;
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     var link = event.target.closest("a");
@@ -89,6 +91,10 @@
     if (!avatarHasUnsavedChanges) return;
     event.preventDefault();
     event.returnValue = "";
+  });
+
+  document.addEventListener("keydown", function () {
+    if (appDataReady) userInteractedAfterLoad = true;
   });
 
   window.addEventListener("popstate", function (event) {
@@ -1170,23 +1176,24 @@
     appDataReady = false;
     try {
       var headers = authHeaders(false);
+      var initialView = getView();
+      var readinessRequest = fetch("/api/apps/" + APP + "/entities/ReadinessCheck?limit=30", { headers: headers });
       var responses = await Promise.all([
         fetch("/api/apps/" + APP + "/auth/me", { headers: headers }),
         fetch("/api/apps/" + APP + "/entities/OnboardingPlan?limit=1", { headers: headers }),
-        fetch("/api/apps/" + APP + "/entities/WorkoutLog?limit=100", { headers: headers }),
-        fetch("/api/apps/" + APP + "/entities/ReadinessCheck?limit=30", { headers: headers })
+        fetch("/api/apps/" + APP + "/entities/WorkoutLog?limit=100", { headers: headers })
       ]);
       if (responses.some(function (r) { return r.status === 401; })) return goLogin();
       if (!responses[0].ok || !responses[1].ok) throw new Error("load failed");
       user = await responses[0].json();
       var plans = records(await responses[1].json());
       logs = records(responses[2].ok ? await responses[2].json() : []);
-      readiness = records(responses[3].ok ? await responses[3].json() : []);
       if (!plans.length) {
         record = null;
         plan = null;
         appDataReady = true;
         render();
+        loadReadiness(readinessRequest, headers, initialView);
         return;
       }
       record = plans[0];
@@ -1195,10 +1202,24 @@
       appDataReady = true;
       startDateWatcher();
       render();
+      loadReadiness(readinessRequest, headers, initialView);
     } catch (error) {
       app.innerHTML = '<div class="empty"><h2>Your plan is temporarily unavailable.</h2><p>Nothing was changed. Check your connection and try again.</p><button class="button" id="retry">Retry</button></div>';
       document.getElementById("retry").onclick = load;
     }
+  }
+  function loadReadiness(request, headers, initialView) {
+    request.then(function (response) {
+      if (!response.ok) return;
+      return response.json();
+    }).then(function (data) {
+      if (!data) return;
+      readiness = records(data);
+      if (appDataReady && !userInteractedAfterLoad && getView() === initialView && !saving && !activeWorkout &&
+          !avatarHasUnsavedChanges && !app.querySelector("input:focus,textarea:focus,select:focus")) {
+        render();
+      }
+    }).catch(function () {});
   }
   load();
 }());
