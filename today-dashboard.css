@@ -126,6 +126,58 @@
   .af-dashboard *, .mobile-nav *, .desktop-nav * { animation: none !important; transition: none !important; }
 }
 
+.af-avatar-editor {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 23px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.025);
+}
+.af-avatar-preview {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(212,255,0,.4);
+  border-radius: 50%;
+  background: rgba(212,255,0,.08);
+  color: var(--lime);
+  font-size: 1.45rem;
+  font-weight: 800;
+}
+.af-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+.af-avatar-controls { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.af-avatar-title { flex-basis: 100%; color: var(--text); font-size: .82rem; font-weight: 700; }
+.af-avatar-help { flex-basis: 100%; margin: -5px 0 2px; font-size: .72rem; }
+.af-avatar-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.af-avatar-file:focus-visible + .af-avatar-choose {
+  outline: 2px solid var(--lime);
+  outline-offset: 4px;
+}
+.af-avatar-choose { cursor: pointer; }
+.af-avatar-filename { flex-basis: 100%; overflow: hidden; color: var(--muted); font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+.af-avatar-controls #profile-avatar-message { flex-basis: 100%; min-height: 1em; margin: 0; font-size: .75rem; }
+@media (max-width: 520px) {
+  .af-avatar-editor { align-items: flex-start; gap: 12px; padding: 12px; }
+  .af-avatar-preview { width: 60px; height: 60px; flex-basis: 60px; }
+  .af-avatar-controls { gap: 8px; }
+}
+
 #app:has(.coach-loading) {
   min-height: calc(100svh - 68px);
   display: grid;

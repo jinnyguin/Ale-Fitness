@@ -1112,8 +1112,104 @@ def auth_resend_otp(app_id):
     return jsonify({"message": "OK"})
 
 
-def get_profile_extras(user_id):
-    """Return bio, avatar_url, daily_calorie_goal from the profiles table."""
+AVATAR_BUCKET = "alefit-profile-avatars"
+MAX_AVATAR_BYTES = 2 * 1024 * 1024
+
+
+def supabase_storage_request(method, path, token, body=None, content_type=None):
+    """Make a Storage API request with the current athlete's access scope."""
+    if not SUPABASE_URL:
+        return 503, {}
+
+    api_key = SUPABASE_KEY
+    bearer = token or ""
+    if bearer.startswith("local."):
+        # Local fallback accounts are not Supabase JWTs. Use the server-only
+        # service key only after this route has independently authenticated them.
+        if not SUPABASE_SERVICE_KEY:
+            return 503, {}
+        api_key = SUPABASE_SERVICE_KEY
+        bearer = SUPABASE_SERVICE_KEY
+    if not api_key or not bearer:
+        return 503, {}
+
+    headers = {
+        "apikey": api_key,
+        "Authorization": f"Bearer {bearer}",
+        "Accept": "application/json",
+    }
+    if body is not None:
+        headers["Content-Type"] = content_type or "application/octet-stream"
+    try:
+        req = urllib.request.Request(
+            f"{SUPABASE_URL.rstrip('/')}/storage/v1{path}",
+            data=body,
+            headers=headers,
+            method=method,
+        )
+        with urllib.request.urlopen(req, timeout=15) as response:
+            raw = response.read()
+            try:
+                data = json.loads(raw.decode("utf-8")) if raw else {}
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                data = {}
+            return response.status, data if isinstance(data, dict) else {}
+    except urllib.error.HTTPError as error:
+        # Do not log provider response bodies; they can contain sensitive details.
+        app.logger.warning("Supabase Storage returned HTTP %s.", error.code)
+        return error.code, {}
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        reason = getattr(error, "reason", None)
+        category = type(reason).__name__ if reason is not None else type(error).__name__
+        app.logger.warning("Supabase Storage connection failed (%s).", category)
+        return 503, {}
+
+
+def _profile_avatar_url(user_id, stored_value, token):
+    if not isinstance(stored_value, str) or not stored_value:
+        return ""
+    if not stored_value.startswith("storage://"):
+        # Keep compatibility with older, locally saved avatar paths.
+        return stored_value
+
+    object_name = stored_value[len("storage://"):]
+    parts = object_name.split("/")
+    if (
+        len(parts) != 2
+        or parts[0] != str(user_id)
+        or not re.fullmatch(r"[a-f0-9-]{36}\.(?:jpg|png|webp)", parts[1], re.IGNORECASE)
+    ):
+        return ""
+    quoted_name = urllib.parse.quote(object_name, safe="/")
+    status, data = supabase_storage_request(
+        "POST",
+        f"/object/sign/{AVATAR_BUCKET}/{quoted_name}",
+        token,
+        body=json.dumps({"expiresIn": 3600}).encode("utf-8"),
+        content_type="application/json",
+    )
+    signed_url = data.get("signedURL") or data.get("signedUrl")
+    if status != 200 or not isinstance(signed_url, str) or not signed_url:
+        return ""
+    if signed_url.startswith(("https://", "http://")):
+        return signed_url
+    if signed_url.startswith("/storage/v1/"):
+        return f"{SUPABASE_URL.rstrip('/')}{signed_url}"
+    return f"{SUPABASE_URL.rstrip('/')}/storage/v1/{signed_url.lstrip('/')}"
+
+
+def _remove_profile_avatar(token, object_name):
+    return supabase_storage_request(
+        "DELETE",
+        f"/object/{AVATAR_BUCKET}",
+        token,
+        body=json.dumps({"prefixes": [object_name]}).encode("utf-8"),
+        content_type="application/json",
+    )
+
+
+def get_profile_extras(user_id, token=None):
+    """Return bio, a displayable avatar URL, and goals from the profiles table."""
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -1121,7 +1217,11 @@ def get_profile_extras(user_id):
         row = cur.fetchone()
         conn.close()
         if row:
-            return {"bio": row["bio"] or "", "avatar_url": row["avatar_url"] or "", "daily_calorie_goal": row["daily_calorie_goal"] or 2000}
+            return {
+                "bio": row["bio"] or "",
+                "avatar_url": _profile_avatar_url(user_id, row["avatar_url"], token),
+                "daily_calorie_goal": row["daily_calorie_goal"] or 2000,
+            }
     except Exception:
         pass
     return {"bio": "", "avatar_url": "", "daily_calorie_goal": 2000}
@@ -1142,7 +1242,7 @@ def auth_me(app_id):
         return jsonify({"error": "Unauthorized"}), 401
     result = format_user(user)
     ensure_profile(result["id"], result["email"], result["full_name"])
-    result.update(get_profile_extras(user["id"]))
+    result.update(get_profile_extras(user["id"], token))
     return jsonify(result)
 
 
@@ -1189,13 +1289,12 @@ def auth_me_update(app_id):
 
     status, updated = supabase_auth("GET", "/auth/v1/user", token=token)
     result = format_user(updated if status == 200 else user)
-    result.update(get_profile_extras(user["id"]))
+    result.update(get_profile_extras(user["id"], token))
     return jsonify(result)
 
 
 @app.route("/api/apps/<app_id>/auth/avatar", methods=["POST"])
 def auth_avatar(app_id):
-    from werkzeug.utils import secure_filename
     user, token = get_current_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
@@ -1204,21 +1303,80 @@ def auth_avatar(app_id):
     f = request.files["file"]
     if not f or f.filename == "":
         return jsonify({"error": "No file selected"}), 400
-    ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else "jpg"
-    if ext not in ("jpg", "jpeg", "png", "gif", "webp"):
-        return jsonify({"error": "Unsupported file type"}), 400
-    os.makedirs(os.path.join("uploads", "avatars"), exist_ok=True)
-    filename = f"{user['id']}.{ext}"
-    f.save(os.path.join("uploads", "avatars", filename))
-    avatar_url = f"/uploads/avatars/{filename}"
+    if token and token.startswith("local.") and not SUPABASE_SERVICE_KEY:
+        return jsonify({"error": "Photo storage is not enabled for this account type yet."}), 503
+
+    if request.content_length and request.content_length > MAX_AVATAR_BYTES + 65536:
+        return jsonify({"error": "Choose a photo smaller than 2 MB."}), 413
+    image_bytes = f.stream.read(MAX_AVATAR_BYTES + 1)
+    if len(image_bytes) > MAX_AVATAR_BYTES:
+        return jsonify({"error": "Choose a photo smaller than 2 MB."}), 413
+    if not image_bytes:
+        return jsonify({"error": "The selected photo is empty."}), 400
+
+    if image_bytes.startswith(b"\xff\xd8\xff"):
+        extension, content_type = "jpg", "image/jpeg"
+    elif image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        extension, content_type = "png", "image/png"
+    elif image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+        extension, content_type = "webp", "image/webp"
+    else:
+        return jsonify({"error": "Use a valid JPG, PNG, or WebP image."}), 415
+
+    user_id = str(user["id"])
+    object_name = f"{user_id}/{uuid.uuid4()}.{extension}"
+    quoted_name = urllib.parse.quote(object_name, safe="/")
+    upload_status, _upload_data = supabase_storage_request(
+        "POST",
+        f"/object/{AVATAR_BUCKET}/{quoted_name}",
+        token,
+        body=image_bytes,
+        content_type=content_type,
+    )
+    if upload_status not in (200, 201):
+        if upload_status == 403:
+            return jsonify({"error": "Photo storage access is not configured for this account yet."}), 503
+        return jsonify({"error": "Your photo could not be uploaded. Please try again."}), 503
+
+    old_avatar = ""
+    conn = None
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("UPDATE profiles SET avatar_url=%s, updated_at=NOW() WHERE id=%s", (avatar_url, user["id"]))
+        cur.execute("SELECT avatar_url FROM profiles WHERE id=%s", (user_id,))
+        old_row = cur.fetchone()
+        old_avatar = old_row[0] if old_row else ""
+        cur.execute(
+            "UPDATE profiles SET avatar_url=%s, updated_at=NOW() WHERE id=%s",
+            (f"storage://{object_name}", user_id),
+        )
+        if cur.rowcount != 1:
+            raise RuntimeError("Profile row is unavailable.")
         conn.close()
     except Exception:
-        pass
-    return jsonify({"avatar_url": avatar_url})
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+        _remove_profile_avatar(token, object_name)
+        app.logger.warning("Profile photo could not be saved to the profile record.")
+        return jsonify({"error": "Your photo uploaded, but the profile could not be updated. Please retry."}), 503
+
+    old_path = old_avatar[len("storage://"):] if isinstance(old_avatar, str) and old_avatar.startswith("storage://") else ""
+    old_parts = old_path.split("/")
+    if (
+        len(old_parts) == 2
+        and old_parts[0] == user_id
+        and re.fullmatch(r"[a-f0-9-]{36}\.(?:jpg|png|webp)", old_parts[1], re.IGNORECASE)
+        and old_path != object_name
+    ):
+        _remove_profile_avatar(token, old_path)
+
+    display_url = _profile_avatar_url(user_id, f"storage://{object_name}", token)
+    if not display_url:
+        return jsonify({"error": "The photo was saved, but its preview could not be prepared. Refresh the page to see it."}), 503
+    return jsonify({"avatar_url": display_url})
 
 
 # ---------------------------------------------------------------------------

@@ -792,8 +792,13 @@
     coachView();
   }
   function profileView() {
+    var avatarFallback = (user.full_name || user.email || "A").charAt(0).toUpperCase();
+    var avatarImage = user.avatar_url
+      ? '<img src="' + esc(user.avatar_url) + '" alt="Profile photo">'
+      : esc(avatarFallback);
     app.innerHTML = headerMarkup("Profile", "Keep the plan honest.", "Update the information that shapes your coaching space. Training preferences stay in your adaptive plan.") +
-      '<div class="grid grid-2 profile-grid"><section class="card"><form id="profile-form"><div class="field"><label for="full-name">Name</label><input id="full-name" maxlength="80" value="' +
+      '<div class="grid grid-2 profile-grid"><section class="card"><form id="profile-form"><div class="af-avatar-editor"><div class="af-avatar-preview" id="profile-avatar-preview">' +
+      avatarImage + '</div><div class="af-avatar-controls"><label class="af-avatar-title" for="profile-avatar-file">Profile photo</label><p class="af-avatar-help">Images are resized before upload · max 2 MB</p><input class="af-avatar-file" id="profile-avatar-file" type="file" accept="image/*"><label class="button secondary small af-avatar-choose" for="profile-avatar-file">Choose photo</label><span class="af-avatar-filename" id="profile-avatar-filename">No photo selected</span><button class="button small af-avatar-upload" id="profile-avatar-upload" type="button" disabled>Upload photo</button><p id="profile-avatar-message" aria-live="polite"></p></div></div><div class="field"><label for="full-name">Name</label><input id="full-name" maxlength="80" value="' +
       esc(user.full_name || "") + '"></div><div class="field"><label>Email</label><input disabled value="' + esc(user.email || "") + '"></div><div class="field"><label for="bio">About you</label><textarea id="bio" maxlength="300" placeholder="What should your coach know?">' +
       esc(user.bio || "") + '</textarea></div><div class="field"><label for="calories">Daily calorie goal <span>(optional)</span></label><input id="calories" type="number" min="0" max="10000" value="' +
       esc(user.daily_calorie_goal || "") + '"></div><button class="button" type="submit">Save profile</button><p id="profile-message"></p></form></section><aside class="card soft"><span class="eyebrow">Your adaptive plan</span><h3>' +
@@ -801,6 +806,18 @@
       esc((plan.profile.equipment || []).join(", ")) + '</span></div><div class="list-row"><b>Schedule</b><span>' + esc(plan.profile.days + " days · " + plan.profile.duration + " min") +
       '</span></div></div><div class="actions"><a class="button secondary small" href="/Register.html">Adjust plan inputs</a><button class="link-button" id="logout">Sign out</button></div></aside></div>';
     document.getElementById("profile-form").onsubmit = saveProfile;
+    var avatarFile = document.getElementById("profile-avatar-file");
+    var avatarUpload = document.getElementById("profile-avatar-upload");
+    var avatarMessage = document.getElementById("profile-avatar-message");
+    var avatarFilename = document.getElementById("profile-avatar-filename");
+    avatarFile.onchange = function () {
+      var file = avatarFile.files && avatarFile.files[0];
+      avatarFilename.textContent = file ? file.name : "No photo selected";
+      avatarUpload.disabled = !file;
+      avatarMessage.textContent = "";
+      avatarMessage.className = "";
+    };
+    avatarUpload.onclick = uploadAvatar;
     document.getElementById("logout").onclick = function () {
       try {
         var knownUser = JSON.parse(localStorage.getItem("alefit_user") || "null");
@@ -836,6 +853,91 @@
       message.textContent = "Profile saved.";
     } catch (error) { message.textContent = "Profile could not be saved. Retry when connected."; message.className = "error"; }
     button.disabled = false;
+  }
+  async function prepareAvatarFile(file) {
+    if (!file.type || !file.type.startsWith("image/")) {
+      throw new Error("Choose an image file to use as your profile photo.");
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      throw new Error("Choose a photo smaller than 15 MB.");
+    }
+    var objectUrl = URL.createObjectURL(file);
+    try {
+      var image = await new Promise(function (resolve, reject) {
+        var element = new Image();
+        element.onload = function () { resolve(element); };
+        element.onerror = function () { reject(new Error("That photo format could not be opened. Try a JPG, PNG, or WebP.")); };
+        element.src = objectUrl;
+      });
+      var scale = Math.min(1, 512 / Math.max(image.naturalWidth, image.naturalHeight));
+      var canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      var context = canvas.getContext("2d");
+      if (!context) throw new Error("This browser could not prepare the photo. Please try another image.");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      var formats = ["image/webp", "image/jpeg"];
+      var qualities = [0.84, 0.72, 0.6];
+      for (var formatIndex = 0; formatIndex < formats.length; formatIndex++) {
+        for (var qualityIndex = 0; qualityIndex < qualities.length; qualityIndex++) {
+          var blob = await new Promise(function (resolve) {
+            canvas.toBlob(resolve, formats[formatIndex], qualities[qualityIndex]);
+          });
+          if (blob && blob.size <= 2 * 1024 * 1024 && /^image\/(webp|jpeg|png)$/.test(blob.type)) {
+            var extension = blob.type === "image/webp" ? "webp" : (blob.type === "image/png" ? "png" : "jpg");
+            return new File([blob], "profile-avatar." + extension, { type: blob.type });
+          }
+        }
+      }
+      throw new Error("This photo could not be reduced below 2 MB. Choose another image.");
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+  async function uploadAvatar() {
+    var fileInput = document.getElementById("profile-avatar-file");
+    var file = fileInput && fileInput.files && fileInput.files[0];
+    var button = document.getElementById("profile-avatar-upload");
+    var message = document.getElementById("profile-avatar-message");
+    if (!file || !button || !message) return;
+    button.disabled = true;
+    button.textContent = "Uploading…";
+    message.textContent = "Preparing your photo…";
+    message.className = "";
+    try {
+      var preparedFile = await prepareAvatarFile(file);
+      var formData = new FormData();
+      formData.append("file", preparedFile, preparedFile.name);
+      message.textContent = "Saving your photo securely…";
+      var response = await fetch("/api/apps/" + APP + "/auth/avatar", {
+        method: "POST",
+        headers: authHeaders(false),
+        body: formData
+      });
+      if (response.status === 401) return goLogin();
+      var data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Your photo could not be saved. Please try again.");
+      user.avatar_url = data.avatar_url || "";
+      renderShell();
+      document.getElementById("profile-avatar-preview").innerHTML = user.avatar_url
+        ? '<img src="' + esc(user.avatar_url) + '" alt="Profile photo">'
+        : esc((user.full_name || user.email || "A").charAt(0).toUpperCase());
+      message.textContent = "Profile photo saved.";
+      fileInput.value = "";
+      document.getElementById("profile-avatar-filename").textContent = "No photo selected";
+      if (window.trackEvent) window.trackEvent("profile_avatar_updated", { success: true });
+    } catch (error) {
+      message.textContent = error.message || "Your photo could not be saved. Please try again.";
+      message.className = "error";
+      if (window.trackEvent) window.trackEvent("profile_avatar_updated", { success: false });
+    } finally {
+      var currentButton = document.getElementById("profile-avatar-upload");
+      if (currentButton) {
+        currentButton.disabled = !(fileInput.files && fileInput.files.length);
+        currentButton.textContent = "Upload photo";
+      }
+    }
   }
   function render() {
     renderShell();
