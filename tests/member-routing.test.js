@@ -105,19 +105,40 @@ function testUnconfirmedMemberWithoutSessionMustAuthenticate() {
   });
 }
 
+function testHomepageForwardsOAuthCodeToCallback() {
+  let destination = null;
+  const document = { documentElement: { classList: { remove() {} } } };
+  const window = {
+    location: {
+      origin: "https://alefit.example",
+      pathname: "/",
+      search: "?code=temporary-code",
+      hash: "",
+      replace(value) { destination = String(value); },
+    },
+    AlefitMember: { hasMemberRecord: () => false },
+  };
+  vm.runInNewContext(entrySource, { window, document, URL, URLSearchParams });
+  assert.equal(
+    destination,
+    "https://alefit.example/auth/callback?code=temporary-code",
+  );
+}
+
 async function run() {
   await testMemberHomeWithValidCompleteAccountGoesToDashboard();
   await testMemberHomeWithIncompleteAccountContinuesSetupAfterLogin();
   await testExpiredSessionRequiresLoginAndRetainsMemberMemory();
   await testFreshSignInUsesSavedPlanStatusAndNeverReturnsToHomepage();
   await testUnconfirmedMemberWithoutSessionMustAuthenticate();
+  testHomepageForwardsOAuthCodeToCallback();
 
   let removedPending = false;
   const document = { documentElement: { classList: { remove(name) { removedPending = name === "member-entry-pending"; } } } };
   const publicWindow = { AlefitMember: { hasMemberRecord: () => false }, location: {} };
-  vm.runInNewContext(entrySource, { window: publicWindow, document });
+  vm.runInNewContext(entrySource, { window: publicWindow, document, URL, URLSearchParams });
   assert.equal(removedPending, true);
-  console.log("5 member routing scenarios and public homepage guard passed.");
+  console.log("5 member routing scenarios, OAuth callback fallback, and public homepage guard passed.");
 }
 
 run().catch((error) => {
