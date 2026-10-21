@@ -9,7 +9,6 @@
   var plan = null;
   var logs = [];
   var readiness = [];
-  var recovery = [];
   var currentSession = null;
   var adaptedSession = null;
   var selectedIndex = 0;
@@ -24,6 +23,10 @@
   var watchedDateKey = null;
   var dayRefreshTimer = null;
   var dateWatcherStarted = false;
+  var appDataReady = false;
+  var appHistoryIndex = 0;
+  var restoringAppHistory = false;
+  var currentAppUrl = window.location.href;
   var pendingAvatarFile = null;
   var pendingAvatarPreviewUrl = null;
   var avatarPreparationPromise = null;
@@ -32,8 +35,18 @@
   var avatarUploading = false;
   var avatarUploadController = null;
 
+  if (window.history.state && Number.isInteger(window.history.state.alefitNavigationIndex)) {
+    appHistoryIndex = window.history.state.alefitNavigationIndex;
+  } else {
+    window.history.replaceState(
+      Object.assign({}, window.history.state || {}, { alefitNavigationIndex: appHistoryIndex }),
+      "",
+      window.location.href
+    );
+  }
+
   document.addEventListener("click", function (event) {
-    if (!avatarHasUnsavedChanges || !event.target || !event.target.closest) return;
+    if (!event.target || !event.target.closest) return;
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     var link = event.target.closest("a");
     if (!link || (link.target && link.target !== "_self") || link.hasAttribute("download")) return;
@@ -42,21 +55,76 @@
     try { destination = new URL(link.href, window.location.href); }
     catch (error) { return; }
     if (destination.origin !== window.location.origin) return;
-    var warning = avatarUploading
-      ? "Your photo is still uploading. Leave this page anyway? It may not be saved."
-      : "Your selected photo hasn’t been saved. Leave this page and discard the preview?";
-    if (!window.confirm(warning)) {
-      event.preventDefault();
-      event.stopPropagation();
+    var sameRoute = destination.pathname === window.location.pathname &&
+      destination.search === window.location.search &&
+      destination.hash === window.location.hash;
+    if (sameRoute) {
+      if (/\/today\.html$/i.test(destination.pathname)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       return;
     }
-    clearPendingAvatarSelection(false);
+
+    if (avatarHasUnsavedChanges) {
+      var warning = avatarUploading
+        ? "Your photo is still uploading. Leave this page anyway? It may not be saved."
+        : "Your selected photo hasn’t been saved. Leave this page and discard the preview?";
+      if (!window.confirm(warning)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      clearPendingAvatarSelection(false);
+    }
+
+    if (destination.pathname === window.location.pathname && /\/today\.html$/i.test(destination.pathname)) {
+      event.preventDefault();
+      event.stopPropagation();
+      navigateWithinApp(destination, true);
+    }
   }, true);
 
   window.addEventListener("beforeunload", function (event) {
     if (!avatarHasUnsavedChanges) return;
     event.preventDefault();
     event.returnValue = "";
+  });
+
+  window.addEventListener("popstate", function (event) {
+    var targetIndex = event.state && Number.isInteger(event.state.alefitNavigationIndex)
+      ? event.state.alefitNavigationIndex
+      : null;
+    if (restoringAppHistory) {
+      restoringAppHistory = false;
+      if (targetIndex !== null) appHistoryIndex = targetIndex;
+      currentAppUrl = window.location.href;
+      return;
+    }
+    if (avatarHasUnsavedChanges) {
+      var warning = avatarUploading
+        ? "Your photo is still uploading. Leave this page anyway? It may not be saved."
+        : "Your selected photo hasn’t been saved. Leave this page and discard the preview?";
+      if (!window.confirm(warning)) {
+        if (targetIndex !== null && targetIndex !== appHistoryIndex) {
+          restoringAppHistory = true;
+          window.history.go(appHistoryIndex - targetIndex);
+        } else {
+          window.history.pushState(
+            Object.assign({}, window.history.state || {}, { alefitNavigationIndex: appHistoryIndex }),
+            "",
+            currentAppUrl
+          );
+        }
+        return;
+      }
+      clearPendingAvatarSelection(false);
+    }
+    if (targetIndex !== null) appHistoryIndex = targetIndex;
+    else appHistoryIndex = 0;
+    currentAppUrl = window.location.href;
+    if (appDataReady) render();
+    window.scrollTo(0, 0);
   });
 
   function esc(value) {
@@ -102,6 +170,21 @@
   }
   function getView() {
     return new URLSearchParams(window.location.search).get("view") || "today";
+  }
+  function navigateWithinApp(destination, pushHistory) {
+    var url = destination instanceof URL ? destination : new URL(destination, window.location.href);
+    if (url.origin !== window.location.origin || url.pathname !== window.location.pathname) return;
+    var nextLocation = url.pathname + url.search + url.hash;
+    if (nextLocation === window.location.pathname + window.location.search + window.location.hash) return;
+    if (pushHistory) appHistoryIndex += 1;
+    var state = Object.assign({}, window.history.state || {}, {
+      alefitNavigationIndex: appHistoryIndex
+    });
+    if (pushHistory) window.history.pushState(state, "", nextLocation);
+    else window.history.replaceState(state, "", nextLocation);
+    currentAppUrl = window.location.href;
+    if (appDataReady) render();
+    window.scrollTo(0, 0);
   }
   function currentWeek() {
     var number = Math.max(1, Math.min((plan.weeks || []).length, Number(plan.currentWeek) || 1));
@@ -707,8 +790,7 @@
       var url = new URL(window.location.href);
       url.searchParams.set("view", "today");
       url.searchParams.set("session", session.id);
-      window.history.replaceState({}, "", url.pathname + url.search);
-      render();
+      navigateWithinApp(url, false);
     };
   }
 
@@ -823,7 +905,7 @@
       if (window.trackEvent) window.trackEvent("coach_response_received", { success: false });
       chat.push({ role: "assistant", text: "Use today’s readiness check. Keep the planned priority movement, reduce support volume if energy or soreness is low, and stop any painful movement. I could not reach the coaching service just now." });
     }
-    coachView();
+    if (getView() === "coach") coachView();
   }
   function showAvatarPreview(url, alt) {
     var preview = document.getElementById("profile-avatar-preview");
@@ -1069,7 +1151,13 @@
     }
   }
   function render() {
+    if (!appDataReady) return;
     renderShell();
+    if (!record || !plan || !plan.weeks) {
+      app.innerHTML = headerMarkup("Start here", "Build your adaptive plan.", "Your coaching space is ready when your first block is saved.") +
+        '<div class="empty"><p>Answer a few focused questions about your goals, schedule, equipment, and readiness.</p><a class="button" href="/Register.html">Build my plan</a></div>';
+      return;
+    }
     if (getView() === "plan") return planView();
     if (getView() === "progress") return progressView();
     if (getView() === "coach") return coachView();
@@ -1079,14 +1167,14 @@
   }
   async function load() {
     if (!authToken) return goLogin();
+    appDataReady = false;
     try {
       var headers = authHeaders(false);
       var responses = await Promise.all([
         fetch("/api/apps/" + APP + "/auth/me", { headers: headers }),
         fetch("/api/apps/" + APP + "/entities/OnboardingPlan?limit=1", { headers: headers }),
         fetch("/api/apps/" + APP + "/entities/WorkoutLog?limit=100", { headers: headers }),
-        fetch("/api/apps/" + APP + "/entities/ReadinessCheck?limit=30", { headers: headers }),
-        fetch("/api/apps/" + APP + "/entities/RecoveryScore?limit=14", { headers: headers })
+        fetch("/api/apps/" + APP + "/entities/ReadinessCheck?limit=30", { headers: headers })
       ]);
       if (responses.some(function (r) { return r.status === 401; })) return goLogin();
       if (!responses[0].ok || !responses[1].ok) throw new Error("load failed");
@@ -1094,14 +1182,17 @@
       var plans = records(await responses[1].json());
       logs = records(responses[2].ok ? await responses[2].json() : []);
       readiness = records(responses[3].ok ? await responses[3].json() : []);
-      recovery = records(responses[4].ok ? await responses[4].json() : []);
       if (!plans.length) {
-        app.innerHTML = headerMarkup("Start here", "Build your adaptive plan.", "Your coaching space is ready when your first block is saved.") + '<div class="empty"><p>Answer a few focused questions about your goals, schedule, equipment, and readiness.</p><a class="button" href="/Register.html">Build my plan</a></div>';
+        record = null;
+        plan = null;
+        appDataReady = true;
+        render();
         return;
       }
       record = plans[0];
       plan = record.generated_plan || record.generatedPlan;
       if (!plan || !plan.weeks) throw new Error("plan missing");
+      appDataReady = true;
       startDateWatcher();
       render();
     } catch (error) {
