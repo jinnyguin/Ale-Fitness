@@ -19,6 +19,7 @@
   var movementNotes = {};
   var saving = false;
   var chat = [];
+  var coachSending = false;
   var dateChangePending = false;
   var watchedDateKey = null;
   var dayRefreshTimer = null;
@@ -870,42 +871,75 @@
       '</p><a class="button small" href="/today.html">Train today</a></section></div>';
   }
   function coachView() {
-    app.innerHTML = headerMarkup("Coach", "Ask about the plan.", "Your coach has the current block, recent sessions, and the decisions behind the next workout.") +
-      '<section class="card"><div class="chat" id="chat">' + (chat.length ? chat.map(function (item) {
+    var week = currentWeek();
+    var focused = currentSession || sessionToShow();
+    var contextLabel = "Week " + (week.week || plan.currentWeek || 1) +
+      (week.phaseLabel || week.label ? " · " + (week.phaseLabel || week.label) : "");
+    if (focused && focused.name) contextLabel += " · " + focused.name;
+    app.innerHTML = headerMarkup("Coach", "Ask about the plan.", "Get advice grounded in your saved sport, this week’s plan, readiness, and recent training.") +
+      '<section class="card af-coach-card"><div class="af-coach-context"><span class="eyebrow">Coaching from your plan</span><b>' +
+      esc(contextLabel) + '</b><span>Uses your saved goals, schedule, recent training, and readiness check-ins.</span></div>' +
+      '<div class="af-coach-prompts" aria-label="Suggested questions">' +
+      '<button type="button" data-coach-prompt="What should I focus on in my next session?">Next session</button>' +
+      '<button type="button" data-coach-prompt="Why is this week structured this way?">Explain my week</button>' +
+      '<button type="button" data-coach-prompt="How should I adjust if I feel tired or sore?">Adjust for recovery</button></div>' +
+      '<div class="chat" id="chat" aria-live="polite" aria-relevant="additions text" aria-busy="' + coachSending + '">' +
+      (chat.length ? chat.map(function (item) {
         return '<div class="bubble ' + (item.role === "user" ? "user" : "") + '">' + esc(item.text).replace(/\n/g, "<br>") + '</div>';
-      }).join("") : '<div class="bubble">I’m ready. Ask me what to do today, how to adjust around sport, or why this week looks the way it does.</div>') +
-      '</div><form class="coach-form" id="coach-form"><label class="sr-only" for="coach-input">Ask Coach</label><input id="coach-input" required maxlength="500" placeholder="Example: I slept poorly. How should I train today?"><button class="button" type="submit">Ask</button></form><p id="coach-message"></p></section>';
+      }).join("") : '<div class="bubble">Ask about your next session, weekly balance, logged results, or adjusting around sport.</div>') +
+      (coachSending ? '<div class="bubble af-coach-thinking" role="status"><span class="af-coach-dots" aria-hidden="true"><i></i><i></i><i></i></span>Checking your plan and recent training…</div>' : '') +
+      '</div><form class="coach-form" id="coach-form"><label class="sr-only" for="coach-input">Ask Coach</label><input id="coach-input" required maxlength="500" autocomplete="off" placeholder="Ask about today’s training or recovery"' +
+      (coachSending ? ' disabled' : '') + '><button class="button" type="submit"' + (coachSending ? ' disabled' : '') + '>' +
+      (coachSending ? 'Thinking…' : 'Ask coach') + '</button></form><p class="af-coach-safety">Training guidance, not medical advice. Stop if an exercise causes pain.</p></section>';
     document.getElementById("coach-form").onsubmit = askCoach;
+    document.querySelectorAll("[data-coach-prompt]").forEach(function (button) {
+      button.onclick = function () {
+        var input = document.getElementById("coach-input");
+        if (!input || coachSending) return;
+        input.value = button.getAttribute("data-coach-prompt") || "";
+        input.focus();
+      };
+    });
+    var chatBox = document.getElementById("chat");
+    if (chatBox && coachSending) chatBox.scrollTop = chatBox.scrollHeight;
   }
   async function askCoach(event) {
     event.preventDefault();
+    if (coachSending) return;
     var input = document.getElementById("coach-input");
     var question = input.value.trim();
     if (!question) return;
-    input.disabled = true;
+    var history = chat.slice(-8).map(function (item) {
+      return { role: item.role === "user" ? "user" : "assistant", content: item.text };
+    });
     if (window.trackEvent) window.trackEvent("coach_question_asked", { source: "coach_view" });
     chat.push({ role: "user", text: question });
+    coachSending = true;
     coachView();
-    var message = document.getElementById("coach-message");
-    message.textContent = "Thinking from your plan…";
     try {
-      var context = "Athlete plan: " + plan.name + ". Focus: " + plan.focus + ". Current week: " + plan.currentWeek +
-        ". Summary: " + plan.summary + ". Progression: " + plan.progression + ". Recovery: " + plan.recovery +
-        ". Recent feedback: " + JSON.stringify(logs.slice(0, 5).map(function (log) { return log.feedback; })) +
-        ". Answer safely and concretely. Do not diagnose pain. If pain is mentioned, recommend stopping painful movement and qualified guidance.";
-      var response = await fetch("/api/apps/" + APP + "/integration-endpoints/Core/InvokeLLM", {
-        method: "POST", headers: authHeaders(true), body: JSON.stringify({ prompt: context + "\n\nAthlete question: " + question })
+      var focused = currentSession || sessionToShow();
+      var response = await fetch("/api/apps/" + APP + "/coach", {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({
+          question: question,
+          history: history,
+          session_id: focused && focused.id || "",
+          local_day: new Date().toLocaleDateString("en-US", { weekday: "long" })
+        })
       });
       if (response.status === 401) return goLogin();
       var data = await response.json();
-      if (!response.ok) throw new Error("coach unavailable");
+      if (!response.ok) throw new Error(data.error || "ALEFIT Coach couldn’t answer just now. Please try again.");
       if (window.trackEvent) window.trackEvent("coach_response_received", { success: true });
-      chat.push({ role: "assistant", text: String(data.result || data.text || "Use today’s readiness check and keep the effort controlled.") });
+      chat.push({ role: "assistant", text: String(data.result || "I couldn’t form a useful answer. Please try asking in a different way.") });
     } catch (error) {
       if (window.trackEvent) window.trackEvent("coach_response_received", { success: false });
-      chat.push({ role: "assistant", text: "Use today’s readiness check. Keep the planned priority movement, reduce support volume if energy or soreness is low, and stop any painful movement. I could not reach the coaching service just now." });
+      chat.push({ role: "assistant", text: error.message || "ALEFIT Coach couldn’t connect just now. Your plan is unchanged—please try again." });
+    } finally {
+      coachSending = false;
+      if (getView() === "coach") coachView();
     }
-    if (getView() === "coach") coachView();
   }
   function showAvatarPreview(url, alt) {
     var preview = document.getElementById("profile-avatar-preview");

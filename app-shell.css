@@ -216,6 +216,21 @@ p { color: var(--muted); line-height: 1.55; }
 .bubble.user { justify-self: end; border-color: var(--line); background: var(--surface-2); }
 .coach-form { display: flex; gap: 9px; }
 .coach-form input { flex: 1; }
+.af-coach-card { overflow: hidden; }
+.af-coach-context { display: grid; gap: 6px; padding: 15px 17px; border: 1px solid rgba(212,255,0,.18); background: linear-gradient(115deg,rgba(212,255,0,.07),rgba(212,255,0,.015)); }
+.af-coach-context b { color: var(--text); font-size: .94rem; }
+.af-coach-context > span:last-child,.af-coach-safety { color: var(--muted); font-size: .77rem; line-height: 1.5; }
+.af-coach-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.af-coach-prompts button { min-height: 36px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--text); font: inherit; font-size: .75rem; cursor: pointer; }
+.af-coach-prompts button:hover,.af-coach-prompts button:focus-visible { border-color: var(--lime); outline: none; }
+.bubble.af-coach-thinking { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.af-coach-dots { display: inline-flex; gap: 4px; }
+.af-coach-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--lime); animation: af-coach-bounce .9s ease-in-out infinite alternate; }
+.af-coach-dots i:nth-child(2) { animation-delay: .15s; }
+.af-coach-dots i:nth-child(3) { animation-delay: .3s; }
+.af-coach-safety { margin: 12px 0 0; }
+.coach-form button:disabled { opacity: .65; cursor: wait; }
+@keyframes af-coach-bounce { to { transform: translateY(-4px); opacity: .5; } }
 .profile-grid { max-width: 780px; }
 .profile-grid .button { margin-top: 18px; }
 .mobile-nav {

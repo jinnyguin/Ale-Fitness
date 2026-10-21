@@ -14,7 +14,7 @@ const source = fs.readFileSync("today.js", "utf8").replace(
       logs = data.logs || []; currentSession = data.session || null;
       activeWorkout = !!data.active;
     },
-    header: dashboardHeader, week: dashboardWeek, today: todayView
+    header: dashboardHeader, week: dashboardWeek, today: todayView, coach: coachView
   };
 }());`
 );
@@ -29,6 +29,7 @@ function element() {
   };
 }
 const document = {
+  addEventListener() {},
   createElement: element,
   getElementById(id) {
     if (!elements.has(id)) elements.set(id, element());
@@ -37,7 +38,10 @@ const document = {
   querySelectorAll() { return []; }
 };
 const window = {
-  location: { search: "" },
+  location: { search: "", href: "https://alefit.example/today.html?view=today" },
+  history: { state: null, replaceState() {}, pushState() {}, go() {} },
+  addEventListener() {},
+  scrollTo() {},
   ALEFITTrainingEngine: { sessionForDate() { return null; } }
 };
 class FixedDate extends Date {
@@ -105,6 +109,13 @@ assert.match(markup, /id="page-message"/);
 assert.doesNotMatch(markup, /id="start-workout"/, "rest days must not offer a fabricated workout");
 const html = fs.readFileSync("today.html", "utf8");
 assert(html.indexOf("/today-dashboard.css") > html.indexOf("/app-shell.css"));
+ui.set(fixture);
+ui.coach();
+markup = document.getElementById("app").innerHTML;
+assert.match(markup, /Coaching from your plan/);
+assert.match(markup, /Next session/);
+assert.match(markup, /Adjust for recovery/);
+assert.match(markup, /Ask coach/);
 for (const view of ["plan", "progress", "coach", "profile"]) {
   assert(html.includes('href="/today.html?view=' + view + '"'));
 }
