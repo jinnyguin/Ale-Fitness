@@ -24,6 +24,40 @@
   var watchedDateKey = null;
   var dayRefreshTimer = null;
   var dateWatcherStarted = false;
+  var pendingAvatarFile = null;
+  var pendingAvatarPreviewUrl = null;
+  var avatarPreparationPromise = null;
+  var avatarSelectionVersion = 0;
+  var avatarHasUnsavedChanges = false;
+  var avatarUploading = false;
+  var avatarUploadController = null;
+
+  document.addEventListener("click", function (event) {
+    if (!avatarHasUnsavedChanges || !event.target || !event.target.closest) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    var link = event.target.closest("a");
+    if (!link || (link.target && link.target !== "_self") || link.hasAttribute("download")) return;
+    if (!link.matches(".desktop-nav a, .mobile-nav a, .brand, .avatar, #app a[href]")) return;
+    var destination;
+    try { destination = new URL(link.href, window.location.href); }
+    catch (error) { return; }
+    if (destination.origin !== window.location.origin) return;
+    var warning = avatarUploading
+      ? "Your photo is still uploading. Leave this page anyway? It may not be saved."
+      : "Your selected photo hasn’t been saved. Leave this page and discard the preview?";
+    if (!window.confirm(warning)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    clearPendingAvatarSelection(false);
+  }, true);
+
+  window.addEventListener("beforeunload", function (event) {
+    if (!avatarHasUnsavedChanges) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
 
   function esc(value) {
     var node = document.createElement("div");
@@ -791,6 +825,44 @@
     }
     coachView();
   }
+  function showAvatarPreview(url, alt) {
+    var preview = document.getElementById("profile-avatar-preview");
+    if (!preview) return;
+    while (preview.firstChild) preview.removeChild(preview.firstChild);
+    if (url) {
+      var image = document.createElement("img");
+      image.src = url;
+      image.alt = alt || "Profile photo";
+      preview.appendChild(image);
+      return;
+    }
+    preview.textContent = (user.full_name || user.email || "A").charAt(0).toUpperCase();
+  }
+  function clearPendingAvatarSelection(restoreSavedPreview) {
+    avatarSelectionVersion += 1;
+    if (pendingAvatarPreviewUrl) URL.revokeObjectURL(pendingAvatarPreviewUrl);
+    pendingAvatarPreviewUrl = null;
+    pendingAvatarFile = null;
+    avatarPreparationPromise = null;
+    avatarHasUnsavedChanges = false;
+    if (avatarUploadController) avatarUploadController.abort();
+    avatarUploadController = null;
+    avatarUploading = false;
+
+    var fileInput = document.getElementById("profile-avatar-file");
+    var uploadButton = document.getElementById("profile-avatar-upload");
+    var filename = document.getElementById("profile-avatar-filename");
+    if (fileInput) {
+      fileInput.value = "";
+      fileInput.disabled = false;
+    }
+    if (uploadButton) {
+      uploadButton.disabled = true;
+      uploadButton.textContent = "Upload photo";
+    }
+    if (filename) filename.textContent = "No photo selected";
+    if (restoreSavedPreview) showAvatarPreview(user.avatar_url, "Profile photo");
+  }
   function profileView() {
     var avatarFallback = (user.full_name || user.email || "A").charAt(0).toUpperCase();
     var avatarImage = user.avatar_url
@@ -798,7 +870,7 @@
       : esc(avatarFallback);
     app.innerHTML = headerMarkup("Profile", "Keep the plan honest.", "Update the information that shapes your coaching space. Training preferences stay in your adaptive plan.") +
       '<div class="grid grid-2 profile-grid"><section class="card"><form id="profile-form"><div class="af-avatar-editor"><div class="af-avatar-preview" id="profile-avatar-preview">' +
-      avatarImage + '</div><div class="af-avatar-controls"><label class="af-avatar-title" for="profile-avatar-file">Profile photo</label><p class="af-avatar-help">Images are resized before upload · max 2 MB</p><input class="af-avatar-file" id="profile-avatar-file" type="file" accept="image/*"><label class="button secondary small af-avatar-choose" for="profile-avatar-file">Choose photo</label><span class="af-avatar-filename" id="profile-avatar-filename">No photo selected</span><button class="button small af-avatar-upload" id="profile-avatar-upload" type="button" disabled>Upload photo</button><p id="profile-avatar-message" aria-live="polite"></p></div></div><div class="field"><label for="full-name">Name</label><input id="full-name" maxlength="80" value="' +
+      avatarImage + '</div><div class="af-avatar-controls"><label class="af-avatar-title" for="profile-avatar-file">Profile photo</label><p class="af-avatar-help">Preview first · resized to 2 MB max</p><input class="af-avatar-file" id="profile-avatar-file" type="file" accept="image/*"><label class="button secondary small af-avatar-choose" for="profile-avatar-file">Choose photo</label><span class="af-avatar-filename" id="profile-avatar-filename">No photo selected</span><button class="button small af-avatar-upload" id="profile-avatar-upload" type="button" disabled>Upload photo</button><p id="profile-avatar-message" aria-live="polite"></p></div></div><div class="field"><label for="full-name">Name</label><input id="full-name" maxlength="80" value="' +
       esc(user.full_name || "") + '"></div><div class="field"><label>Email</label><input disabled value="' + esc(user.email || "") + '"></div><div class="field"><label for="bio">About you</label><textarea id="bio" maxlength="300" placeholder="What should your coach know?">' +
       esc(user.bio || "") + '</textarea></div><div class="field"><label for="calories">Daily calorie goal <span>(optional)</span></label><input id="calories" type="number" min="0" max="10000" value="' +
       esc(user.daily_calorie_goal || "") + '"></div><button class="button" type="submit">Save profile</button><p id="profile-message"></p></form></section><aside class="card soft"><span class="eyebrow">Your adaptive plan</span><h3>' +
@@ -812,13 +884,56 @@
     var avatarFilename = document.getElementById("profile-avatar-filename");
     avatarFile.onchange = function () {
       var file = avatarFile.files && avatarFile.files[0];
-      avatarFilename.textContent = file ? file.name : "No photo selected";
-      avatarUpload.disabled = !file;
+      clearPendingAvatarSelection(true);
       avatarMessage.textContent = "";
       avatarMessage.className = "";
+      if (!file) {
+        showAvatarPreview(user.avatar_url, "Profile photo");
+        return;
+      }
+      if (!file.type || !file.type.startsWith("image/")) {
+        avatarMessage.textContent = "Choose an image file to use as your profile photo.";
+        avatarMessage.className = "error";
+        return;
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        avatarMessage.textContent = "Choose a photo smaller than 15 MB.";
+        avatarMessage.className = "error";
+        return;
+      }
+
+      avatarFilename.textContent = file.name || "Selected photo";
+      avatarHasUnsavedChanges = true;
+      pendingAvatarPreviewUrl = URL.createObjectURL(file);
+      showAvatarPreview(pendingAvatarPreviewUrl, "Selected profile photo preview");
+      avatarUpload.disabled = true;
+      avatarUpload.textContent = "Preparing…";
+      avatarMessage.textContent = "Preparing a preview and resizing your photo…";
+      var selectionVersion = avatarSelectionVersion;
+      avatarPreparationPromise = prepareAvatarFile(file).then(function (preparedFile) {
+        if (selectionVersion !== avatarSelectionVersion) return null;
+        pendingAvatarFile = preparedFile;
+        avatarUpload.disabled = false;
+        avatarUpload.textContent = "Upload photo";
+        avatarMessage.textContent = "Preview ready. Upload to save.";
+        return preparedFile;
+      }).catch(function (error) {
+        if (selectionVersion !== avatarSelectionVersion) return null;
+        clearPendingAvatarSelection(true);
+        avatarMessage.textContent = error.message || "That photo could not be prepared.";
+        avatarMessage.className = "error";
+        return null;
+      });
     };
     avatarUpload.onclick = uploadAvatar;
     document.getElementById("logout").onclick = function () {
+      if (avatarHasUnsavedChanges) {
+        var warning = avatarUploading
+          ? "Your photo is still uploading. Sign out anyway? It may not be saved."
+          : "Your selected photo hasn’t been saved. Sign out and discard the preview?";
+        if (!window.confirm(warning)) return;
+        clearPendingAvatarSelection(false);
+      }
       try {
         var knownUser = JSON.parse(localStorage.getItem("alefit_user") || "null");
         if (window.AlefitMember) window.AlefitMember.markSignedIn(knownUser);
@@ -836,7 +951,7 @@
   }
   async function saveProfile(event) {
     event.preventDefault();
-    var button = event.target.querySelector("button");
+    var button = event.target.querySelector('button[type="submit"]');
     var message = document.getElementById("profile-message");
     button.disabled = true;
     try {
@@ -897,45 +1012,59 @@
   }
   async function uploadAvatar() {
     var fileInput = document.getElementById("profile-avatar-file");
-    var file = fileInput && fileInput.files && fileInput.files[0];
+    var file = pendingAvatarFile;
     var button = document.getElementById("profile-avatar-upload");
     var message = document.getElementById("profile-avatar-message");
-    if (!file || !button || !message) return;
+    if (!file || !fileInput || !button || !message || avatarUploading) return;
+    var uploadVersion = avatarSelectionVersion;
+    avatarUploading = true;
+    avatarUploadController = new AbortController();
+    fileInput.disabled = true;
     button.disabled = true;
     button.textContent = "Uploading…";
-    message.textContent = "Preparing your photo…";
+    message.textContent = "Saving your photo securely…";
     message.className = "";
     try {
-      var preparedFile = await prepareAvatarFile(file);
       var formData = new FormData();
-      formData.append("file", preparedFile, preparedFile.name);
-      message.textContent = "Saving your photo securely…";
+      formData.append("file", file, file.name);
       var response = await fetch("/api/apps/" + APP + "/auth/avatar", {
         method: "POST",
         headers: authHeaders(false),
-        body: formData
+        body: formData,
+        signal: avatarUploadController.signal
       });
-      if (response.status === 401) return goLogin();
+      if (uploadVersion !== avatarSelectionVersion) return;
+      if (response.status === 401) {
+        clearPendingAvatarSelection(false);
+        return goLogin();
+      }
       var data = await response.json();
       if (!response.ok) throw new Error(data.error || "Your photo could not be saved. Please try again.");
       user.avatar_url = data.avatar_url || "";
+      avatarHasUnsavedChanges = false;
+      pendingAvatarFile = null;
+      avatarPreparationPromise = null;
+      if (pendingAvatarPreviewUrl) URL.revokeObjectURL(pendingAvatarPreviewUrl);
+      pendingAvatarPreviewUrl = null;
       renderShell();
-      document.getElementById("profile-avatar-preview").innerHTML = user.avatar_url
-        ? '<img src="' + esc(user.avatar_url) + '" alt="Profile photo">'
-        : esc((user.full_name || user.email || "A").charAt(0).toUpperCase());
+      showAvatarPreview(user.avatar_url, "Profile photo");
       message.textContent = "Profile photo saved.";
+      message.className = "";
       fileInput.value = "";
       document.getElementById("profile-avatar-filename").textContent = "No photo selected";
       if (window.trackEvent) window.trackEvent("profile_avatar_updated", { success: true });
     } catch (error) {
+      if (uploadVersion !== avatarSelectionVersion) return;
       message.textContent = error.message || "Your photo could not be saved. Please try again.";
       message.className = "error";
       if (window.trackEvent) window.trackEvent("profile_avatar_updated", { success: false });
     } finally {
-      var currentButton = document.getElementById("profile-avatar-upload");
-      if (currentButton) {
-        currentButton.disabled = !(fileInput.files && fileInput.files.length);
-        currentButton.textContent = "Upload photo";
+      if (uploadVersion === avatarSelectionVersion) {
+        avatarUploading = false;
+        avatarUploadController = null;
+        fileInput.disabled = false;
+        button.disabled = !pendingAvatarFile;
+        button.textContent = "Upload photo";
       }
     }
   }
