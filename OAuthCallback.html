@@ -9,40 +9,89 @@
   <title>Signing in… | ALEFIT</title>
   <link rel="icon" href="/images/alefit-logo.png" type="image/png"/>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { min-height: 100%; }
     body {
-      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-      background: #0f172a;
+      margin: 0;
+      padding: 24px;
+      font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+      color: #f4f5ef;
+      background:
+        radial-gradient(ellipse at 50% 34%, rgba(174, 207, 0, .09), transparent 42%),
+        #080a08;
       min-height: 100vh;
+      min-height: 100svh;
       display: flex;
       align-items: center;
       justify-content: center;
     }
     .card {
+      width: min(100%, 420px);
+      padding: 36px 28px 32px;
+      border: 1px solid rgba(212, 255, 0, .13);
+      border-radius: 22px;
+      background: linear-gradient(145deg, rgba(19, 23, 18, .97), rgba(12, 14, 12, .98));
+      box-shadow: 0 28px 90px rgba(0, 0, 0, .42), 0 0 52px rgba(174, 207, 0, .04);
       text-align: center;
-      color: #94a3b8;
+      color: #a4a99e;
+    }
+    .brand {
+      display: block;
+      width: 112px;
+      height: auto;
+      margin: 0 auto 32px;
     }
     .spinner {
-      width: 48px; height: 48px;
-      border: 3px solid #334155;
-      border-top-color: #3b82f6;
+      position: relative;
+      width: 54px;
+      height: 54px;
+      border: 2px solid rgba(212, 255, 0, .15);
+      border-top-color: #d4ff00;
+      border-right-color: rgba(212, 255, 0, .55);
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 1.5rem;
+      animation: spin .9s linear infinite;
+      margin: 0 auto 22px;
+      box-shadow: 0 0 24px rgba(212, 255, 0, .09);
+    }
+    .spinner::after {
+      content: "";
+      position: absolute;
+      inset: 17px;
+      border-radius: 50%;
+      background: #d4ff00;
+      box-shadow: 0 0 16px rgba(212, 255, 0, .48);
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    h2 { color: #f1f5f9; font-size: 1.25rem; margin-bottom: 0.5rem; }
-    .error { color: #fca5a5; margin-top: 1rem; font-size: 0.875rem; }
-    a { color: #60a5fa; }
+    h2 {
+      color: #f4f5ef;
+      font-size: clamp(1.25rem, 5vw, 1.5rem);
+      line-height: 1.15;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin: 0 0 9px;
+    }
+    #sub { margin: 0; font-size: .9rem; line-height: 1.5; }
+    .error { color: #ffb4a9; margin-top: 18px; font-size: .9rem; line-height: 1.55; }
+    a { color: #d4ff00; text-underline-offset: 3px; }
+    a:focus-visible { outline: 2px solid #d4ff00; outline-offset: 4px; border-radius: 3px; }
+    @media (max-width: 480px) {
+      body { padding: 16px; }
+      .card { padding: 32px 22px 28px; }
+      .brand { margin-bottom: 28px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation-duration: 2s; }
+    }
   </style>
 </head>
 <body>
-<div class="card">
-  <div class="spinner" id="spinner"></div>
+<main class="card" role="status" aria-live="polite" aria-busy="true">
+  <img class="brand" src="/images/alefit-logo.png" alt="ALEFIT"/>
+  <div class="spinner" id="spinner" aria-hidden="true"></div>
   <h2 id="heading">Completing sign-in…</h2>
   <p id="sub">Please wait a moment.</p>
   <p class="error" id="errMsg" style="display:none"></p>
-</div>
+</main>
 <script>
 (async function() {
   var APP_ID = '6a1f3d189ebdbe71fa7d256c';
@@ -60,6 +109,7 @@
   if (/^\/(?:auth\/callback|OAuthCallback\.html)/i.test(fromUrl)) fromUrl = '/Login.html';
 
   function setError(msg) {
+    document.querySelector('.card').setAttribute('aria-busy', 'false');
     document.getElementById('spinner').style.display = 'none';
     document.getElementById('heading').textContent = 'Sign-in failed';
     document.getElementById('sub').textContent = '';
