@@ -7,4 +7,4 @@
 - [Dashboard direction](dashboard-direction.md) — Dark-and-lime mobile reference is inspiration, not an exact copy; preserve Alefit identity and real plan content.
 - [Live auth verification](alefit-live-auth-verification.md) — Verify the ready Vercel production build and live auth assets before diagnosing a callback as an app-code failure.
 - [OAuth root callback recovery](alefit-oauth-callback.md) — Forward unexpected homepage OAuth codes to the same-origin callback without bypassing PKCE verification.
-- [Optional Puter Coach](puter-coach-privacy.md) — Puter must remain opt-in with explicit disclosure of data sharing, its sign-in requirement, and per-user allowance.
+- [Puter-only Coach](puter-coach-privacy.md) — Coach must use Puter for every member, with explicit consent and no server-provider fallback.

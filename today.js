@@ -20,9 +20,10 @@
   var saving = false;
   var chat = [];
   var coachSending = false;
-  var coachProvider = "alefit";
-  var coachPuterConsentOpen = false;
+  var coachProvider = "puter";
+  var coachPuterConsentOpen = true;
   var coachPuterConsentGranted = false;
+  var coachPuterReady = false;
   var coachPuterPreparing = false;
   var coachPuterNotice = "";
   var puterSdkPromise = null;
@@ -882,20 +883,15 @@
     var contextLabel = "Week " + (week.week || plan.currentWeek || 1) +
       (week.phaseLabel || week.label ? " · " + (week.phaseLabel || week.label) : "");
     if (focused && focused.name) contextLabel += " · " + focused.name;
-    var providerMarkup = "";
-    if (coachProvider === "puter") {
-      providerMarkup = '<div class="af-coach-provider is-puter"><div><span class="eyebrow">Puter AI enabled for this visit</span>' +
-        '<p>Your question, recent chat, and training context will be sent to Puter when you ask. Puter may ask you to sign in and authorize ALEFIT.</p>' +
-        '<small>Puter applies usage to your account’s monthly allowance; it may show an upgrade prompt after that allowance is used.</small></div>' +
-        '<button class="af-coach-provider-link" id="use-alefit-coach" type="button"' +
-        (coachSending || coachPuterPreparing ? ' disabled' : '') + '>Switch to ALEFIT Coach</button></div>';
-    } else {
-      providerMarkup = '<div class="af-coach-provider"><div><span class="eyebrow">ALEFIT Coach</span>' +
-        '<p>Ask through ALEFIT’s server-based AI, or choose Puter and use your own account’s allowance.</p></div>' +
-        '<button class="af-coach-provider-link" id="open-puter-consent" type="button"' +
-        (coachSending || coachPuterPreparing ? ' disabled' : '') + '>Use Puter</button></div>';
-    }
-    var consentMarkup = coachPuterConsentOpen && coachProvider !== "puter"
+    var coachReady = coachProvider === "puter" && coachPuterReady && coachPuterConsentGranted;
+    var providerMarkup = coachReady
+      ? '<div class="af-coach-provider is-puter"><div><span class="eyebrow">Puter-only coaching</span>' +
+        '<p>Coach uses Puter with your own account. ALEFIT’s server-based AI is disabled for coaching; there is no paid-provider fallback.</p>' +
+        '<small>Puter may require sign-in and permission. Usage uses your account’s allowance and may lead to an upgrade prompt.</small></div></div>'
+      : '<div class="af-coach-provider"><div><span class="eyebrow">Puter is required for ALEFIT Coach</span>' +
+        '<p>To avoid using ALEFIT’s server-based AI, coaching questions go through Puter only after you review and accept the sharing notice.</p>' +
+        '<small>Your question and selected training context are not sent until you consent and ask Coach.</small></div></div>';
+    var consentMarkup = coachPuterConsentOpen && !coachReady
       ? '<div class="af-puter-consent" role="group" aria-labelledby="puter-consent-title">' +
         '<span class="eyebrow" id="puter-consent-title">Before enabling Puter</span>' +
         '<p>ALEFIT will send your question, recent Coach messages, current plan and session, and recent workout/readiness details to Puter. Readiness details can include soreness or pain responses. ALEFIT does not attach your account name or email, but any personal details you type into a question or Coach message are included.</p>' +
@@ -910,25 +906,35 @@
         (coachPuterNotice ? '<p class="af-puter-notice" role="status">' + esc(coachPuterNotice) + '</p>' : '') +
         '</div>'
       : '';
+    var coachToolsMarkup = coachReady
+      ? '<div class="af-coach-prompts" aria-label="Suggested questions">' +
+        '<button type="button" data-coach-prompt="What should I focus on in my next session?">Next session</button>' +
+        '<button type="button" data-coach-prompt="Why is this week structured this way?">Explain my week</button>' +
+        '<button type="button" data-coach-prompt="How should I adjust if I feel tired or sore?">Adjust for recovery</button></div>' +
+        '<div class="chat" id="chat" aria-live="polite" aria-relevant="additions text" aria-busy="' + coachSending + '">' +
+        (chat.length ? chat.map(function (item) {
+          return '<div class="bubble ' + (item.role === "user" ? "user" : "") + '">' + esc(item.text).replace(/\n/g, "<br>") + '</div>';
+        }).join("") : '<div class="bubble">Ask about your next session, weekly balance, logged results, or adjusting around sport.</div>') +
+        (coachSending ? '<div class="bubble af-coach-thinking" role="status"><span class="af-coach-dots" aria-hidden="true"><i></i><i></i><i></i></span>Checking your plan and recent training…</div>' : '') +
+        '</div><form class="coach-form" id="coach-form"><label class="sr-only" for="coach-input">Ask Coach</label><input id="coach-input" required maxlength="500" autocomplete="off" placeholder="Ask about today’s training or recovery"' +
+        (coachSending ? ' disabled' : '') + '><button class="button" type="submit"' + (coachSending ? ' disabled' : '') + '>' +
+        (coachSending ? 'Asking Puter…' : 'Ask coach') +
+        '</button></form>'
+      : '<div class="af-puter-required" role="status"><b>Coach is locked until Puter is enabled.</b>' +
+        '<p>No coaching details are sent unless you accept the sharing notice above. ALEFIT will not fall back to its server-based AI.</p>' +
+        (!coachPuterConsentOpen
+          ? '<button class="button small" id="open-puter-consent" type="button">Review sharing notice</button>'
+          : '') +
+        '</div>';
     app.innerHTML = headerMarkup("Coach", "Ask about the plan.", "Get advice grounded in your saved sport, this week’s plan, readiness, and recent training.") +
       '<section class="card af-coach-card"><div class="af-coach-context"><span class="eyebrow">Coaching from your plan</span><b>' +
       esc(contextLabel) + '</b><span>Uses your saved goals, schedule, recent training, and readiness check-ins.</span></div>' +
       providerMarkup + consentMarkup +
-      '<div class="af-coach-prompts" aria-label="Suggested questions">' +
-      '<button type="button" data-coach-prompt="What should I focus on in my next session?">Next session</button>' +
-      '<button type="button" data-coach-prompt="Why is this week structured this way?">Explain my week</button>' +
-      '<button type="button" data-coach-prompt="How should I adjust if I feel tired or sore?">Adjust for recovery</button></div>' +
-      '<div class="chat" id="chat" aria-live="polite" aria-relevant="additions text" aria-busy="' + coachSending + '">' +
-      (chat.length ? chat.map(function (item) {
-        return '<div class="bubble ' + (item.role === "user" ? "user" : "") + '">' + esc(item.text).replace(/\n/g, "<br>") + '</div>';
-      }).join("") : '<div class="bubble">Ask about your next session, weekly balance, logged results, or adjusting around sport.</div>') +
-      (coachSending ? '<div class="bubble af-coach-thinking" role="status"><span class="af-coach-dots" aria-hidden="true"><i></i><i></i><i></i></span>Checking your plan and recent training…</div>' : '') +
-      '</div><form class="coach-form" id="coach-form"><label class="sr-only" for="coach-input">Ask Coach</label><input id="coach-input" required maxlength="500" autocomplete="off" placeholder="Ask about today’s training or recovery"' +
-      (coachSending ? ' disabled' : '') + '><button class="button" type="submit"' + (coachSending ? ' disabled' : '') + '>' +
-      (coachSending ? (coachProvider === "puter" ? 'Asking Puter…' : 'Thinking…') :
-        (coachProvider === "puter" ? 'Ask with Puter' : 'Ask coach')) +
-      '</button></form><p class="af-coach-safety">Training guidance, not medical advice. Stop if an exercise causes pain.</p></section>';
-    document.getElementById("coach-form").onsubmit = askCoach;
+      coachToolsMarkup +
+      (coachReady ? '<p class="af-coach-safety">Training guidance, not medical advice. Stop if an exercise causes pain.</p>' : '') +
+      '</section>';
+    var coachForm = document.getElementById("coach-form");
+    if (coachForm) coachForm.onsubmit = askCoach;
     var openPuter = document.getElementById("open-puter-consent");
     if (openPuter) openPuter.onclick = openPuterConsent;
     var consent = document.getElementById("puter-consent");
@@ -940,8 +946,8 @@
     if (enablePuter) enablePuter.onclick = activatePuterCoach;
     var cancelPuter = document.getElementById("cancel-puter-consent");
     if (cancelPuter) cancelPuter.onclick = cancelPuterConsent;
-    var useAlefit = document.getElementById("use-alefit-coach");
-    if (useAlefit) useAlefit.onclick = useAlefitCoach;
+    var reviewPuter = document.getElementById("open-puter-consent");
+    if (reviewPuter) reviewPuter.onclick = openPuterConsent;
     document.querySelectorAll("[data-coach-prompt]").forEach(function (button) {
       button.onclick = function () {
         var input = document.getElementById("coach-input");
@@ -954,7 +960,7 @@
     if (chatBox && coachSending) chatBox.scrollTop = chatBox.scrollHeight;
   }
   function openPuterConsent() {
-    if (coachSending || coachPuterPreparing) return;
+    if (coachSending || coachPuterPreparing || coachPuterReady) return;
     coachPuterConsentOpen = true;
     coachPuterConsentGranted = false;
     coachPuterNotice = "";
@@ -962,14 +968,6 @@
   }
   function cancelPuterConsent() {
     if (coachPuterPreparing || coachSending) return;
-    coachPuterConsentOpen = false;
-    coachPuterConsentGranted = false;
-    coachPuterNotice = "";
-    coachView();
-  }
-  function useAlefitCoach() {
-    if (coachSending || coachPuterPreparing) return;
-    coachProvider = "alefit";
     coachPuterConsentOpen = false;
     coachPuterConsentGranted = false;
     coachPuterNotice = "";
@@ -1014,6 +1012,7 @@
     coachView();
     return loadPuterSdk().then(function () {
       coachProvider = "puter";
+      coachPuterReady = true;
       coachPuterConsentOpen = false;
       coachPuterPreparing = false;
       coachPuterNotice = "";
@@ -1135,20 +1134,26 @@
   function puterErrorText(error) {
     var detail = String(error && (error.code || error.message) || "").toLowerCase();
     if (/cancel|denied|dismiss/.test(detail)) {
-      return "Puter sign-in or permission was cancelled. Your ALEFIT plan is unchanged; try again or switch back to ALEFIT Coach.";
+      return "Puter sign-in or permission was cancelled. No other AI provider will be used. Try again when you’re ready; your ALEFIT plan is unchanged.";
     }
     if (/402|insufficient_funds|insufficient funds|credit/.test(detail)) {
-      return "Puter reports that this account has reached its usage allowance. Your ALEFIT plan is unchanged; switch back to ALEFIT Coach or try Puter again later.";
+      return "Puter reports that this account has reached its usage allowance. ALEFIT will not fall back to a paid server provider. Try again later or review Puter’s account options; your plan is unchanged.";
     }
     if (/429|too_many_requests|rate limit/.test(detail)) {
-      return "Puter is temporarily limiting requests. Your ALEFIT plan is unchanged; try again later or switch back to ALEFIT Coach.";
+      return "Puter is temporarily limiting requests. No other AI provider will be used. Try again later; your ALEFIT plan is unchanged.";
     }
-    return "Puter could not answer just now. Your ALEFIT plan is unchanged; please retry or switch back to ALEFIT Coach.";
+    return "Puter could not answer just now. ALEFIT will not fall back to another provider. Please retry later; your plan is unchanged.";
   }
   async function askCoach(event) {
     event.preventDefault();
     if (coachSending) return;
+    if (!coachPuterReady || !coachPuterConsentGranted) {
+      coachPuterConsentOpen = true;
+      coachView();
+      return;
+    }
     var input = document.getElementById("coach-input");
+    if (!input) return;
     var question = input.value.trim();
     if (!question) return;
     var history = chat.slice(-8).map(function (item) {
@@ -1160,41 +1165,23 @@
     coachView();
     try {
       var focused = currentSession || sessionToShow();
-      var answer;
-      if (coachProvider === "puter") {
-        if (!window.puter || !window.puter.ai || typeof window.puter.ai.chat !== "function") {
-          throw new Error("Puter is not ready. Switch back to ALEFIT Coach or re-enable Puter.");
-        }
-        var messages = buildPuterCoachMessages(question, history, focused);
-        var completion = window.puter.ai.chat(messages, false, {
-          max_tokens: 700,
-          temperature: 0.25,
-          normalize: true
-        });
-        var puterResponse = await completion;
-        answer = puterAnswerText(puterResponse);
-        if (!answer) throw new Error("Puter returned an empty answer. Please try again.");
-      } else {
-        var response = await fetch("/api/apps/" + APP + "/coach", {
-          method: "POST",
-          headers: authHeaders(true),
-          body: JSON.stringify({
-            question: question,
-            history: history,
-            session_id: focused && focused.id || "",
-            local_day: new Date().toLocaleDateString("en-US", { weekday: "long" })
-          })
-        });
-        if (response.status === 401) return goLogin();
-        var data = await response.json();
-        if (!response.ok) throw new Error(data.error || "ALEFIT Coach couldn’t answer just now. Please try again.");
-        answer = String(data.result || "I couldn’t form a useful answer. Please try asking in a different way.");
+      if (!window.puter || !window.puter.ai || typeof window.puter.ai.chat !== "function") {
+        throw new Error("Puter is not ready. Review the sharing notice and enable Puter to use Coach.");
       }
+      var messages = buildPuterCoachMessages(question, history, focused);
+      var completion = window.puter.ai.chat(messages, false, {
+        max_tokens: 700,
+        temperature: 0.25,
+        normalize: true
+      });
+      var puterResponse = await completion;
+      var answer = puterAnswerText(puterResponse);
+      if (!answer) throw new Error("Puter returned an empty answer. Please try again.");
       if (window.trackEvent) window.trackEvent("coach_response_received", { success: true, provider: coachProvider });
       chat.push({ role: "assistant", text: answer });
     } catch (error) {
       if (window.trackEvent) window.trackEvent("coach_response_received", { success: false, provider: coachProvider });
-      chat.push({ role: "assistant", text: coachProvider === "puter" ? puterErrorText(error) : (error.message || "ALEFIT Coach couldn’t connect just now. Your plan is unchanged—please try again.") });
+      chat.push({ role: "assistant", text: puterErrorText(error) });
     } finally {
       coachSending = false;
       if (getView() === "coach") coachView();

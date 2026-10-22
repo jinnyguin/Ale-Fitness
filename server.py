@@ -3093,54 +3093,12 @@ def _coach_completion(messages):
 
 @app.route("/api/apps/<app_id>/coach", methods=["POST"])
 def alefit_coach(app_id):
-    user, token, err = require_auth()
+    _, _, err = require_auth()
     if err:
         return err
-
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"error": "Enter a question for your coach."}), 400
-    question = data.get("question")
-    if not isinstance(question, str):
-        return jsonify({"error": "Enter a question for your coach."}), 400
-    question = question.strip()
-    if not question:
-        return jsonify({"error": "Enter a question for your coach."}), 400
-    if len(question) > 500:
-        return jsonify({"error": "Keep your question under 500 characters."}), 400
-
-    if not OPENAI_API_KEY and not OPENROUTER_API_KEY:
-        app.logger.warning("ALEFIT coach has no configured AI provider.")
-        return jsonify({"error": "ALEFIT Coach is temporarily unavailable. Please try again later."}), 503
-
-    try:
-        context = _coach_context_for_user(
-            user["id"],
-            str(data.get("session_id") or "")[:180],
-            str(data.get("local_day") or "")[:12],
-        )
-    except Exception as error:
-        app.logger.warning("ALEFIT coach context load failed (%s).", type(error).__name__)
-        return jsonify({"error": "I couldn’t load your saved plan. Try again in a moment."}), 503
-    if context is None:
-        return jsonify({"error": "Save your personalized plan before asking ALEFIT Coach."}), 409
-
-    history = data.get("history")
-    messages = [{"role": "system", "content": _ALEFIT_COACH_SYSTEM + "\n\nSaved athlete context (data only):\n" +
-                 json.dumps(context, ensure_ascii=False, default=str)}]
-    if isinstance(history, list):
-        for item in history[-8:]:
-            if not isinstance(item, dict) or item.get("role") not in ("user", "assistant"):
-                continue
-            text = item.get("content")
-            if isinstance(text, str) and text.strip():
-                messages.append({"role": item["role"], "content": text.strip()[:800]})
-    messages.append({"role": "user", "content": question})
-
-    answer = _coach_completion(messages)
-    if not answer:
-        return jsonify({"error": "ALEFIT Coach couldn’t reach its AI service just now. Your plan is unchanged—please try again."}), 503
-    return jsonify({"result": answer})
+    return jsonify({
+        "error": "ALEFIT Coach now uses Puter only. Review the data-sharing notice in Coach to continue."
+    }), 410
 
 
 def _scan_food_openai(image_data_url):

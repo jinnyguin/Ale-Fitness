@@ -17,6 +17,7 @@ const source = fs.readFileSync("today.js", "utf8").replace(
     },
     header: dashboardHeader, week: dashboardWeek, today: todayView, coach: coachView,
     openPuterConsent: openPuterConsent,
+     cancelPuterConsent: cancelPuterConsent,
     activatePuterCoach: activatePuterCoach,
     askCoach: askCoach,
     buildPuterCoachMessages: buildPuterCoachMessages
@@ -124,10 +125,15 @@ ui.set({ ...fixture, logs: [{
 ui.coach();
 markup = document.getElementById("app").innerHTML;
 assert.match(markup, /Coaching from your plan/);
-assert.match(markup, /Next session/);
-assert.match(markup, /Adjust for recovery/);
-assert.match(markup, /Ask coach/);
-assert.match(markup, /Use Puter/);
+assert.match(markup, /Puter is required for ALEFIT Coach/);
+assert.match(markup, /To avoid using ALEFIT’s server-based AI/);
+assert.match(markup, /Before enabling Puter/);
+assert.doesNotMatch(markup, /id="coach-form"/, "do not allow questions before Puter consent");
+assert.doesNotMatch(markup, /Switch to ALEFIT Coach/);
+ui.cancelPuterConsent();
+markup = document.getElementById("app").innerHTML;
+assert.match(markup, /Review sharing notice/);
+assert.doesNotMatch(markup, /id="coach-form"/, "declining Puter consent must not enable server AI");
 ui.openPuterConsent();
 markup = document.getElementById("app").innerHTML;
 assert.match(markup, /recent workout\/readiness details/);
@@ -141,6 +147,9 @@ consent.onchange();
 
 async function verifyPuterCoach() {
   const htmlNow = fs.readFileSync("today.html", "utf8");
+  const scriptNow = fs.readFileSync("today.js", "utf8");
+  assert.doesNotMatch(htmlNow, /js\.puter\.com/, "Puter must load only after consent");
+  assert.doesNotMatch(scriptNow, /\/api\/apps\/.+\/coach/, "Coach must never call a server-side provider");
   for (const view of ["plan", "progress", "coach", "profile"]) {
     assert(htmlNow.includes('href="/today.html?view=' + view + '"'));
   }
@@ -151,8 +160,11 @@ async function verifyPuterCoach() {
   } } };
   await ui.activatePuterCoach();
   markup = document.getElementById("app").innerHTML;
-  assert.match(markup, /Puter AI enabled for this visit/);
-  assert.match(markup, /Ask with Puter/);
+  assert.match(markup, /Puter-only coaching/);
+  assert.match(markup, /Next session/);
+  assert.match(markup, /Adjust for recovery/);
+  assert.match(markup, /Ask coach/);
+  assert.doesNotMatch(markup, /Switch to ALEFIT Coach/);
   const messages = ui.buildPuterCoachMessages("Should I add weight today?", [
     { role: "user", content: "I felt steady last time." }
   ], session);
@@ -174,7 +186,7 @@ async function verifyPuterCoach() {
   assert.match(puterCall.prompt[puterCall.prompt.length - 1].content, /Should I add weight today/);
   markup = document.getElementById("app").innerHTML;
   assert.match(markup, /Keep the prescribed load today/);
-  console.log("Today dashboard checks passed: schedule, navigation, Puter consent, data minimization, and opt-in chat.");
+  console.log("Today dashboard checks passed: schedule, navigation, required Puter consent, data minimization, and Puter-only chat.");
 }
 verifyPuterCoach().catch((error) => {
   console.error(error);

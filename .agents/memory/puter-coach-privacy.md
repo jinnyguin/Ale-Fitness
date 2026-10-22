@@ -1,10 +1,10 @@
 ---
-name: Optional Puter Coach
-description: Product decision for offering Puter.js as an optional ALEFIT Coach provider
+name: Puter-only Coach
+description: Product decision for using Puter.js as ALEFIT Coach's only AI provider
 ---
 
-Puter AI must remain an opt-in provider for ALEFIT Coach. Before enabling it, tell members that their question, recent Coach conversation, current plan/session, and recent training/readiness details are sent to Puter; that Puter requires its own sign-in and permission; and that its per-user monthly allowance can lead to an upgrade prompt when exhausted. Do not silently send coaching data to Puter.
+Puter must be the only AI provider for ALEFIT Coach for all members. Before any coaching data is sent, tell the member that their question, recent Coach conversation, current plan/session, and recent training/readiness details go to Puter; that Puter requires its own sign-in and permission; and that its per-user monthly allowance can lead to an upgrade prompt when exhausted. Require explicit consent. Do not fall back to ALEFIT's server provider.
 
-**Why:** The user chose an optional Puter provider rather than requiring every ALEFIT member to use Puter, after learning that Puter shifts AI usage to each member's own account and free allowance.
+**Why:** The user chose Puter for all members to prevent ALEFIT Coach from using provider API keys that could charge the app owner. Puter usage is instead tied to each member's own account and allowance.
 
-**How to apply:** Keep ALEFIT's existing provider available, gate Puter behind a clear consent action, and retain a way to switch back.
+**How to apply:** Gate browser-side Puter use behind a clear consent action; disable the server-side Coach route and never fall back to OpenAI or OpenRouter for coaching. Keep other app features on their existing provider routes unless the user changes that scope.
