@@ -12,9 +12,14 @@ const source = fs.readFileSync("today.js", "utf8").replace(
     set: function (data) {
       user = data.user; record = data.record; plan = data.plan;
       logs = data.logs || []; currentSession = data.session || null;
+      readiness = data.readiness || [];
       activeWorkout = !!data.active;
     },
-    header: dashboardHeader, week: dashboardWeek, today: todayView, coach: coachView
+    header: dashboardHeader, week: dashboardWeek, today: todayView, coach: coachView,
+    openPuterConsent: openPuterConsent,
+    activatePuterCoach: activatePuterCoach,
+    askCoach: askCoach,
+    buildPuterCoachMessages: buildPuterCoachMessages
   };
 }());`
 );
@@ -63,8 +68,10 @@ const fixture = {
   plan: {
     currentWeek: 1, weeks: [{ week: 1, phaseLabel: "Build", sessions: [session] }],
     schedule: [{ day: "Friday", type: "sport", title: "Club practice" }],
+    profile: { sport: "strength", goals: ["build strength"], equipment: ["dumbbells"], age: "adult" },
     recovery: "Keep the easy days easy.", focus: "Strength", summary: "Train around practice."
-  }
+  },
+  record: { id: "athlete-plan", preferences: { daysPerWeek: 3 } }
 };
 ui.set(fixture);
 assert.match(ui.header(), /Good evening, Maya/);
@@ -109,14 +116,67 @@ assert.match(markup, /id="page-message"/);
 assert.doesNotMatch(markup, /id="start-workout"/, "rest days must not offer a fabricated workout");
 const html = fs.readFileSync("today.html", "utf8");
 assert(html.indexOf("/today-dashboard.css") > html.indexOf("/app-shell.css"));
-ui.set(fixture);
+ui.set({ ...fixture, logs: [{
+  created_date: "2026-06-10",
+  feedback: { status: "completed", difficulty: "appropriate", completed_movements: 2, notes: "Felt steady" },
+  session_snapshot: { name: "Previous strength session" }
+}], readiness: [{ energy: "high", soreness: "low", pain: false }] });
 ui.coach();
 markup = document.getElementById("app").innerHTML;
 assert.match(markup, /Coaching from your plan/);
 assert.match(markup, /Next session/);
 assert.match(markup, /Adjust for recovery/);
 assert.match(markup, /Ask coach/);
-for (const view of ["plan", "progress", "coach", "profile"]) {
-  assert(html.includes('href="/today.html?view=' + view + '"'));
+assert.match(markup, /Use Puter/);
+ui.openPuterConsent();
+markup = document.getElementById("app").innerHTML;
+assert.match(markup, /recent workout\/readiness details/);
+assert.match(markup, /ALEFIT does not attach your account name or email/);
+assert.match(markup, /personal details you type into a question/);
+assert.match(markup, /monthly allowance/);
+assert.match(markup, /I agree to share those training details/);
+const consent = document.getElementById("puter-consent");
+consent.checked = true;
+consent.onchange();
+
+async function verifyPuterCoach() {
+  const htmlNow = fs.readFileSync("today.html", "utf8");
+  for (const view of ["plan", "progress", "coach", "profile"]) {
+    assert(htmlNow.includes('href="/today.html?view=' + view + '"'));
+  }
+  let puterCall = null;
+  window.puter = { ai: { chat(prompt, testMode, options) {
+    puterCall = { prompt, testMode, options };
+    return Promise.resolve({ message: { content: "Keep the prescribed load today." } });
+  } } };
+  await ui.activatePuterCoach();
+  markup = document.getElementById("app").innerHTML;
+  assert.match(markup, /Puter AI enabled for this visit/);
+  assert.match(markup, /Ask with Puter/);
+  const messages = ui.buildPuterCoachMessages("Should I add weight today?", [
+    { role: "user", content: "I felt steady last time." }
+  ], session);
+  assert.equal(messages[0].role, "system");
+  assert.match(messages[0].content, /Do not diagnose injuries/);
+  assert.match(messages[1].content, /"sport":"strength"/);
+  assert.match(messages[1].content, /"soreness":"low"/);
+  assert.match(messages[1].content, /"name":"Strength & control"/);
+  assert.doesNotMatch(JSON.stringify(messages), /Maya <Tester>|secret@example/);
+
+  window.location.search = "?view=coach";
+  document.getElementById("coach-input").value = "Should I add weight today?";
+  let prevented = false;
+  await ui.askCoach({ preventDefault() { prevented = true; } });
+  assert(prevented);
+  assert(puterCall);
+  assert.equal(puterCall.testMode, false);
+  assert.equal(puterCall.options.normalize, true);
+  assert.match(puterCall.prompt[puterCall.prompt.length - 1].content, /Should I add weight today/);
+  markup = document.getElementById("app").innerHTML;
+  assert.match(markup, /Keep the prescribed load today/);
+  console.log("Today dashboard checks passed: schedule, navigation, Puter consent, data minimization, and opt-in chat.");
 }
-console.log("Today dashboard checks passed: real schedule/logs, escaped greeting, rest state, controls, navigation.");
+verifyPuterCoach().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
