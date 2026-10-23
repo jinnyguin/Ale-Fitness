@@ -886,21 +886,21 @@
     var coachReady = coachProvider === "puter" && coachPuterReady && coachPuterConsentGranted;
     var providerMarkup = coachReady
       ? '<div class="af-coach-provider is-puter"><div><span class="eyebrow">Puter-only coaching</span>' +
-        '<p>Coach uses Puter with your own account. ALEFIT’s server-based AI is disabled for coaching; there is no paid-provider fallback.</p>' +
-        '<small>Puter may require sign-in and permission. Usage uses your account’s allowance and may lead to an upgrade prompt.</small></div></div>'
+        '<p>Coach uses Puter with a temporary identity when you do not already have a Puter session. ALEFIT’s server-based AI is disabled for coaching; there is no paid-provider fallback.</p>' +
+        '<small>A temporary identity is not a permanent Puter account and may not transfer to another device. Puter applies its own usage limits and may show an upgrade prompt.</small></div></div>'
       : '<div class="af-coach-provider"><div><span class="eyebrow">Puter is required for ALEFIT Coach</span>' +
-        '<p>To avoid using ALEFIT’s server-based AI, coaching questions go through Puter only after you review and accept the sharing notice.</p>' +
+        '<p>To avoid using ALEFIT’s server-based AI, coaching questions go through Puter only after you review and accept the sharing notice. ALEFIT prepares a temporary Puter identity; no permanent Puter account or password is required.</p>' +
         '<small>Your question and selected training context are not sent until you consent and ask Coach.</small></div></div>';
     var consentMarkup = coachPuterConsentOpen && !coachReady
       ? '<div class="af-puter-consent" role="group" aria-labelledby="puter-consent-title">' +
         '<span class="eyebrow" id="puter-consent-title">Before enabling Puter</span>' +
         '<p>ALEFIT will send your question, recent Coach messages, current plan and session, and recent workout/readiness details to Puter. Readiness details can include soreness or pain responses. ALEFIT does not attach your account name or email, but any personal details you type into a question or Coach message are included.</p>' +
-        '<p>Puter requires its own sign-in and permission. Its monthly allowance is per Puter account; once used, Puter may prompt you to upgrade. ALEFIT does not pay Puter for these requests.</p>' +
+        '<p>ALEFIT prepares a temporary Puter identity when needed, without asking for a Puter password or permanent account. It may not transfer to another device. Puter applies its own usage limits and may prompt for an upgrade; ALEFIT does not pay Puter for these requests.</p>' +
         '<label class="af-puter-consent-check"><input type="checkbox" id="puter-consent"' +
         (coachPuterConsentGranted ? ' checked' : '') + '> I agree to share those training details with Puter for coaching.</label>' +
         '<div class="af-puter-consent-actions"><button class="button small" id="enable-puter-coach" type="button"' +
         (!coachPuterConsentGranted || coachPuterPreparing || coachSending ? ' disabled' : '') + '>' +
-        (coachPuterPreparing ? 'Preparing Puter…' : 'Agree and enable for this visit') +
+        (coachPuterPreparing ? 'Preparing Puter…' : 'Agree and set up Coach') +
         '</button><button class="af-coach-provider-link" id="cancel-puter-consent" type="button"' +
         (coachPuterPreparing || coachSending ? ' disabled' : '') + '>Cancel</button></div>' +
         (coachPuterNotice ? '<p class="af-puter-notice" role="status">' + esc(coachPuterNotice) + '</p>' : '') +
@@ -974,7 +974,8 @@
     coachView();
   }
   function loadPuterSdk() {
-    if (window.puter && window.puter.ai && typeof window.puter.ai.chat === "function") {
+    if (window.puter && window.puter.ai && typeof window.puter.ai.chat === "function" &&
+        window.puter.auth && typeof window.puter.auth.signIn === "function") {
       return Promise.resolve(window.puter);
     }
     if (puterSdkPromise) return puterSdkPromise;
@@ -988,10 +989,11 @@
       script.async = true;
       script.onload = function () {
         clearTimeout(timeout);
-        if (window.puter && window.puter.ai && typeof window.puter.ai.chat === "function") {
+        if (window.puter && window.puter.ai && typeof window.puter.ai.chat === "function" &&
+            window.puter.auth && typeof window.puter.auth.signIn === "function") {
           resolve(window.puter);
         } else {
-          reject(new Error("Puter loaded without its AI service. Please try again."));
+          reject(new Error("Puter loaded without its Coach or account service. Please try again."));
         }
       };
       script.onerror = function () {
@@ -1010,7 +1012,32 @@
     coachPuterPreparing = true;
     coachPuterNotice = "";
     coachView();
-    return loadPuterSdk().then(function () {
+    var puter = window.puter;
+    if (!puter || !puter.auth || typeof puter.auth.signIn !== "function") {
+      return loadPuterSdk().then(function () {
+        coachPuterPreparing = false;
+        coachPuterConsentOpen = true;
+        coachPuterNotice = "Puter is ready. Tap the setup button once more to create your temporary Coach identity.";
+        coachView();
+      }).catch(function (error) {
+        coachPuterPreparing = false;
+        coachPuterConsentOpen = true;
+        coachPuterNotice = error.message || "Puter could not be prepared. Please try again.";
+        coachView();
+      });
+    }
+    var identityPromise;
+    try {
+      var signedIn = typeof puter.auth.isSignedIn === "function" && puter.auth.isSignedIn();
+      identityPromise = signedIn ? Promise.resolve() :
+        puter.auth.signIn({ attempt_temp_user_creation: true });
+    } catch (error) {
+      identityPromise = Promise.reject(error);
+    }
+    return Promise.resolve(identityPromise).then(function () {
+      if (!puter.ai || typeof puter.ai.chat !== "function") {
+        throw new Error("Puter Coach is unavailable. Please try again.");
+      }
       coachProvider = "puter";
       coachPuterReady = true;
       coachPuterConsentOpen = false;

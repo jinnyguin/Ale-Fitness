@@ -42,7 +42,7 @@ function makeElement(id, root, getElementById) {
   return element;
 }
 
-function makeBrowser({ fetchImpl, token = "", search = "", draft, localDraftOnly } = {}) {
+function makeBrowser({ fetchImpl, token = "", search = "", draft, localDraftOnly, puter, oauth } = {}) {
   const elements = new Map();
   let controls = [];
   let tiles = [];
@@ -183,6 +183,8 @@ function makeBrowser({ fetchImpl, token = "", search = "", draft, localDraftOnly
     history: { replaceState() {} },
     crypto: { randomUUID: () => "onboarding-test-id" },
     requestAnimationFrame(callback) { callback(); },
+    puter: puter || { auth: { isSignedIn: () => true, signIn: async () => ({}) } },
+    AlefitOAuth: oauth,
     ALEFITTrainingEngine: trainingEngine,
     AlefitMember: {
       markSignedIn(user) { values.set("alefit_member_account", user && user.id || "known"); },
@@ -220,13 +222,25 @@ async function testSignupSavesGuestPlanAndOpensToday() {
     weeklyRunVolume:10, longestRun:5, availableDays:[0, 3, 6],
     preferredLongRunDay:6, limitations:"", load:""
   };
+  const order = [];
   const browser = makeBrowser({
     draft:{step:6, prefs:onboardingPrefs, plan:null, onboardingId:"signup-plan-test"},
+    puter: { auth: {
+      isSignedIn: () => false,
+      signIn: async (options) => {
+        order.push("puter");
+        assert.deepEqual(JSON.parse(JSON.stringify(options)), { attempt_temp_user_creation: true });
+        return { temporary: true };
+      }
+    } },
     fetchImpl:async (url, options) => {
-      if (/\/auth\/register$/.test(url)) return {
-        ok:true, status:201,
-        json:async () => ({access_token:"test-token", user:{id:"test-user",email:"runner@example.test"}})
-      };
+      if (/\/auth\/register$/.test(url)) {
+        order.push("alefit");
+        return {
+          ok:true, status:201,
+          json:async () => ({access_token:"test-token", user:{id:"test-user",email:"runner@example.test"}})
+        };
+      }
       assert.match(url, /\/onboarding-plan$/);
       const payload = JSON.parse(options.body);
       assert.equal(payload.preferences.sport, "running");
@@ -240,11 +254,13 @@ async function testSignupSavesGuestPlanAndOpensToday() {
   browser.getElementById("name").value = "Test Runner";
   browser.getElementById("email").value = "runner@example.test";
   browser.getElementById("password").value = "correct horse battery";
+  browser.getElementById("puter-signup-consent").checked = true;
   await browser.elements.get("create").onclick({preventDefault(){}});
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(browser.location.replacedWith, "/today.html");
   assert.equal(browser.values.get("token"), "test-token");
   assert.equal(browser.values.get("alefit_onboarding_draft"), undefined);
+  assert.deepEqual(order, ["puter", "alefit"], "temporary Puter setup must finish before ALEFIT creates the account");
 }
 
 async function testSignupFailureShowsRetryableHelpfulError() {
@@ -260,6 +276,7 @@ async function testSignupFailureShowsRetryableHelpfulError() {
   browser.getElementById("name").value = "Test Athlete";
   browser.getElementById("email").value = "athlete@example.test";
   browser.getElementById("password").value = "correct horse battery";
+  browser.getElementById("puter-signup-consent").checked = true;
   await browser.elements.get("create").onclick({ preventDefault() {} });
 
   assert.equal(browser.elements.get("create").disabled, false);
@@ -284,6 +301,7 @@ async function testConfirmationRequiredKeepsMemberAndDraftForEmailReturn() {
   browser.getElementById("name").value = "Test Athlete";
   browser.getElementById("email").value = "athlete@example.test";
   browser.getElementById("password").value = "correct horse battery";
+  browser.getElementById("puter-signup-consent").checked = true;
   await browser.elements.get("create").onclick({ preventDefault() {} });
 
   assert.match(browser.root.innerHTML, /Check your email/);
@@ -597,11 +615,68 @@ async function testDraftCanResumeFromAnotherTabAfterEmailConfirmation() {
   assert.ok(browser.values.get("alefit_onboarding_draft"));
 }
 
+async function testSignupRequiresPuterConsentAndHandlesCancelledSetup() {
+  let alefitRequests = 0;
+  let puterAttempts = 0;
+  const browser = makeBrowser({
+    draft: { step: 6, prefs: { sport: "general", goals: ["fitness"], equipment: ["bodyweight"], age: "adult" } },
+    puter: { auth: {
+      isSignedIn: () => false,
+      signIn: async () => {
+        puterAttempts += 1;
+        const error = new Error("Authentication window closed");
+        error.error = "auth_window_closed";
+        throw error;
+      }
+    } },
+    fetchImpl: async () => {
+      alefitRequests += 1;
+      throw new Error("ALEFIT signup must not run");
+    },
+  });
+  click(browser, "next");
+  browser.getElementById("name").value = "Test Athlete";
+  browser.getElementById("email").value = "athlete@example.test";
+  browser.getElementById("password").value = "correct horse battery";
+  await browser.elements.get("create").onclick({ preventDefault() {} });
+  assert.equal(puterAttempts, 0, "Puter identity creation requires explicit consent");
+  assert.equal(alefitRequests, 0);
+  browser.getElementById("puter-signup-consent").checked = true;
+  await browser.elements.get("create").onclick({ preventDefault() {} });
+  assert.equal(puterAttempts, 1);
+  assert.equal(alefitRequests, 0, "cancelled Puter setup must not create a partial ALEFIT account");
+  assert.equal(browser.elements.get("create").disabled, false);
+}
+
+async function testGoogleSignupPreparesTemporaryPuterIdentityFirst() {
+  const order = [];
+  const browser = makeBrowser({
+    draft: { step: 6, prefs: { sport: "general", goals: ["fitness"], equipment: ["bodyweight"], age: "adult" } },
+    puter: { auth: {
+      isSignedIn: () => false,
+      signIn: async (options) => {
+        order.push("puter");
+        assert.deepEqual(JSON.parse(JSON.stringify(options)), { attempt_temp_user_creation: true });
+      }
+    } },
+    oauth: { startGoogle: async (returnTo) => {
+      order.push("google");
+      assert.equal(returnTo, "/Register.html?google_signup=1");
+    } },
+  });
+  click(browser, "next");
+  browser.getElementById("puter-signup-consent").checked = true;
+  await browser.getElementById("google-signup").onclick();
+  assert.deepEqual(order, ["puter", "google"]);
+}
+
 async function run() {
   const tests = [
     testGuestStartsWithOnboardingBeforeAccount,
     testSignupSavesGuestPlanAndOpensToday,
     testSignupFailureShowsRetryableHelpfulError,
+    testSignupRequiresPuterConsentAndHandlesCancelledSetup,
+    testGoogleSignupPreparesTemporaryPuterIdentityFirst,
     testConfirmationRequiredKeepsMemberAndDraftForEmailReturn,
     testReturningUserWithPlanIsSentToDashboard,
     testSignedInUserWithoutPlanStartsOnboarding,

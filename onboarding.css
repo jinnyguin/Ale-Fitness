@@ -451,3 +451,7 @@ h1[tabindex="-1"]:focus { outline: none; }
 @media(max-width:620px){.question-screen>.field,.question-screen>fieldset{margin-top:24px;padding:18px}.question-screen .footer .skip{flex:0 0 100%;order:3}.question-screen h1{font-size:clamp(2.8rem,12vw,4.3rem)}}
 @media(prefers-reduced-motion:reduce){.question-screen{animation:none}.progress{transition:none}}
 @keyframes alefit-spin { to { transform: rotate(360deg); } }
+.af-puter-signup-note{margin-top:22px;padding:16px;border:1px solid var(--line);border-left:2px solid var(--lime);background:rgba(212,255,0,.035)}
+.af-puter-signup-note p{margin-top:8px;font-size:.84rem;line-height:1.55}
+.af-puter-signup-consent{display:flex;align-items:flex-start;gap:10px;margin-top:15px;color:var(--white);font-size:.83rem;line-height:1.45;cursor:pointer}
+.af-puter-signup-consent input{flex:0 0 auto;width:18px;height:18px;margin:1px 0 0;accent-color:var(--lime)}

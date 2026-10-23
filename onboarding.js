@@ -31,6 +31,7 @@
   };
   var googleSignupReturn = new URLSearchParams(window.location.search).get("google_signup") === "1";
   var accountNotice = "";
+  var signupPuterSdkPromise = null;
   state.showSports = false;
   state.prefs.goals = Array.isArray(state.prefs.goals) ? state.prefs.goals : [];
   state.prefs.equipment = Array.isArray(state.prefs.equipment) ? state.prefs.equipment :
@@ -307,6 +308,63 @@
     } catch (error) {
       return null;
     }
+  }
+  function loadSignupPuterSdk() {
+    if (window.puter && window.puter.auth && typeof window.puter.auth.signIn === "function") {
+      return Promise.resolve(window.puter);
+    }
+    if (signupPuterSdkPromise) return signupPuterSdkPromise;
+    signupPuterSdkPromise = new Promise(function (resolve, reject) {
+      var script = document.createElement("script");
+      var timeout = setTimeout(function () {
+        script.onerror = null;
+        reject(new Error("Puter setup did not load in time. Check your connection and try again."));
+      }, 15000);
+      script.src = "https://js.puter.com/v2/";
+      script.async = true;
+      script.onload = function () {
+        clearTimeout(timeout);
+        if (window.puter && window.puter.auth && typeof window.puter.auth.signIn === "function") {
+          resolve(window.puter);
+        } else {
+          reject(new Error("Puter loaded without its account setup service. Please try again."));
+        }
+      };
+      script.onerror = function () {
+        clearTimeout(timeout);
+        reject(new Error("Puter setup could not load. Check your connection and try again."));
+      };
+      document.head.appendChild(script);
+    }).catch(function (error) {
+      signupPuterSdkPromise = null;
+      throw error;
+    });
+    return signupPuterSdkPromise;
+  }
+  function prepareTemporaryPuterUser() {
+    var puter = window.puter;
+    if (!puter || !puter.auth || typeof puter.auth.signIn !== "function") {
+      throw new Error("Puter is still getting ready. Wait a moment, then try again.");
+    }
+    var signedIn = false;
+    try {
+      signedIn = typeof puter.auth.isSignedIn === "function" && puter.auth.isSignedIn();
+    } catch (error) {}
+    if (signedIn) return Promise.resolve(puter);
+    try {
+      return Promise.resolve(puter.auth.signIn({ attempt_temp_user_creation: true })).then(function () {
+        return puter;
+      });
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
+  function hasPuterSignupConsent() {
+    var checkbox = document.getElementById("puter-signup-consent");
+    if (checkbox && checkbox.checked) return true;
+    showError("Please agree to set up the temporary Puter identity for ALEFIT Coach before creating your account.");
+    if (checkbox) checkbox.focus();
+    return false;
   }
   function returnToSignIn() {
     persist();
@@ -654,6 +712,9 @@
     if (progressDetail) progressDetail.textContent = state.step === 6 ?
       "Your plan preview · save when ready" : "One question at a time · saved in this tab";
     var p = state.prefs;
+    if (state.step >= 5) {
+      loadSignupPuterSdk().catch(function () {});
+    }
     var html = "";
     if (state.step === 0) {
       html = question(0, "What are you training for?", "Your plan starts with the demands you actually need to meet.",
@@ -1336,6 +1397,10 @@
     root.innerHTML = '<section class="account">' + accountPlanSummary() +
       '<span class="eyebrow">Save your plan</span><h1>Create your ALEFIT account.</h1><p class="sub">Your personalized plan preview is ready. Create an account to save it and open your dashboard.</p>' +
       '<p class="account-next-step" role="status">Your answers and plan preview are saved in this tab while you create your account.</p>' +
+      '<div class="af-puter-signup-note"><span class="eyebrow">Coach setup during signup</span>' +
+      '<p>If you do not already have a Puter session, ALEFIT will prepare a temporary Puter identity for Coach. You will not need a Puter password or permanent Puter account. This temporary identity may not be recoverable if browser data is cleared or may not carry to another device.</p>' +
+      '<p>Puter may show a secure setup or permission window; ALEFIT stays open. Before Coach sends your questions and selected training context to Puter, you will review a separate sharing notice.</p>' +
+      '<label class="af-puter-signup-consent"><input id="puter-signup-consent" type="checkbox"> I agree to set up a temporary Puter identity for ALEFIT Coach.</label></div>' +
       '<p class="account-loading" id="account-status" role="status" aria-live="polite"></p>' +
       '<button type="button" class="button account-google" id="google-signup">' +
       '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.9 6.1-15Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.2A20.4 20.4 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.6a12.3 12.3 0 0 1 0-7.2v-5.2H5.8a20.1 20.1 0 0 0 0 17.6l6.8-5.2Z"/><path fill="#EA4335" d="M24 12c3 0 5.6 1 7.7 3.1l5.8-5.8C34 5.9 29.4 4 24 4A20.4 20.4 0 0 0 5.8 15.2l6.8 5.2C14.2 15.6 18.7 12 24 12Z"/></svg>' +
@@ -1345,12 +1410,24 @@
       '<div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required maxlength="254" placeholder="your@email.com"></div>' +
       '<div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="Minimum 8 characters"></div>' +
       '</form>' +
-      '<div class="footer"><button type="button" class="button" id="create">Create account & continue</button></div>' +
+      '<div class="footer"><button type="button" class="button" id="create">Create account & set up Coach</button></div>' +
       '<p class="account-login-link">Already have an account? <a href="/Login.html?from_url=%2FRegister.html">Sign in</a></p>' +
       '</section>';
     var form = document.getElementById("form");
     var googleButton = document.getElementById("google-signup");
     var googleButtonMarkup = googleButton.innerHTML;
+    var accountStatus = document.getElementById("account-status");
+    if (!(window.puter && window.puter.auth && typeof window.puter.auth.signIn === "function")) {
+      accountStatus.textContent = "Preparing temporary Coach setup…";
+      loadSignupPuterSdk().then(function () {
+        if (accountStatus.textContent === "Preparing temporary Coach setup…") {
+          accountStatus.textContent = "Coach setup is ready. Continue to create your ALEFIT account.";
+        }
+      }).catch(function (error) {
+        accountStatus.textContent = (error.message || "Puter setup could not load.") +
+          " Your answers are saved; retry the signup when your connection is stable.";
+      });
+    }
     form.onsubmit = register;
     form.addEventListener("input", function (event) {
       if (event.target && event.target.hasAttribute("aria-invalid")) {
@@ -1361,13 +1438,20 @@
     });
     googleButton.onclick = async function () {
       persist();
+      if (!hasPuterSignupConsent()) return;
       googleButton.disabled = true;
-      googleButton.textContent = "Connecting to Google…";
+      googleButton.textContent = "Preparing Coach setup…";
+      var status = document.getElementById("account-status");
+      if (status) status.textContent = "Preparing a temporary Coach identity before Google sign-in…";
       try {
+        await prepareTemporaryPuterUser();
+        googleButton.textContent = "Connecting to Google…";
+        if (status) status.textContent = "Puter setup is ready. Connecting to Google…";
         await window.AlefitOAuth.startGoogle("/Register.html?google_signup=1");
       } catch (error) {
         googleButton.disabled = false;
         googleButton.innerHTML = googleButtonMarkup;
+        if (status) status.textContent = "";
         showError(error.message || "Google sign-in could not be started. Your onboarding progress is still saved in this tab.");
       }
     };
@@ -1431,12 +1515,16 @@
       validation.input.focus();
       return;
     }
+    if (!hasPuterSignupConsent()) return;
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
-    button.textContent = "Creating account…";
+    button.textContent = "Preparing Coach setup…";
     var accountStatus = document.getElementById("account-status");
-    if (accountStatus) accountStatus.textContent = "Creating your ALEFIT account…";
+    if (accountStatus) accountStatus.textContent = "Preparing a temporary Coach identity…";
     try {
+      await prepareTemporaryPuterUser();
+      button.textContent = "Creating account…";
+      if (accountStatus) accountStatus.textContent = "Puter setup is ready. Creating your ALEFIT account…";
       var response;
       try {
         response = await fetch("/api/apps/" + APP + "/auth/register", {
@@ -1520,7 +1608,7 @@
     } catch (error) {
       button.disabled = false;
       button.removeAttribute("aria-busy");
-      button.textContent = "Create account & continue";
+      button.textContent = "Create account & set up Coach";
       if (accountStatus) accountStatus.textContent = "";
       showError(error.message || "Account could not be created. Your onboarding answers are still here.");
     }

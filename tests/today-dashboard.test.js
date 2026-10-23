@@ -139,7 +139,8 @@ markup = document.getElementById("app").innerHTML;
 assert.match(markup, /recent workout\/readiness details/);
 assert.match(markup, /ALEFIT does not attach your account name or email/);
 assert.match(markup, /personal details you type into a question/);
-assert.match(markup, /monthly allowance/);
+assert.match(markup, /temporary Puter identity/);
+assert.match(markup, /usage limits/);
 assert.match(markup, /I agree to share those training details/);
 const consent = document.getElementById("puter-consent");
 consent.checked = true;
@@ -154,12 +155,23 @@ async function verifyPuterCoach() {
     assert(htmlNow.includes('href="/today.html?view=' + view + '"'));
   }
   let puterCall = null;
-  window.puter = { ai: { chat(prompt, testMode, options) {
-    puterCall = { prompt, testMode, options };
-    return Promise.resolve({ message: { content: "Keep the prescribed load today." } });
-  } } };
+  let puterAuthOptions = null;
+  window.puter = {
+    auth: {
+      isSignedIn() { return false; },
+      signIn(options) {
+        puterAuthOptions = options;
+        return Promise.resolve({ temporary: true });
+      }
+    },
+    ai: { chat(prompt, testMode, options) {
+      puterCall = { prompt, testMode, options };
+      return Promise.resolve({ message: { content: "Keep the prescribed load today." } });
+    } }
+  };
   await ui.activatePuterCoach();
   markup = document.getElementById("app").innerHTML;
+  assert.deepEqual(JSON.parse(JSON.stringify(puterAuthOptions)), { attempt_temp_user_creation: true });
   assert.match(markup, /Puter-only coaching/);
   assert.match(markup, /Next session/);
   assert.match(markup, /Adjust for recovery/);
