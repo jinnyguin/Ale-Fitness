@@ -1567,6 +1567,8 @@ def auth_avatar(app_id):
     user, token = get_current_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if request.content_length is not None and request.content_length > MAX_AVATAR_BYTES + 65536:
+        return jsonify({"error": "Choose a photo smaller than 2 MB."}), 413
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
     f = request.files["file"]
@@ -1575,8 +1577,6 @@ def auth_avatar(app_id):
     if token and token.startswith("local.") and not SUPABASE_SERVICE_KEY:
         return jsonify({"error": "Photo storage is not enabled for this account type yet."}), 503
 
-    if request.content_length and request.content_length > MAX_AVATAR_BYTES + 65536:
-        return jsonify({"error": "Choose a photo smaller than 2 MB."}), 413
     image_bytes = f.stream.read(MAX_AVATAR_BYTES + 1)
     if len(image_bytes) > MAX_AVATAR_BYTES:
         return jsonify({"error": "Choose a photo smaller than 2 MB."}), 413

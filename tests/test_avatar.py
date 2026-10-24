@@ -108,8 +108,12 @@ class AvatarRouteTests(unittest.TestCase):
                 content_type="multipart/form-data",
             )
         image.close()
+        # Werkzeug spools the oversized multipart request body to a temporary
+        # file; close the test client's WSGI input stream so it is not leaked.
+        response.request.environ["wsgi.input"].close()
 
         self.assertEqual(response.status_code, 413)
+        self.assertIn("smaller than 2 MB", response.get_json()["error"])
         storage.assert_not_called()
 
     def test_upload_requires_an_authenticated_user(self):
