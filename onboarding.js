@@ -1580,9 +1580,12 @@
         throw new Error("The signup service did not return a complete session. Please try again or sign in.");
       }
       try {
-        localStorage.setItem("base44_access_token", data.access_token);
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("alefit_user", JSON.stringify(data.user));
+        if (window.AlefitSession) window.AlefitSession.save(data);
+        else {
+          localStorage.setItem("base44_access_token", data.access_token);
+          localStorage.setItem("token", data.access_token);
+          localStorage.setItem("alefit_user", JSON.stringify(data.user));
+        }
         if (window.AlefitMember) window.AlefitMember.markSignedIn(data.user);
       } catch (storageError) {
         try {
@@ -1616,13 +1619,12 @@
   async function checkExisting() {
     var response;
     try {
-      response = await fetch("/api/apps/" + APP + "/entities/OnboardingPlan?limit=1", { headers: { Authorization: "Bearer " + token() } });
+      response = await fetch("/api/apps/" + APP + "/member-status", { headers: { Authorization: "Bearer " + token() } });
       if (response.status === 401 || response.status === 403) return returnToSignIn();
       if (!response.ok) throw new Error("Could not verify your existing plan.");
-      var data = await response.json();
-      var records = Array.isArray(data) ? data : (data.data || data.items || []);
-      if (records.length) {
-        state.existingId = records[0].id;
+      var status = await response.json();
+      if (status.plan) {
+        state.existingId = status.plan.id;
         persist();
         if (!window.confirm("Replace your existing ALEFIT plan with this reviewed plan?")) return;
       }
@@ -1706,16 +1708,16 @@
       '<p class="sub">We’re opening your saved plan or continuing your personalized onboarding.</p>' +
       '<div class="auth-spinner" aria-hidden="true"></div></section>';
     try {
-      var response = await fetch("/api/apps/" + APP + "/entities/OnboardingPlan?limit=1", {
+      var response = await fetch("/api/apps/" + APP + "/member-status", {
         headers: { Authorization: "Bearer " + token() }
       });
       if (response.status === 401 || response.status === 403) return returnToSignIn();
       if (!response.ok) throw new Error("Could not check saved onboarding.");
-      var data = await response.json();
-      var records = Array.isArray(data) ? data : (data.data || data.items || []);
-      if (window.AlefitMember) window.AlefitMember.markSetupComplete(records.length > 0);
-      if (records.length && (googleSignupReturn || !(state.step === 6 && state.plan))) {
-        window.location.replace("/today.html");
+      var status = await response.json();
+      var hasPlan = !!status.plan;
+      if (window.AlefitMember) window.AlefitMember.markSetupComplete(hasPlan);
+      if (hasPlan && (googleSignupReturn || !(state.step === 6 && state.plan))) {
+        window.location.replace("/today.html?view=today");
         return;
       }
       if (googleSignupReturn) {

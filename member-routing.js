@@ -72,7 +72,7 @@
   }
 
   async function routeFromHome() {
-    var knownMember = hasMemberRecord();
+    var knownMember = !!(read(MEMBER_KEY) || token());
     var restored;
     try {
       if (!root.AlefitSession || typeof root.AlefitSession.restore !== "function") {
@@ -84,6 +84,7 @@
     }
 
     if (!restored || !restored.authenticated || !restored.user) {
+      clearSession();
       if (!knownMember) return { state: "public" };
       root.location.replace(loginUrl("/today.html?view=today"));
       return { state: "redirect" };
@@ -108,13 +109,14 @@
 
   async function routeAfterSignIn(user, preferredPath) {
     markSignedIn(user);
-    var destination = safePath(preferredPath || "/today.html?view=today");
+    var intendedPath = safePath(preferredPath || "/today.html?view=today");
     var status = await fetchMemberStatus(token());
     markSignedIn(status.user);
     markSetupComplete(status.setup_complete);
     // Server-side records are authoritative. Never let a stale/missing browser
     // flag send a member with a saved plan back through onboarding.
-    destination = status.plan ? "/today.html?view=today" : "/Register.html";
+    var destination = status.plan ? "/today.html?view=today" :
+      (/^\/Register\.html(?:[?#]|$)/i.test(intendedPath) ? intendedPath : "/Register.html");
     root.location.replace(destination);
     return destination;
   }

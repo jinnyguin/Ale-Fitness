@@ -23,7 +23,7 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
 LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET", "")
 AUTH_REFRESH_COOKIE = "alefit_refresh"
-AUTH_REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+AUTH_REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 10
 
 # ---------------------------------------------------------------------------
 # Postgres helpers (Supabase for app data; legacy DB remains local-auth storage)
@@ -86,6 +86,11 @@ def _set_refresh_cookie(response, refresh_token):
 
 
 def _session_response(session, user, status=200):
+    if not session.get("access_token") or not session.get("refresh_token"):
+        response = jsonify({"error": "ALEFIT could not securely save this sign-in. Please try again."})
+        response.status_code = 503
+        response.headers["Cache-Control"] = "no-store"
+        return _set_refresh_cookie(response, None)
     response = jsonify({
         "access_token": session.get("access_token"),
         "user": format_user(user),
@@ -105,6 +110,8 @@ def _restore_supabase_session(refresh_token):
         "/auth/v1/token?grant_type=refresh_token",
         {"refresh_token": refresh_token},
     )
+    if status == 429:
+        return None, (429, {"error": "Sign-in is busy. Please try again in a moment."})
     if (
         status != 200
         or not isinstance(data, dict)
@@ -994,9 +1001,8 @@ def auth_register(app_id):
             response = jsonify({
                 "access_token": create_local_token(user),
                 "user": format_user(user),
-            }), 201
-            response, code = response
-            response.status_code = code
+            })
+            response.status_code = 201
             return _set_refresh_cookie(response, None)
         return jsonify({"error": err}), status
 

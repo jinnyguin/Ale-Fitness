@@ -159,6 +159,19 @@
     token = qp.get('access_token');
   }
 
+  // Older Supabase redirects could return tokens in the URL fragment. Exchange
+  // their refresh token once so it moves into the protected HttpOnly cookie.
+  if (token && refreshToken) {
+    try {
+      var persistedSession = await window.AlefitSession.exchange({refresh_token:refreshToken});
+      token = persistedSession.access_token;
+      refreshToken = null;
+    } catch (error) {
+      setError(error.message || 'Your sign-in could not be securely restored. Please try again.');
+      return;
+    }
+  }
+
   if (!token) {
     setError(query.get('error_description') || query.get('error') || 'No access token received.');
     return;
@@ -210,6 +223,9 @@
     } catch (storageError) {
       clearStoredSession();
       throw new Error('Your browser blocked sign-in storage. Allow site data for ALEFIT, then try again.');
+    }
+    if (window.AlefitMember) {
+      return window.AlefitMember.routeAfterSignIn(user, fromUrl);
     }
     var dest = new URL(fromUrl, window.location.origin);
     dest.searchParams.delete('access_token');

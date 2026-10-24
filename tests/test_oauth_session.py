@@ -26,6 +26,74 @@ class OAuthSessionTests(unittest.TestCase):
             response = self.client.post("/api/oauth/session", json={"refresh_token": "old"})
             self.assertEqual(response.status_code, 200)
             self.assertIn("grant_type=refresh_token", auth.call_args.args[1])
+            self.assertNotIn("refresh_token", response.get_json())
+            cookie = response.headers["Set-Cookie"]
+            self.assertIn("HttpOnly", cookie)
+            self.assertIn("SameSite=Lax", cookie)
+
+    def test_refresh_cookie_is_shared_by_alefit_domains_and_is_secure(self):
+        data = {"access_token": "new", "refresh_token": "rotated", "user": {"id": "same-id"}}
+        with patch.object(server, "supabase_auth", return_value=(200, data)), \
+                patch.object(server, "ensure_profile"):
+            response = self.client.post(
+                "/api/oauth/session",
+                json={"refresh_token": "old"},
+                base_url="https://www.alefit.org",
+            )
+        cookie = response.headers["Set-Cookie"]
+        self.assertIn("Domain=alefit.org", cookie)
+        self.assertIn("Secure", cookie)
+        self.assertIn("HttpOnly", cookie)
+
+    def test_restore_endpoint_rotates_cookie_and_returns_verified_identity(self):
+        data = {
+            "access_token": "restored-access",
+            "refresh_token": "rotated-refresh",
+            "user": {"id": "same-id", "email": "member@example.test"},
+        }
+        with patch.object(server, "supabase_auth", return_value=(200, data)) as auth, \
+                patch.object(server, "ensure_profile") as profile:
+            self.client.set_cookie(
+                domain="alefit.org",
+                origin_only=False,
+                key=server.AUTH_REFRESH_COOKIE,
+                value="previous-refresh",
+            )
+            response = self.client.post(
+                "/api/auth/session/restore",
+                json={},
+                base_url="https://www.alefit.org",
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["user"]["id"], "same-id")
+        self.assertEqual(response.get_json()["access_token"], "restored-access")
+        self.assertNotIn("refresh_token", response.get_json())
+        self.assertIn("Domain=alefit.org", response.headers["Set-Cookie"])
+        self.assertIn("grant_type=refresh_token", auth.call_args.args[1])
+        profile.assert_called_once_with("same-id", "member@example.test", "")
+
+    def test_restore_clears_revoked_refresh_cookie_without_claiming_login(self):
+        with patch.object(server, "supabase_auth", return_value=(400, {})):
+            response = self.client.post(
+                "/api/auth/session/restore",
+                json={"refresh_token": "revoked"},
+                base_url="https://www.alefit.org",
+            )
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Max-Age=0", response.headers["Set-Cookie"])
+
+    def test_logout_clears_shared_cookie_and_revokes_provider_session(self):
+        with patch.object(server, "supabase_auth", return_value=(204, {})) as auth:
+            response = self.client.post(
+                "/api/auth/session/logout",
+                base_url="https://www.alefit.org",
+                headers={"Authorization": "Bearer current-access"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["ok"])
+        self.assertIn("/auth/v1/logout", auth.call_args.args[1])
+        self.assertIn("Domain=alefit.org", response.headers["Set-Cookie"])
+        self.assertIn("Max-Age=0", response.headers["Set-Cookie"])
 
     def test_missing_verifier_never_calls_provider(self):
         with patch.object(server, "supabase_auth") as auth:

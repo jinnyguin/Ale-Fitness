@@ -317,11 +317,15 @@ async function testReturningUserWithPlanIsSentToDashboard() {
     fetchImpl: async () => ({
       ok: true,
       status: 200,
-      json: async () => [{ id: "saved-plan" }],
+      json: async () => ({
+        user: {id:"returning-user"},
+        setup_complete:true,
+        plan: {id:"saved-plan"},
+      }),
     }),
   });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(browser.location.replacedWith, "/today.html");
+  assert.equal(browser.location.replacedWith, "/today.html?view=today");
 }
 
 async function testSignedInUserWithoutPlanStartsOnboarding() {
@@ -330,7 +334,11 @@ async function testSignedInUserWithoutPlanStartsOnboarding() {
     fetchImpl: async () => ({
       ok: true,
       status: 200,
-      json: async () => [],
+      json: async () => ({
+        user:{id:"new-user"},
+        setup_complete:false,
+        plan:null,
+      }),
     }),
   });
   await new Promise((resolve) => setTimeout(resolve, 0));

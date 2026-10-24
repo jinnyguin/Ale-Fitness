@@ -101,7 +101,11 @@ class AuthRouteTests(unittest.TestCase):
             patch.object(
                 server,
                 "supabase_auth",
-                return_value=(201, {"access_token": "remote-access-token", "user": provider_user}),
+                return_value=(201, {
+                    "access_token": "remote-access-token",
+                    "refresh_token": "remote-refresh-token",
+                    "user": provider_user,
+                }),
             ),
             patch.object(server, "ensure_profile") as ensure_profile,
         ):
@@ -117,6 +121,8 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.get_json()["access_token"], "remote-access-token")
         self.assertEqual(response.get_json()["user"]["id"], "remote-user")
+        self.assertNotIn("refresh_token", response.get_json())
+        self.assertIn("HttpOnly", response.headers["Set-Cookie"])
         ensure_profile.assert_called_once_with(
             "remote-user", "athlete@example.test", "Test Athlete"
         )
@@ -133,7 +139,11 @@ class AuthRouteTests(unittest.TestCase):
             patch.object(
                 server,
                 "supabase_auth",
-                return_value=(200, {"access_token": "remote-access-token", "user": provider_user}),
+                return_value=(200, {
+                    "access_token": "remote-access-token",
+                    "refresh_token": "remote-refresh-token",
+                    "user": provider_user,
+                }),
             ),
             patch.object(server, "ensure_profile") as ensure_profile,
         ):
@@ -145,6 +155,8 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["access_token"], "remote-access-token")
         self.assertEqual(response.get_json()["user"]["id"], "remote-user")
+        self.assertNotIn("refresh_token", response.get_json())
+        self.assertIn("HttpOnly", response.headers["Set-Cookie"])
         ensure_profile.assert_called_once_with("remote-user", "athlete@example.test")
 
     def test_lowercase_login_html_alias_serves_the_login_page(self):

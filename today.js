@@ -1315,7 +1315,8 @@
       });
     };
     avatarUpload.onclick = uploadAvatar;
-    document.getElementById("logout").onclick = function () {
+    var logoutButton = document.getElementById("logout");
+    logoutButton.onclick = async function () {
       if (avatarHasUnsavedChanges) {
         var warning = avatarUploading
           ? "Your photo is still uploading. Sign out anyway? It may not be saved."
@@ -1329,6 +1330,23 @@
         else if (knownUser && knownUser.id) localStorage.setItem("alefit_member_account", knownUser.id);
       } catch (error) {
         try { localStorage.setItem("alefit_member_account", "known"); } catch (storageError) {}
+      }
+      logoutButton.disabled = true;
+      var status = document.getElementById("profile-message");
+      try {
+        var accessToken = localStorage.getItem("base44_access_token") || localStorage.getItem("token");
+        var response = await fetch("/api/auth/session/logout", {
+          method: "POST",
+          headers: accessToken ? {Authorization:"Bearer " + accessToken} : {}
+        });
+        if (!response.ok) throw new Error("Could not securely end this session. Please try again.");
+      } catch (error) {
+        logoutButton.disabled = false;
+        if (status) {
+          status.textContent = error.message || "Could not sign out. Check your connection and try again.";
+          status.className = "error";
+        }
+        return;
       }
       localStorage.removeItem("base44_access_token");
       localStorage.removeItem("token");

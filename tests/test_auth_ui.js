@@ -73,14 +73,52 @@ function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = fals
       this.replacedWith = String(value);
     },
   };
+  const request = fetchImpl || (async () => { throw new Error("unexpected fetch"); });
   const window = { location, localStorage, addEventListener() {} };
+  window.AlefitSession = {
+    save(session) {
+      localStorage.setItem("base44_access_token", session.access_token);
+      localStorage.setItem("token", session.access_token);
+      if (session.user) localStorage.setItem("alefit_user", JSON.stringify(session.user));
+    },
+    async restore() {
+      const savedToken = values.get("token");
+      if (!savedToken) return {authenticated:false, user:null};
+      const response = await request("/api/apps/6a1f3d189ebdbe71fa7d256c/auth/me", {
+        headers: {Authorization:"Bearer " + savedToken},
+      });
+      if (response.status === 401 || response.status === 403) {
+        values.delete("token");
+        values.delete("base44_access_token");
+        values.delete("alefit_user");
+        return {authenticated:false, user:null};
+      }
+      if (!response.ok) {
+        throw new Error("We could not verify your saved sign-in right now. You can try signing in below.");
+      }
+      const user = await response.json();
+      if (!user || typeof user.id !== "string") {
+        throw new Error("The sign-in service returned an invalid session response. You can try signing in below.");
+      }
+      return {authenticated:true, user, access_token:savedToken};
+    },
+  };
+  window.AlefitMember = {
+    markSignedIn() {},
+    async routeAfterSignIn(user, preferredPath) {
+      const destination = preferredPath && /^\/Register\.html(?:[?#]|$)/i.test(preferredPath)
+        ? "/Register.html" : "/today.html?view=today";
+      location.replace(destination);
+      return destination;
+    },
+  };
   const document = { getElementById: getElement };
   const context = {
     window,
     document,
     URL,
     URLSearchParams,
-    fetch: fetchImpl || (async () => { throw new Error("unexpected fetch"); }),
+    fetch: request,
     console,
   };
 
@@ -118,7 +156,6 @@ function makeCallbackBrowser({ search = "", hash = "", storageBlocked = false, f
     save(session) {
       localStorage.setItem("base44_access_token", session.access_token);
       localStorage.setItem("token", session.access_token);
-      if (session.refresh_token) localStorage.setItem("alefit_refresh_token", session.refresh_token);
     },
     timedFetch: fetchImpl,
     exchange: exchange || (async () => { throw new Error("unexpected exchange"); })
@@ -129,6 +166,7 @@ function makeCallbackBrowser({ search = "", hash = "", storageBlocked = false, f
   const document = {
     getElementById: getElement,
     createElement: () => makeElement(),
+    querySelector: () => ({setAttribute() {}}),
   };
   const context = {
     window,
@@ -194,7 +232,7 @@ async function testValidSavedSessionRedirects() {
     }),
   });
   await flushPromises();
-  assert.equal(browser.location.replacedWith, "/account");
+  assert.equal(browser.location.replacedWith, "/today.html?view=today");
 }
 
 async function testManualLoginStoresOnlyACompleteSession() {
@@ -216,7 +254,7 @@ async function testManualLoginStoresOnlyACompleteSession() {
 
   assert.equal(browser.values.get("token"), "new-token");
   assert.equal(JSON.parse(browser.values.get("alefit_user")).id, "user-1");
-  assert.equal(browser.location.replacedWith, "/today.html?view=plan");
+  assert.equal(browser.location.replacedWith, "/today.html?view=today");
   assert.equal(trackedEvents, 1);
 }
 
@@ -363,13 +401,13 @@ async function testPkceCallbackRestoresPendingDestination() {
     exchange: async (body) => {
       assert.equal(body.code, "one-time-code");
       assert.equal(body.code_verifier, "a".repeat(64));
-      return {access_token:"verified", refresh_token:"refresh"};
+      return {access_token:"verified"};
     },
     fetchImpl: async () => ({ok:true,status:200,json:async()=>({id:"same-provider-user"})})
   });
   await flushPromises();
   assert.equal(browser.location.replacedWith, "https://alefit.example/Register.html?google_signup=1");
-  assert.equal(browser.values.get("alefit_refresh_token"), "refresh");
+  assert.equal(browser.values.has("alefit_refresh_token"), false);
 }
 
 async function testCallbackCancellationAndExpiredTransaction() {

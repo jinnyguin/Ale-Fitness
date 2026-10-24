@@ -371,9 +371,12 @@
       throw new Error('The sign-in service did not return a valid session. Please try again.');
     }
     try {
-      window.localStorage.setItem('base44_access_token', data.access_token);
-      window.localStorage.setItem('token', data.access_token);
-      if (data.user) window.localStorage.setItem('alefit_user', JSON.stringify(data.user));
+      if (window.AlefitSession) window.AlefitSession.save(data);
+      else {
+        window.localStorage.setItem('base44_access_token', data.access_token);
+        window.localStorage.setItem('token', data.access_token);
+        if (data.user) window.localStorage.setItem('alefit_user', JSON.stringify(data.user));
+      }
     } catch (err) {
       clearStoredSession();
       throw new Error('Your browser blocked sign-in storage. Allow site data for ALEFIT, then try again.');
@@ -385,54 +388,19 @@
     }
   }
 
-  var token = readStoredToken();
-  if (token) {
-    fetch('/api/apps/' + APP_ID + '/auth/me', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    }).then(function(response) {
-      if (manualSignInStarted) return;
-      if (response.status === 401 || response.status === 403) {
-        clearStoredSession();
-        return null;
-      }
-      if (!response.ok) {
-        throw new Error(response.status === 429 ?
-          'Sign-in verification is busy. Please try again in a moment.' :
-          'We could not verify your saved sign-in right now. You can try signing in below.');
-      }
-      return response.json().catch(function() {
-        throw new Error('The sign-in service returned an invalid session response. You can try signing in below.');
-      }).then(function(user) {
-        if (
-          !user ||
-          typeof user !== 'object' ||
-          Array.isArray(user) ||
-          typeof user.id !== 'string' ||
-          !user.id.trim()
-        ) {
-          throw new Error('The sign-in service returned an invalid session response. You can try signing in below.');
-        }
-        return user;
-      });
-    }).then(function(user) {
-      if (user && !manualSignInStarted) {
-        if (window.AlefitMember) {
-          window.AlefitMember.markSignedIn(user);
-          window.AlefitMember.routeAfterSignIn(user, fromUrl);
-        } else {
-          window.location.replace(fromUrl);
-        }
-      }
-    }).catch(function(error) {
-      if (!manualSignInStarted) {
-        var message = error && error.name === 'TypeError' ?
-          'We could not reach the sign-in service to verify your saved session. Please try again.' :
-          (error && error.message) ||
-          'We could not verify your saved sign-in right now. You can try signing in below.';
-        showError(message);
-      }
-    });
-  }
+  window.AlefitSession.restore().then(function(session) {
+    if (manualSignInStarted || !session || !session.authenticated) return;
+    if (window.AlefitMember) {
+      window.AlefitMember.markSignedIn(session.user);
+      return window.AlefitMember.routeAfterSignIn(session.user, fromUrl);
+    }
+    window.location.replace('/today.html?view=today');
+  }).catch(function(error) {
+    if (!manualSignInStarted) {
+      showError((error && error.message) ||
+        'We could not verify your saved sign-in right now. You can try signing in below.');
+    }
+  });
 
   form.addEventListener('submit', async function(e) {
     e.preventDefault();

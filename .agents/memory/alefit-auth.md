@@ -14,3 +14,9 @@ Keep onboarding drafts available across the email-confirmation round trip, inclu
 **Why:** Email links can open a separate tab or return to the site after the original signup page is gone.
 
 **How to apply:** Persist draft state locally with a session-storage fallback, preserve same-origin return paths, and remove the draft only after the plan-save request succeeds.
+
+For durable Supabase sessions on ALEFIT, keep the rotating refresh token in a Secure, HttpOnly, SameSite=Lax cookie scoped to `.alefit.org`; restore and verify the user and saved plan server-side before selecting the first page. Browser member markers are hints only, never proof of sign-in.
+
+**Why:** `www.alefit.org` and `alefit.org` do not share browser storage, and a local setup flag can be missing even when the member already has a saved plan.
+
+**How to apply:** Continue routing from the authenticated server response and `OnboardingPlan` record. Preserve legacy local refresh tokens only as a migration input; new sessions should use the cookie.

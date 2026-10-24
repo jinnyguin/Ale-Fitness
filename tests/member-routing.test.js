@@ -6,7 +6,7 @@ const routingSource = fs.readFileSync("member-routing.js", "utf8");
 const entrySource = fs.readFileSync("member-entry.js", "utf8");
 const appId = "6a1f3d189ebdbe71fa7d256c";
 
-function makeBrowser({ values: initial = {}, fetchImpl } = {}) {
+function makeBrowser({ values: initial = {}, fetchImpl, restoreResult } = {}) {
   const values = new Map(Object.entries(initial));
   const location = {
     origin: "https://alefit.example",
@@ -22,6 +22,13 @@ function makeBrowser({ values: initial = {}, fetchImpl } = {}) {
     location,
     localStorage,
     fetch: fetchImpl || (async () => { throw new Error("unexpected fetch"); }),
+    AlefitSession: {
+      restore: async () => restoreResult || {
+        authenticated: !!(values.get("base44_access_token") || values.get("token")),
+        user: {id: "restored-member"},
+        access_token: values.get("base44_access_token") || values.get("token"),
+      },
+    },
   };
   vm.runInNewContext(routingSource, { window, URL, URLSearchParams });
   return { window, location, values };
@@ -32,7 +39,9 @@ async function testMemberHomeWithValidCompleteAccountGoesToDashboard() {
     values: { alefit_member_account: "remembered", token: "valid" },
     fetchImpl: async (url) => url.endsWith("/auth/me") ?
       { ok: true, status: 200, json: async () => ({ id: "athlete-1" }) } :
-      { ok: true, status: 200, json: async () => [{ id: "plan-1" }] },
+      { ok: true, status: 200, json: async () => ({
+        user:{id:"athlete-1"}, setup_complete:true, plan:{id:"plan-1"},
+      }) },
   });
   await browser.window.AlefitMember.routeFromHome();
   assert.equal(browser.location.replacedWith, "/today.html?view=today");
@@ -43,9 +52,9 @@ async function testMemberHomeWithValidCompleteAccountGoesToDashboard() {
 async function testMemberHomeWithIncompleteAccountContinuesSetupAfterLogin() {
   const browser = makeBrowser({
     values: { alefit_member_account: "remembered", token: "valid" },
-    fetchImpl: async (url) => url.endsWith("/auth/me") ?
-      { ok: true, status: 200, json: async () => ({ id: "athlete-2" }) } :
-      { ok: true, status: 200, json: async () => [] },
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({
+      user:{id:"athlete-2"}, setup_complete:false, plan:null,
+    }) }),
   });
   await browser.window.AlefitMember.routeFromHome();
   assert.equal(browser.location.replacedWith, "/Register.html");
@@ -60,7 +69,7 @@ async function testExpiredSessionRequiresLoginAndRetainsMemberMemory() {
       token: "expired",
       base44_access_token: "expired",
     },
-    fetchImpl: async () => ({ ok: false, status: 401 }),
+    restoreResult: {authenticated:false, user:null},
   });
   await browser.window.AlefitMember.routeFromHome();
   assert.equal(
@@ -74,23 +83,64 @@ async function testExpiredSessionRequiresLoginAndRetainsMemberMemory() {
 async function testFreshSignInUsesSavedPlanStatusAndNeverReturnsToHomepage() {
   const complete = makeBrowser({
     values: { token: "valid" },
-    fetchImpl: async () => ({ ok: true, status: 200, json: async () => [{ id: "plan" }] }),
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({
+      user:{id:"athlete-4"}, setup_complete:true, plan:{id:"plan"},
+    }) }),
   });
   await complete.window.AlefitMember.routeAfterSignIn(
     { id: "athlete-4" },
-    "/",
+    "/Register.html",
   );
-  assert.equal(complete.location.replacedWith, "/today.html?view=plan");
+  assert.equal(complete.location.replacedWith, "/today.html?view=today");
 
   const incomplete = makeBrowser({
     values: { token: "valid" },
-    fetchImpl: async () => ({ ok: true, status: 200, json: async () => [] }),
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({
+      user:{id:"athlete-5"}, setup_complete:false, plan:null,
+    }) }),
   });
   await incomplete.window.AlefitMember.routeAfterSignIn(
     { id: "athlete-5" },
     "/today.html?view=plan",
   );
   assert.equal(incomplete.location.replacedWith, "/Register.html");
+}
+
+async function testHomeRestoresCookieSessionEvenWithoutLocalMemberFlags() {
+  const browser = makeBrowser({
+    restoreResult: {
+      authenticated: true,
+      user: {id: "cookie-member"},
+      access_token: "restored-access",
+    },
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({
+      user:{id:"cookie-member"}, setup_complete:true, plan:{id:"saved-plan"},
+    }) }),
+  });
+  await browser.window.AlefitMember.routeFromHome();
+  assert.equal(browser.location.replacedWith, "/today.html?view=today");
+  assert.equal(browser.values.get("alefit_member_account"), "cookie-member");
+}
+
+async function testMissingLocalSetupFlagDoesNotOverrideSavedPlan() {
+  const browser = makeBrowser({
+    values: {token: "valid", alefit_member_account: "member"},
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({
+      user:{id:"member"}, setup_complete:true, plan:{id:"saved-plan"},
+    }) }),
+  });
+  await browser.window.AlefitMember.routeAfterSignIn({id:"member"}, "/Register.html");
+  assert.equal(browser.location.replacedWith, "/today.html?view=today");
+}
+
+async function testMemberStatusOutageDoesNotMisrouteToOnboardingOrHome() {
+  const browser = makeBrowser({
+    values: {token: "valid"},
+    fetchImpl: async () => ({ok:false, status:503, json:async()=>({error:"unavailable"})}),
+  });
+  const result = await browser.window.AlefitMember.routeFromHome();
+  assert.equal(result.state, "error");
+  assert.equal(browser.location.replacedWith, null);
 }
 
 function testUnconfirmedMemberWithoutSessionMustAuthenticate() {
@@ -100,7 +150,7 @@ function testUnconfirmedMemberWithoutSessionMustAuthenticate() {
   return browser.window.AlefitMember.routeFromHome().then(() => {
     assert.equal(
       browser.location.replacedWith,
-      "/Login.html?from_url=%2FRegister.html",
+      "/Login.html?from_url=%2Ftoday.html%3Fview%3Dtoday",
     );
   });
 }
@@ -125,20 +175,35 @@ function testHomepageForwardsOAuthCodeToCallback() {
   );
 }
 
+async function testPublicHomepageOnlyRevealsAfterSessionCheck() {
+  let removedPending = false;
+  const document = {
+    readyState: "complete",
+    documentElement: {classList:{remove(name){removedPending = name === "member-entry-pending";}}},
+    getElementById(){return null;},
+  };
+  const window = {
+    location: {origin:"https://alefit.example", pathname:"/", search:"", hash:""},
+    AlefitMember: {routeFromHome:async()=>({state:"public"})},
+  };
+  vm.runInNewContext(entrySource, {window, document, URL, URLSearchParams});
+  await new Promise(resolve=>setTimeout(resolve, 0));
+  assert.equal(removedPending, true);
+}
+
 async function run() {
   await testMemberHomeWithValidCompleteAccountGoesToDashboard();
   await testMemberHomeWithIncompleteAccountContinuesSetupAfterLogin();
   await testExpiredSessionRequiresLoginAndRetainsMemberMemory();
   await testFreshSignInUsesSavedPlanStatusAndNeverReturnsToHomepage();
+  await testHomeRestoresCookieSessionEvenWithoutLocalMemberFlags();
+  await testMissingLocalSetupFlagDoesNotOverrideSavedPlan();
+  await testMemberStatusOutageDoesNotMisrouteToOnboardingOrHome();
   await testUnconfirmedMemberWithoutSessionMustAuthenticate();
   testHomepageForwardsOAuthCodeToCallback();
 
-  let removedPending = false;
-  const document = { documentElement: { classList: { remove(name) { removedPending = name === "member-entry-pending"; } } } };
-  const publicWindow = { AlefitMember: { hasMemberRecord: () => false }, location: {} };
-  vm.runInNewContext(entrySource, { window: publicWindow, document, URL, URLSearchParams });
-  assert.equal(removedPending, true);
-  console.log("5 member routing scenarios, OAuth callback fallback, and public homepage guard passed.");
+  await testPublicHomepageOnlyRevealsAfterSessionCheck();
+  console.log("8 member routing scenarios, OAuth callback fallback, and public homepage guard passed.");
 }
 
 run().catch((error) => {

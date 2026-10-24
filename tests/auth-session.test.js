@@ -40,5 +40,33 @@ function browser(mode) {
   assert.equal((await switched.window.fetch("/api/apps/test/auth/me",
     {headers:{Authorization:"Bearer expired"}})).status,401);
   assert.equal(switched.refreshes(),0);
+
+  const restoredValues = new Map();
+  const restoredWindow = {
+    localStorage: {
+      getItem:key => restoredValues.get(key) || null,
+      setItem:(key,value) => restoredValues.set(key,String(value)),
+      removeItem:key => restoredValues.delete(key),
+    },
+    location:{origin:"https://alefit.example"},
+    fetch:async (url, options) => {
+      if (url === "/api/oauth/session") {
+        assert.equal(options.credentials, "same-origin");
+        return new Response(JSON.stringify({access_token:"cookie-restored"}));
+      }
+      if (url.endsWith("/auth/me") &&
+          new Headers(options.headers).get("Authorization") === "Bearer cookie-restored") {
+        return new Response(JSON.stringify({id:"restored-athlete"}));
+      }
+      return new Response("{}", {status:401});
+    },
+  };
+  vm.runInNewContext(fs.readFileSync("auth-session.js","utf8"),
+    {window:restoredWindow, URL, Headers, Response, AbortController, setTimeout, clearTimeout, console});
+  const restored = await restoredWindow.AlefitSession.restore();
+  assert.equal(restored.authenticated, true);
+  assert.equal(restored.user.id, "restored-athlete");
+  assert.equal(restoredValues.get("token"), "cookie-restored");
+  assert.equal(restoredValues.has("alefit_refresh_token"), false);
   console.log("Session refresh: rotation, concurrent requests, outage and account isolation passed.");
 })().catch(error=>{console.error(error); process.exitCode=1;});
