@@ -21,6 +21,17 @@ class AuthRouteTests(unittest.TestCase):
     def setUp(self):
         self.client = server.app.test_client()
 
+    def test_email_code_is_off_by_default_while_google_and_email_remain(self):
+        self.assertFalse(server.EMAIL_CODE_AUTH_ENABLED)
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "supabase_auth", return_value=(200, {"external": {"google": True}})),
+        ):
+            response = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
+        self.assertEqual(response.get_json()["auth"]["providers"], ["email", "google"])
+        self.assertFalse(response.get_json()["auth"]["email_code_enabled"])
+
     def test_email_code_signup_requests_supabase_otp_with_name_metadata(self):
         with (
             patch.object(server, "SUPABASE_URL", "https://auth.example.test"),

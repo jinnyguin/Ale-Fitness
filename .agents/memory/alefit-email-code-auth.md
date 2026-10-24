@@ -3,8 +3,8 @@ name: ALEFIT email-code authentication
 description: Product constraints for passwordless email-code sign-in and signup.
 ---
 
-ALEFIT's requested new passwordless option is a six-digit Supabase email code for signup and sign-in. Preserve Google and email/password authentication, use the existing member/session and plan-routing flows, and do not reintroduce Apple or Facebook unless the user asks. Do not treat the code feature as verified or enable it for members until Supabase's numeric-code template and real email delivery are confirmed.
+Current ALEFIT sign-in scope is Google and email/password only. Keep the passwordless email-code UI and endpoint disabled unless the user explicitly asks to re-enable it. Do not reintroduce Apple, Facebook, or other providers unless requested.
 
-**Why:** The user explicitly prioritized email codes instead of Apple, asked to avoid duplicate accounts and lost plans, and requires real delivery verification before claiming the feature works.
+**Why:** The user explicitly changed priority to exclude Email Code and retain only Google plus email/password for now.
 
-**How to apply:** Keep OTP signup tied to the existing ALEFIT profile and onboarding-plan persistence path. Before enabling production, verify the Supabase Magic Link template renders `{{ .Token }}`, configure a member-capable SMTP sender, and complete controlled-inbox tests for both new and existing users.
+**How to apply:** Keep code-based sign-in hidden and reject its API requests by default. Only re-enable it after explicit user direction and then verify Supabase numeric-code delivery end to end.

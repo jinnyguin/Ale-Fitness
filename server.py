@@ -18,7 +18,8 @@ app = Flask(__name__, static_folder=".")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-EMAIL_CODE_AUTH_ENABLED = os.environ.get("ALEFIT_EMAIL_CODE_ENABLED", "").strip().lower() == "true"
+# Current sign-in policy is Google OAuth and email/password only.
+EMAIL_CODE_AUTH_ENABLED = False
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"

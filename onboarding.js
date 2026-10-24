@@ -1436,7 +1436,7 @@
       window.AlefitEmailCode.isEnabled().then(function (enabled) {
         emailCodeStart.hidden = !enabled;
         emailCodeHint.hidden = !enabled;
-        emailCodeUnavailable.hidden = enabled;
+        emailCodeUnavailable.hidden = true;
       });
     }
     if (!(window.puter && window.puter.auth && typeof window.puter.auth.signIn === "function")) {
