@@ -5,16 +5,28 @@
   <link href="/images/alefit-logo.png" rel="icon" type="image/svg+xml"/>
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <script>
-    (function () {
-      try {
-        if (localStorage.getItem("alefit_member_account") ||
-            localStorage.getItem("base44_access_token") || localStorage.getItem("token")) {
-          document.documentElement.classList.add("member-entry-pending");
-          document.write('<style>html.member-entry-pending body{visibility:hidden}</style>');
-        }
-      } catch (error) {}
-    }());
+    document.documentElement.classList.add("member-entry-pending");
+    document.write('<style>' +
+      'html.member-entry-pending body{visibility:hidden}' +
+      'html.member-entry-pending #member-entry-loader{display:grid;visibility:visible}' +
+      '#member-entry-loader{position:fixed;inset:0;z-index:99999;display:none;place-items:center;padding:24px;' +
+      'background:radial-gradient(ellipse at 50% 38%,rgba(212,255,0,.08),transparent 42%),#080a08;' +
+      'color:#f4f5ef;font:500 15px/1.5 Inter,system-ui,sans-serif;text-align:center}' +
+      '.member-entry-card{width:min(100%,380px);padding:36px 28px;border:1px solid rgba(212,255,0,.16);' +
+      'border-radius:20px;background:linear-gradient(145deg,#131710,#0c0e0c);box-shadow:0 24px 70px #0009}' +
+      '.member-entry-logo{width:100px;height:auto;margin:0 auto 26px}' +
+      '.member-entry-spinner{width:44px;height:44px;margin:0 auto 22px;border:2px solid #d4ff0030;' +
+      'border-top-color:#d4ff00;border-radius:50%;animation:member-entry-spin .85s linear infinite}' +
+      '@keyframes member-entry-spin{to{transform:rotate(360deg)}}' +
+      '#member-entry-heading{margin:0 0 8px;font-size:20px;color:#f4f5ef}' +
+      '#member-entry-copy{margin:0;color:#abb09f}' +
+      '#member-entry-actions{display:none;gap:12px;justify-content:center;margin-top:22px}' +
+      '#member-entry-actions button,#member-entry-actions a{border:1px solid #d4ff00;background:transparent;color:#d4ff00;' +
+      'padding:10px 15px;font:600 13px Inter,system-ui,sans-serif;text-decoration:none;cursor:pointer}' +
+      '@media(prefers-reduced-motion:reduce){.member-entry-spinner{animation-duration:2s}}' +
+      '</style>');
   </script>
+  <script src="/auth-session.js"></script>
   <script src="/member-routing.js"></script>
   <script src="/member-entry.js"></script>
   <link href="api/apps/manifests/6a1f3d189ebdbe71fa7d256c/manifest.json" rel="manifest"/>
@@ -94,6 +106,15 @@
   <meta content="ALEFIT" property="og:site_name"/>
 </head>
 <body>
+  <div id="member-entry-loader" role="status" aria-live="polite" aria-busy="true">
+    <div class="member-entry-card">
+      <img class="member-entry-logo" src="/images/alefit-logo.png" alt="ALEFIT">
+      <div class="member-entry-spinner" aria-hidden="true"></div>
+      <h1 id="member-entry-heading">Getting your coaching space ready</h1>
+      <p id="member-entry-copy">Checking your sign-in and saved training plan.</p>
+      <div id="member-entry-actions"></div>
+    </div>
+  </div>
   <script>
   (function () {
     var wired = new WeakSet();

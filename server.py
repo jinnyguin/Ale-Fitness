@@ -22,6 +22,8 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
 LOCAL_AUTH_SECRET = os.environ.get("SESSION_SECRET", "")
+AUTH_REFRESH_COOKIE = "alefit_refresh"
+AUTH_REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 # ---------------------------------------------------------------------------
 # Postgres helpers (Supabase for app data; legacy DB remains local-auth storage)
@@ -48,6 +50,73 @@ def get_local_auth_db():
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
+
+
+def _alefit_cookie_domain():
+    host = (request.host or "").split(":", 1)[0].lower().rstrip(".")
+    if host == "alefit.org" or host.endswith(".alefit.org"):
+        return ".alefit.org"
+    return None
+
+
+def _set_refresh_cookie(response, refresh_token):
+    forwarded_proto = request.headers.get("X-Forwarded-Proto", "").split(",", 1)[0].strip()
+    secure = request.is_secure or forwarded_proto == "https"
+    if refresh_token:
+        response.set_cookie(
+            AUTH_REFRESH_COOKIE,
+            refresh_token,
+            max_age=AUTH_REFRESH_COOKIE_MAX_AGE,
+            httponly=True,
+            secure=secure,
+            samesite="Lax",
+            path="/",
+            domain=_alefit_cookie_domain(),
+        )
+    else:
+        response.delete_cookie(
+            AUTH_REFRESH_COOKIE,
+            path="/",
+            domain=_alefit_cookie_domain(),
+            secure=secure,
+            httponly=True,
+            samesite="Lax",
+        )
+    return response
+
+
+def _session_response(session, user, status=200):
+    response = jsonify({
+        "access_token": session.get("access_token"),
+        "user": format_user(user),
+        "expires_in": session.get("expires_in"),
+        "expires_at": session.get("expires_at"),
+    })
+    response.status_code = status
+    response.headers["Cache-Control"] = "no-store"
+    return _set_refresh_cookie(response, session.get("refresh_token"))
+
+
+def _restore_supabase_session(refresh_token):
+    if not refresh_token:
+        return None, (401, {"error": "Sign-in is required."})
+    status, data = supabase_auth(
+        "POST",
+        "/auth/v1/token?grant_type=refresh_token",
+        {"refresh_token": refresh_token},
+    )
+    if (
+        status != 200
+        or not isinstance(data, dict)
+        or not data.get("access_token")
+        or not data.get("refresh_token")
+        or not isinstance(data.get("user"), dict)
+        or not data["user"].get("id")
+    ):
+        if status >= 500 or status == 200:
+            return None, (503, {"error": "Sign-in is temporarily unavailable. Please try again."})
+        return None, (401, {"error": "Your sign-in has expired. Please sign in again."})
+    return data, None
 
 
 # ---------------------------------------------------------------------------
@@ -659,35 +728,71 @@ def oauth_session():
     body = request.get_json(silent=True) or {}
     if not isinstance(body, dict):
         return jsonify({"error": "Invalid sign-in request."}), 400
+    refresh_token = body.get("refresh_token") or request.cookies.get(AUTH_REFRESH_COOKIE)
     if body.get("code"):
         verifier = body.get("code_verifier", "")
         if not isinstance(verifier, str) or not re.fullmatch(r"[A-Za-z0-9._~-]{43,128}", verifier):
             return jsonify({"error": "Sign-in expired. Please start again in this browser."}), 400
         grant = "pkce"
         payload = {"auth_code": body["code"], "code_verifier": verifier}
-    elif isinstance(body.get("refresh_token"), str) and body["refresh_token"]:
+        status, data = supabase_auth("POST", "/auth/v1/token?grant_type=" + grant, payload)
+    elif isinstance(refresh_token, str) and refresh_token:
         grant = "refresh_token"
-        payload = {"refresh_token": body["refresh_token"]}
+        data, error = _restore_supabase_session(refresh_token)
+        if error:
+            status, error_data = error
+            response = jsonify(error_data)
+            response.status_code = status
+            response.headers["Cache-Control"] = "no-store"
+            if status == 401:
+                _set_refresh_cookie(response, None)
+            return response
+        status = 200
     else:
-        return jsonify({"error": "Sign-in expired. Please start again."}), 400
-    status, data = supabase_auth("POST", "/auth/v1/token?grant_type=" + grant, payload)
+        return jsonify({"error": "Sign-in is required."}), 401
     if status != 200 or not isinstance(data, dict) or not data.get("access_token") or not data.get("refresh_token"):
-        return jsonify({"error": (
+        response = jsonify({"error": (
             "Sign-in is temporarily unavailable. Your saved plan is unchanged. Please try again."
             if status >= 500 or status in (200, 429) else
             "This sign-in has expired or was already used. Please sign in again."
-        )}), (503 if status >= 500 or status == 200 else 429 if status == 429 else 401)
+        )})
+        response.status_code = 503 if status >= 500 or status == 200 else 429 if status == 429 else 401
+        response.headers["Cache-Control"] = "no-store"
+        if response.status_code == 401:
+            _set_refresh_cookie(response, None)
+        return response
     user = data.get("user") or {}
     if not isinstance(user, dict) or not user.get("id"):
         return jsonify({"error": "The sign-in service returned an incomplete session."}), 503
     # Preserve the provider UUID; never merge users based only on an email match.
     ensure_profile(user["id"], user.get("email", ""),
                    (user.get("user_metadata") or {}).get("full_name", ""))
-    response = jsonify({key: data.get(key) for key in (
-        "access_token", "refresh_token", "expires_in", "expires_at"
-    )})
-    response.headers["Cache-Control"] = "no-store"
-    return response
+    return _session_response(data, user)
+
+
+@app.route("/api/auth/session/restore", methods=["POST"])
+def restore_auth_session():
+    """Rotate the HttpOnly refresh cookie and return a short-lived access token."""
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"error": "Invalid session restore request."}), 400
+    refresh_token = body.get("refresh_token") or request.cookies.get(AUTH_REFRESH_COOKIE)
+    session, error = _restore_supabase_session(refresh_token)
+    if error:
+        status, data = error
+        response = jsonify(data)
+        response.status_code = status
+        response.headers["Cache-Control"] = "no-store"
+        if status == 401:
+            _set_refresh_cookie(response, None)
+        return response
+    user = session["user"]
+    ensure_profile(
+        user["id"],
+        user.get("email", ""),
+        (user.get("user_metadata") or {}).get("full_name", ""),
+    )
+    return _session_response(session, user)
 
 
 # ---------------------------------------------------------------------------
@@ -700,6 +805,22 @@ def logout():
     resp = redirect("/login")
     resp.delete_cookie("sb_token")
     return resp
+
+
+@app.route("/api/auth/session/logout", methods=["POST"])
+def logout_auth_session():
+    """Revoke the active Supabase access token when possible and clear refresh state."""
+    access_token = request.headers.get("Authorization", "")
+    if access_token.startswith("Bearer "):
+        access_token = access_token[7:].strip()
+    if access_token and not access_token.startswith("local."):
+        try:
+            supabase_auth("POST", "/auth/v1/logout", token=access_token)
+        except Exception:
+            pass
+    response = jsonify({"ok": True})
+    response.headers["Cache-Control"] = "no-store"
+    return _set_refresh_cookie(response, None)
 
 
 # ---------------------------------------------------------------------------
@@ -857,7 +978,7 @@ def auth_register(app_id):
             })
             if login_status == 200 and login_data.get("access_token"):
                 user = login_data.get("user", {})
-                return jsonify({"access_token": login_data["access_token"], "user": format_user(user)}), 201
+                return _session_response(login_data, user, 201)
             return jsonify({
                 "account_created": True,
                 "message": "Your account is ready. Sign in to save your plan.",
@@ -870,10 +991,13 @@ def auth_register(app_id):
             user, error = local_register(email, password, full_name)
             if error:
                 return error
-            return jsonify({
+            response = jsonify({
                 "access_token": create_local_token(user),
                 "user": format_user(user),
             }), 201
+            response, code = response
+            response.status_code = code
+            return _set_refresh_cookie(response, None)
         return jsonify({"error": err}), status
 
     # Fallback: regular signup (may require email confirmation)
@@ -898,16 +1022,18 @@ def auth_register(app_id):
             }), 202
         user = data.get("user", {})
         ensure_profile(user.get("id"), email, full_name)
-        return jsonify({"access_token": data["access_token"], "user": format_user(user)}), 201
+        return _session_response(data, user, 201)
 
     if status == 503:
         user, error = local_register(email, password, full_name)
         if error:
             return error
-        return jsonify({
+        response = jsonify({
             "access_token": create_local_token(user),
             "user": format_user(user),
-        }), 201
+        })
+        response.status_code = 201
+        return _set_refresh_cookie(response, None)
 
     err = data.get("msg") or data.get("message") or data.get("error") or "Registration failed"
     if status in (409, 422) or "already" in str(err).lower():
@@ -938,10 +1064,12 @@ def auth_login(app_id):
         if not LOCAL_AUTH_SECRET:
             return jsonify({"error": "Local sign-in is not configured. Please contact support."}), 503
         ensure_profile(local_user["id"], local_user["email"], format_user(local_user)["full_name"])
-        return jsonify({
+        response = jsonify({
             "access_token": create_local_token(local_user),
             "user": format_user(local_user),
         })
+        response.headers["Cache-Control"] = "no-store"
+        return _set_refresh_cookie(response, None)
     if local_user_record:
         return jsonify({"error": "Invalid email or password."}), 401
 
@@ -968,7 +1096,7 @@ def auth_login(app_id):
                 "error": "Sign-in could not be completed. Please try again."
             }), 503
         ensure_profile(user.get("id"), email)
-        return jsonify({"access_token": access_token, "user": format_user(user)})
+        return _session_response(data, user)
 
     if status == 429:
         return jsonify({
@@ -1390,6 +1518,59 @@ def get_me(app_id):
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     return jsonify(format_user(user))
+
+
+@app.route("/api/apps/<app_id>/member-status")
+def member_status(app_id):
+    """Return the verified member, profile, and saved plan for entry routing."""
+    user, token, err = require_auth()
+    if err:
+        return err
+
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            """SELECT email, full_name, bio, avatar_url, daily_calorie_goal
+               FROM profiles WHERE id=%s""",
+            (user["id"],),
+        )
+        profile_row = cur.fetchone()
+        cur.execute(
+            """SELECT id, data, created_at, updated_at
+               FROM entities
+               WHERE user_id=%s AND entity_type='OnboardingPlan'
+               ORDER BY updated_at DESC, created_at DESC
+               LIMIT 1""",
+            (user["id"],),
+        )
+        plan_row = cur.fetchone()
+    except Exception:
+        return jsonify({"error": "Could not check your saved training plan. Please try again."}), 503
+    finally:
+        if conn is not None:
+            conn.close()
+
+    def serialize_record(row):
+        if not row:
+            return None
+        record = dict(row.get("data") or {})
+        record["id"] = row.get("id")
+        record["created_date"] = row["created_at"].isoformat() if row.get("created_at") else ""
+        record["updated_date"] = row["updated_at"].isoformat() if row.get("updated_at") else ""
+        return record
+
+    profile = dict(profile_row or {})
+    plan = serialize_record(plan_row)
+    response = jsonify({
+        "user": format_user(user),
+        "profile": profile,
+        "plan": plan,
+        "setup_complete": plan is not None,
+    })
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route("/api/apps/<app_id>/dashboard-data")

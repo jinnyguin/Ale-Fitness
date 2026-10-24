@@ -47,16 +47,24 @@
     }
   }
 
-  function recordsFrom(data) {
-    return Array.isArray(data) ? data : (data && (data.data || data.items)) || [];
-  }
-
-  async function hasSavedPlan(accessToken) {
-    var response = await root.fetch("/api/apps/" + APP_ID + "/entities/OnboardingPlan?limit=1", {
+  async function fetchMemberStatus(accessToken) {
+    var response = await root.fetch("/api/apps/" + APP_ID + "/member-status", {
       headers: { Authorization: "Bearer " + accessToken }
     });
-    if (!response.ok) throw new Error("Could not check the saved plan.");
-    return recordsFrom(await response.json()).length > 0;
+    if (response.status === 401 || response.status === 403) {
+      var authError = new Error("Your sign-in has expired. Please sign in again.");
+      authError.status = response.status;
+      throw authError;
+    }
+    if (!response.ok) {
+      throw new Error("Could not check your saved training plan. Please retry.");
+    }
+    var status = await response.json();
+    if (!status || !status.user || typeof status.user.id !== "string" ||
+        typeof status.setup_complete !== "boolean") {
+      throw new Error("ALEFIT could not verify your member profile. Please retry.");
+    }
+    return status;
   }
 
   function loginUrl(destination) {
@@ -64,61 +72,49 @@
   }
 
   async function routeFromHome() {
-    var accessToken = token();
-    if (!accessToken) {
-      var destination = read(SETUP_KEY) === "1" ?
-        "/today.html?view=today" : "/Register.html";
-      root.location.replace(loginUrl(destination));
-      return;
+    var knownMember = hasMemberRecord();
+    var restored;
+    try {
+      if (!root.AlefitSession || typeof root.AlefitSession.restore !== "function") {
+        throw new Error("ALEFIT could not restore your sign-in. Please retry.");
+      }
+      restored = await root.AlefitSession.restore();
+    } catch (error) {
+      return { state: "error", message: error.message || "ALEFIT could not check your sign-in. Please retry." };
     }
 
-    // A saved token is enough to remember that this browser had an account;
-    // it is never treated as proof of authentication.
-    if (!read(MEMBER_KEY)) write(MEMBER_KEY, "known");
+    if (!restored || !restored.authenticated || !restored.user) {
+      if (!knownMember) return { state: "public" };
+      root.location.replace(loginUrl("/today.html?view=today"));
+      return { state: "redirect" };
+    }
+
     try {
-      var response = await root.fetch("/api/apps/" + APP_ID + "/auth/me", {
-        headers: { Authorization: "Bearer " + accessToken }
-      });
-      if (response.status === 401 || response.status === 403) {
-        clearSession();
-        root.location.replace(loginUrl(
-          read(SETUP_KEY) === "1" ? "/today.html?view=today" : "/Register.html"
-        ));
-        return;
-      }
-      if (!response.ok) throw new Error("Could not verify the saved sign-in.");
-      var user = await response.json();
-      if (!user || typeof user.id !== "string" || !user.id.trim()) {
-        throw new Error("The saved sign-in could not be verified.");
-      }
-      markSignedIn(user);
-      var complete = await hasSavedPlan(accessToken);
-      markSetupComplete(complete);
-      root.location.replace(complete ? "/today.html?view=today" : "/Register.html");
+      var status = await fetchMemberStatus(restored.access_token || token());
+      markSignedIn(status.user);
+      markSetupComplete(status.setup_complete);
+      root.location.replace(status.plan ?
+        "/today.html?view=today" : "/Register.html");
+      return { state: "redirect" };
     } catch (error) {
-      // Stay inside the member experience during an outage; the dashboard
-      // will show its own useful sign-in/service state.
-      root.location.replace("/today.html?view=today");
+      if (error.status === 401 || error.status === 403) {
+        clearSession();
+        root.location.replace(loginUrl("/today.html?view=today"));
+        return { state: "redirect" };
+      }
+      return { state: "error", message: error.message || "Could not check your saved training plan. Please retry." };
     }
   }
 
   async function routeAfterSignIn(user, preferredPath) {
     markSignedIn(user);
-    var destination = safePath(preferredPath || "/today.html?view=plan");
-    if (/^\/Register\.html(?:[?#]|$)/i.test(destination)) {
-      root.location.replace(destination);
-      return destination;
-    }
-    if (/^\/(?:|index\.html)$/.test(destination) || /^\/today\.html(?:[?#]|$)/i.test(destination) ||
-        /^\/my-plan\.html(?:[?#]|$)/i.test(destination)) {
-      try {
-        var complete = await hasSavedPlan(token());
-        markSetupComplete(complete);
-        destination = complete ? "/today.html?view=plan" : "/Register.html";
-      } catch (error) {
-        destination = "/Register.html";
-      }
-    }
+    var destination = safePath(preferredPath || "/today.html?view=today");
+    var status = await fetchMemberStatus(token());
+    markSignedIn(status.user);
+    markSetupComplete(status.setup_complete);
+    // Server-side records are authoritative. Never let a stale/missing browser
+    // flag send a member with a saved plan back through onboarding.
+    destination = status.plan ? "/today.html?view=today" : "/Register.html";
     root.location.replace(destination);
     return destination;
   }
