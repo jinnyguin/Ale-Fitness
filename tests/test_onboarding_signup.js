@@ -375,7 +375,7 @@ async function testEmailCodeReturnResumesAndDurablySavesTheGuestPlan() {
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.ok(calls.some((url) => /\/onboarding-plan$/.test(url)));
   assert.equal(browser.values.get("alefit_onboarding_draft"), undefined);
-  assert.equal(browser.location.replacedWith, "/today.html?view=today");
+  assert.equal(browser.location.replacedWith, "/today.html");
 }
 
 async function testSignupFailureShowsRetryableHelpfulError() {
