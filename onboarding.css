@@ -281,13 +281,18 @@ body{background:var(--ink)}
 .account .account-google:focus-visible{outline:3px solid var(--lime);outline-offset:3px}
 .account .account-google:disabled{opacity:.55;cursor:wait}
 .account-google svg{width:20px;height:20px;flex:0 0 auto}
-.account .account-apple{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;background:#fff;border-color:#dadce0;color:#111;font:700 .86rem "DM Sans",sans-serif;letter-spacing:0;text-transform:none}
-.account .account-apple:hover{background:#f4f6f6;border-color:#c7cacc}
-.account .account-apple:focus-visible{outline:3px solid var(--lime);outline-offset:3px}
-.account .account-apple:disabled{opacity:.55;cursor:wait}
-.account-apple svg{width:20px;height:20px;flex:0 0 auto;fill:#111}
-.account .account-apple[hidden],.account-apple-note[hidden]{display:none}
-.account-apple-note{margin:8px 0 0;color:var(--muted);font-size:.72rem;line-height:1.5}
+.account .account-email-code{margin-top:12px}
+.account-code-hint{margin:8px 0 0;text-align:center;font-size:.78rem}
+.account-code-panel{margin-top:14px;padding:16px;border:1px solid var(--line);background:#080808}
+.account-code-panel[hidden]{display:none}
+.account-code-panel>p{font-size:.82rem}
+.account-code-panel>label{display:block;margin:14px 0 7px;color:var(--muted);font-size:.7rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.account-code-panel>input{width:100%;padding:14px;background:#10110f;border:1px solid var(--line);border-radius:3px;color:var(--white);font:inherit;text-align:center;letter-spacing:.35em;font-size:1.25rem}
+.account-code-panel>input:focus{outline:2px solid var(--lime);outline-offset:2px}
+.account-code-panel .button{margin-top:12px}
+.account-code-actions{display:flex;justify-content:flex-end}
+.account-code-actions .text-btn{margin-top:10px;color:var(--lime);font-size:.72rem}
+.account-code-status{margin-top:10px}
 .account-oauth-divider{display:flex;align-items:center;gap:12px;margin:18px 0 4px;color:var(--muted);font-size:.72rem}
 .account-oauth-divider:before,.account-oauth-divider:after{content:"";height:1px;flex:1;background:var(--line)}
 .account{width:min(100%,620px);max-width:620px;margin:clamp(34px,7vh,68px) auto 0;padding:clamp(20px,4vw,32px);background:linear-gradient(145deg,rgba(212,255,0,.045),transparent 42%),var(--panel);border:1px solid var(--line)}

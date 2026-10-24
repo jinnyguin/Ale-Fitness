@@ -27,8 +27,3 @@ Revalidate the homepage after browser history restores it from the back-forward 
 
 **How to apply:** Test Back navigation in a real browser session as well as direct loads. Do not remove the gate node when revealing public content, because the same cached page may need it again.
 
-Treat Apple Private Relay addresses as valid account emails, but keep Supabase's stable user ID as the profile and plan owner. Never merge ALEFIT accounts or training records just because two provider emails match; a relay address may differ from a member's existing address.
-
-**Why:** Email-only matching can attach one athlete's saved plan or history to another account, while Apple's Hide My Email intentionally provides a separate relay address.
-
-**How to apply:** Keep Apple sign-in hidden until the owner configures Apple Developer and Supabase and completes a real sign-in test. Use an explicit authenticated identity-linking flow if members need to connect providers; do not add a profile merge based on email.

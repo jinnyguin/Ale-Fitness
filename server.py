@@ -18,7 +18,7 @@ app = Flask(__name__, static_folder=".")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-APPLE_OAUTH_ENABLED = os.environ.get("ALEFIT_APPLE_OAUTH_ENABLED", "").strip().lower() == "true"
+EMAIL_CODE_AUTH_ENABLED = os.environ.get("ALEFIT_EMAIL_CODE_ENABLED", "").strip().lower() == "true"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
@@ -659,10 +659,10 @@ def static_files(filename):
 
 
 # ---------------------------------------------------------------------------
-# OAuth (Google / Apple) — redirect to Supabase provider
+# OAuth (Google) — redirect to Supabase provider
 # ---------------------------------------------------------------------------
 
-SUPPORTED_OAUTH_PROVIDERS = {"google", "apple"}
+SUPPORTED_OAUTH_PROVIDERS = {"google"}
 
 @app.route("/api/oauth/authorize")
 def oauth_authorize():
@@ -670,10 +670,6 @@ def oauth_authorize():
     if provider not in SUPPORTED_OAUTH_PROVIDERS:
         return jsonify({"error": f"Unsupported provider: {provider}"}), 400
     provider_name = provider.capitalize()
-    if provider == "apple" and not APPLE_OAUTH_ENABLED:
-        return jsonify({
-            "error": "Apple sign-in is not enabled in ALEFIT. Finish Apple and Supabase setup before enabling it."
-        }), 503
     if not SUPABASE_URL or not SUPABASE_KEY:
         return jsonify({
             "error": f"{provider_name} sign-in is not configured yet. Please use email sign-in."
@@ -845,14 +841,12 @@ def public_settings(app_id):
     providers = ["email"]
     if SUPABASE_URL and SUPABASE_KEY:
         oauth_status, auth_settings = supabase_auth("GET", "/auth/v1/settings")
-        if oauth_status == 200 and isinstance(auth_settings, dict):
-            external = auth_settings.get("external") or {}
-            if external.get("google"):
-                providers.append("google")
-            # Apple stays undiscoverable until the owner explicitly enables it
-            # after configuring and verifying the Apple/Supabase credentials.
-            if APPLE_OAUTH_ENABLED and external.get("apple"):
-                providers.append("apple")
+        if (
+            oauth_status == 200
+            and isinstance(auth_settings, dict)
+            and (auth_settings.get("external") or {}).get("google")
+        ):
+            providers.append("google")
     return jsonify({
         "id": app_id,
         "name": "ALEFIT",
@@ -861,6 +855,7 @@ def public_settings(app_id):
             "enabled": True,
             "providers": providers,
             "registration_enabled": True,
+            "email_code_enabled": EMAIL_CODE_AUTH_ENABLED,
         },
         "theme": {"primary_color": "#000000"},
     })
@@ -877,6 +872,14 @@ def alias_auth_register(app_id):
 @app.route("/apps/<app_id>/auth/login", methods=["POST"])
 def alias_auth_login(app_id):
     return auth_login(app_id)
+
+@app.route("/apps/<app_id>/auth/email-code", methods=["POST"])
+def alias_auth_email_code_send(app_id):
+    return auth_email_code_send(app_id)
+
+@app.route("/apps/<app_id>/auth/email-code/verify", methods=["POST"])
+def alias_auth_email_code_verify(app_id):
+    return auth_email_code_verify(app_id)
 
 @app.route("/apps/<app_id>/auth/me", methods=["GET"])
 def alias_auth_me_get(app_id):
@@ -1141,6 +1144,126 @@ def auth_login(app_id):
     return jsonify({
         "error": "Sign-in is temporarily unavailable. Please try again in a moment."
     }), 503
+
+
+def _email_code_provider_error(status, data, verifying=False):
+    data = data if isinstance(data, dict) else {}
+    provider_error = " ".join(
+        str(data.get(key) or "")
+        for key in ("code", "error_code", "error", "message", "msg", "error_description")
+    ).lower()
+    if status == 429 or any(word in provider_error for word in ("rate limit", "too many requests", "over_email_send_rate_limit")):
+        retry_after = data.get("retry_after_seconds", 60)
+        try:
+            retry_after = max(1, min(int(retry_after), 3600))
+        except (TypeError, ValueError):
+            retry_after = 60
+        return jsonify({
+            "error": "Too many email-code attempts. Please wait before trying again.",
+            "retry_after_seconds": retry_after,
+        }), 429
+    if any(phrase in provider_error for phrase in ("email address not authorized", "smtp", "email provider is disabled", "provider is disabled")):
+        message = (
+            "Email-code sign-in is not available. Enable the Email provider and configure custom SMTP in Supabase Auth."
+        )
+        if "email address not authorized" in provider_error:
+            message = (
+                "Supabase's built-in email sender only sends to project team addresses. "
+                "Configure custom SMTP to deliver codes to ALEFIT members."
+            )
+        return jsonify({"error": message}), 503
+    if verifying and status in (400, 401, 422):
+        return jsonify({"error": "That code is invalid or expired. Request a new code and try again."}), 401
+    if status >= 500 or status == 503:
+        return jsonify({"error": "Email-code sign-in is temporarily unavailable. Please try again shortly."}), 503
+    if status in (400, 401, 403, 404, 409, 422):
+        return jsonify({
+            "error": "Could not send a code to that address. Check it or create an ALEFIT account to start a plan."
+        }), 400
+    return jsonify({"error": "Email-code sign-in could not be completed. Please try again."}), 503
+
+
+@app.route("/api/apps/<app_id>/auth/email-code", methods=["POST"])
+def auth_email_code_send(app_id):
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Please enter a valid email address."}), 400
+    email_value = body.get("email")
+    email = email_value.strip().lower() if isinstance(email_value, str) else ""
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(email) > 254:
+        return jsonify({"error": "Enter a valid email address before requesting a code."}), 400
+    create_user = body.get("create_user", False)
+    if not isinstance(create_user, bool):
+        return jsonify({"error": "Invalid email-code request."}), 400
+    full_name_value = body.get("full_name")
+    full_name = full_name_value.strip() if isinstance(full_name_value, str) else ""
+    if len(full_name) > 80:
+        return jsonify({"error": "Name must be 80 characters or fewer."}), 400
+    if not EMAIL_CODE_AUTH_ENABLED:
+        return jsonify({
+            "error": "Email-code sign-in is not enabled yet. Supabase email delivery must be configured and verified first."
+        }), 503
+    if local_user_by_email(email):
+        return jsonify({
+            "error": "This ALEFIT account uses password sign-in. Use its existing password so your saved plan stays with the right account."
+        }), 409
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return jsonify({"error": "Email-code sign-in is unavailable because Supabase Auth is not configured."}), 503
+
+    payload = {"email": email, "create_user": create_user}
+    if create_user and full_name:
+        payload["data"] = {"full_name": full_name}
+    status, data = supabase_auth("POST", "/auth/v1/otp", payload)
+    if status in (200, 201):
+        return jsonify({
+            "sent": True,
+            "retry_after_seconds": 60,
+            "message": "If this email is eligible, a six-digit code will arrive shortly.",
+        })
+    return _email_code_provider_error(status, data)
+
+
+@app.route("/api/apps/<app_id>/auth/email-code/verify", methods=["POST"])
+def auth_email_code_verify(app_id):
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify({"error": "Enter the six-digit code from your email."}), 400
+    email_value = body.get("email")
+    email = email_value.strip().lower() if isinstance(email_value, str) else ""
+    code_value = body.get("token") or body.get("code")
+    code = code_value.strip() if isinstance(code_value, str) else ""
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(email) > 254:
+        return jsonify({"error": "Enter a valid email address."}), 400
+    if not re.fullmatch(r"\d{6}", code):
+        return jsonify({"error": "Enter the six-digit code from your email."}), 400
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return jsonify({"error": "Email-code sign-in is unavailable because Supabase Auth is not configured."}), 503
+
+    status, data = supabase_auth("POST", "/auth/v1/verify", {
+        "email": email,
+        "token": code,
+        "type": "email",
+    })
+    if status == 200 and isinstance(data, dict):
+        user = data.get("user")
+        if (
+            not isinstance(data.get("access_token"), str)
+            or not data.get("access_token")
+            or not isinstance(data.get("refresh_token"), str)
+            or not data.get("refresh_token")
+            or not isinstance(user, dict)
+            or not isinstance(user.get("id"), str)
+            or not user["id"].strip()
+        ):
+            app.logger.warning("Supabase email OTP verification returned an incomplete session.")
+            return jsonify({"error": "The email-code service did not return a complete session. Please request a new code."}), 503
+        ensure_profile(
+            user["id"],
+            user.get("email", email),
+            (user.get("user_metadata") or {}).get("full_name", ""),
+        )
+        return _session_response(data, user)
+    return _email_code_provider_error(status, data, verifying=True)
 
 
 @app.route("/api/apps/<app_id>/auth/reset-password-request", methods=["POST"])

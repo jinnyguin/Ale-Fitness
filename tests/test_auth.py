@@ -21,42 +21,209 @@ class AuthRouteTests(unittest.TestCase):
     def setUp(self):
         self.client = server.app.test_client()
 
+    def test_email_code_signup_requests_supabase_otp_with_name_metadata(self):
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "EMAIL_CODE_AUTH_ENABLED", True),
+            patch.object(server, "local_user_by_email", return_value=None),
+            patch.object(server, "supabase_auth", return_value=(200, {})) as auth_call,
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/email-code",
+                json={
+                    "email": " Athlete@Example.Test ",
+                    "create_user": True,
+                    "full_name": "Test Athlete",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["sent"])
+        self.assertEqual(response.get_json()["retry_after_seconds"], 60)
+        auth_call.assert_called_once_with(
+            "POST",
+            "/auth/v1/otp",
+            {
+                "email": "athlete@example.test",
+                "create_user": True,
+                "data": {"full_name": "Test Athlete"},
+            },
+        )
+
+    def test_email_code_signin_does_not_create_unknown_accounts(self):
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "EMAIL_CODE_AUTH_ENABLED", True),
+            patch.object(server, "local_user_by_email", return_value=None),
+            patch.object(server, "supabase_auth", return_value=(200, {})) as auth_call,
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/email-code",
+                json={"email": "athlete@example.test", "create_user": False},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        auth_call.assert_called_once_with(
+            "POST",
+            "/auth/v1/otp",
+            {"email": "athlete@example.test", "create_user": False},
+        )
+
+    def test_email_code_does_not_duplicate_local_fallback_account(self):
+        with (
+            patch.object(server, "EMAIL_CODE_AUTH_ENABLED", True),
+            patch.object(server, "local_user_by_email", return_value=LOCAL_USER),
+            patch.object(server, "supabase_auth") as auth_call,
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/email-code",
+                json={"email": LOCAL_USER["email"], "create_user": True},
+            )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("password sign-in", response.get_json()["error"])
+        auth_call.assert_not_called()
+
+    def test_email_code_rate_limit_includes_resend_cooldown(self):
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "EMAIL_CODE_AUTH_ENABLED", True),
+            patch.object(server, "local_user_by_email", return_value=None),
+            patch.object(
+                server,
+                "supabase_auth",
+                return_value=(429, {"code": "over_email_send_rate_limit"}),
+            ),
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/email-code",
+                json={"email": "athlete@example.test", "create_user": True},
+            )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.get_json()["retry_after_seconds"], 60)
+
+    def test_email_code_exposes_supabase_default_sender_restriction_actionably(self):
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "EMAIL_CODE_AUTH_ENABLED", True),
+            patch.object(server, "local_user_by_email", return_value=None),
+            patch.object(
+                server,
+                "supabase_auth",
+                return_value=(400, {"msg": "Email address not authorized"}),
+            ),
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/email-code",
+                json={"email": "athlete@example.test", "create_user": True},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("custom SMTP", response.get_json()["error"])
+
+    def test_email_code_verification_creates_session_for_existing_supabase_identity(self):
+        session = {
+            "access_token": "otp-access",
+            "refresh_token": "otp-refresh",
+            "expires_in": 3600,
+            "user": {
+                "id": "existing-supabase-user",
+                "email": "athlete@example.test",
+                "user_metadata": {"full_name": "Test Athlete"},
+            },
+        }
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "supabase_auth", return_value=(200, session)) as auth_call,
+            patch.object(server, "ensure_profile") as ensure_profile,
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/email-code/verify",
+                json={"email": "Athlete@Example.Test", "token": "004271"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["access_token"], "otp-access")
+        self.assertEqual(response.get_json()["user"]["id"], "existing-supabase-user")
+        self.assertIn("HttpOnly", response.headers.get("Set-Cookie", ""))
+        auth_call.assert_called_once_with(
+            "POST",
+            "/auth/v1/verify",
+            {"email": "athlete@example.test", "token": "004271", "type": "email"},
+        )
+        ensure_profile.assert_called_once_with(
+            "existing-supabase-user",
+            "athlete@example.test",
+            "Test Athlete",
+        )
+
+    def test_email_code_verification_rejects_bad_code_before_provider_call(self):
+        with patch.object(server, "supabase_auth") as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/email-code/verify",
+                json={"email": "athlete@example.test", "token": "42"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("six-digit", response.get_json()["error"])
+        auth_call.assert_not_called()
+
+    def test_email_code_verification_maps_invalid_or_expired_code(self):
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "supabase_auth", return_value=(400, {"msg": "Token has expired"})),
+        ):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/email-code/verify",
+                json={"email": "athlete@example.test", "token": "123456"},
+            )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertRegex(response.get_json()["error"], r"invalid or expired")
+
     def test_public_auth_settings_only_advertise_google_when_enabled(self):
         with (
             patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
             patch.object(server, "SUPABASE_KEY", "public-test-key"),
-            patch.object(server, "APPLE_OAUTH_ENABLED", False),
+            patch.object(server, "EMAIL_CODE_AUTH_ENABLED", False),
             patch.object(server, "supabase_auth", return_value=(200, {"external": {"google": False}})),
         ):
             disabled = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
         self.assertEqual(disabled.get_json()["auth"]["providers"], ["email"])
+        self.assertFalse(disabled.get_json()["auth"]["email_code_enabled"])
 
         with (
             patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
             patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "EMAIL_CODE_AUTH_ENABLED", True),
             patch.object(server, "supabase_auth", return_value=(200, {"external": {"google": True}})),
         ):
             enabled = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
         self.assertEqual(enabled.get_json()["auth"]["providers"], ["email", "google"])
+        self.assertTrue(enabled.get_json()["auth"]["email_code_enabled"])
 
-    def test_public_auth_settings_require_both_apple_gate_and_supabase_provider(self):
+    def test_email_code_request_stays_hidden_until_delivery_is_verified(self):
         with (
-            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
-            patch.object(server, "SUPABASE_KEY", "public-test-key"),
-            patch.object(server, "APPLE_OAUTH_ENABLED", False),
-            patch.object(server, "supabase_auth", return_value=(200, {"external": {"apple": True}})),
+            patch.object(server, "EMAIL_CODE_AUTH_ENABLED", False),
+            patch.object(server, "local_user_by_email") as local_lookup,
+            patch.object(server, "supabase_auth") as auth_call,
         ):
-            gated = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
-        self.assertEqual(gated.get_json()["auth"]["providers"], ["email"])
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/email-code",
+                json={"email": "athlete@example.test", "create_user": True},
+            )
 
-        with (
-            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
-            patch.object(server, "SUPABASE_KEY", "public-test-key"),
-            patch.object(server, "APPLE_OAUTH_ENABLED", True),
-            patch.object(server, "supabase_auth", return_value=(200, {"external": {"apple": True}})),
-        ):
-            enabled = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
-        self.assertEqual(enabled.get_json()["auth"]["providers"], ["email", "apple"])
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("configured and verified", response.get_json()["error"])
+        local_lookup.assert_not_called()
+        auth_call.assert_not_called()
 
     def test_registration_falls_back_to_local_auth_when_provider_is_unavailable(self):
         with (
@@ -314,96 +481,6 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("this site's authentication callback", response.get_json()["error"].lower())
         auth_call.assert_not_called()
-
-    def test_apple_oauth_stays_blocked_until_owner_enables_it(self):
-        with (
-            patch.object(server, "APPLE_OAUTH_ENABLED", False),
-            patch.object(server, "supabase_auth") as auth_call,
-        ):
-            response = self.client.get(
-                "/api/oauth/authorize",
-                query_string={
-                    "provider": "apple",
-                    "redirect_to": "http://localhost/auth/callback?from_url=%2FRegister.html%3Fapple_signup%3D1",
-                },
-            )
-
-        self.assertEqual(response.status_code, 503)
-        self.assertIn("Apple and Supabase setup", response.get_json()["error"])
-        auth_call.assert_not_called()
-
-    def test_apple_oauth_uses_supabase_pkce_authorize_when_fully_enabled(self):
-        redirect_to = (
-            "http://localhost/auth/callback"
-            "?from_url=%2FRegister.html%3Fapple_signup%3D1"
-        )
-        with (
-            patch.object(server, "APPLE_OAUTH_ENABLED", True),
-            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
-            patch.object(server, "SUPABASE_KEY", "public-test-key"),
-            patch.object(
-                server,
-                "supabase_auth",
-                return_value=(200, {"external": {"apple": True}}),
-            ),
-        ):
-            response = self.client.get(
-                "/api/oauth/authorize",
-                query_string={"provider": "apple", "redirect_to": redirect_to},
-            )
-
-        self.assertEqual(response.status_code, 200)
-        oauth_url = urlparse(response.get_json()["url"])
-        oauth_query = parse_qs(oauth_url.query)
-        self.assertEqual(oauth_url.netloc, "auth.example.test")
-        self.assertEqual(oauth_query["provider"], ["apple"])
-        self.assertEqual(oauth_query["redirect_to"], [redirect_to])
-
-    def test_apple_oauth_stays_unavailable_if_supabase_provider_is_disabled(self):
-        with (
-            patch.object(server, "APPLE_OAUTH_ENABLED", True),
-            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
-            patch.object(server, "SUPABASE_KEY", "public-test-key"),
-            patch.object(server, "supabase_auth", return_value=(200, {"external": {"apple": False}})),
-        ):
-            response = self.client.get(
-                "/api/oauth/authorize",
-                query_string={
-                    "provider": "apple",
-                    "redirect_to": "http://localhost/auth/callback?from_url=%2FRegister.html%3Fapple_signup%3D1",
-                },
-            )
-
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("not enabled", response.get_json()["error"].lower())
-
-    def test_apple_private_relay_session_preserves_supabase_user_id(self):
-        session = {
-            "access_token": "apple-access",
-            "refresh_token": "apple-refresh",
-            "expires_in": 3600,
-            "user": {
-                "id": "apple-provider-user",
-                "email": "private-relay@privaterelay.appleid.com",
-                "user_metadata": {},
-            },
-        }
-        with (
-            patch.object(server, "supabase_auth", return_value=(200, session)),
-            patch.object(server, "ensure_profile") as ensure_profile,
-        ):
-            response = self.client.post(
-                "/api/oauth/session",
-                json={"code": "single-use-code", "code_verifier": "v" * 48},
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()["user"]["id"], "apple-provider-user")
-        ensure_profile.assert_called_once_with(
-            "apple-provider-user",
-            "private-relay@privaterelay.appleid.com",
-            "",
-        )
 
     def test_local_user_can_log_in_without_contacting_remote_provider(self):
         with (

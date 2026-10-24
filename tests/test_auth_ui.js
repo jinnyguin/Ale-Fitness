@@ -21,18 +21,21 @@ function makeElement() {
     innerHTML: "<span>Continue with Google</span>",
     style: {},
     disabled: false,
+    hidden: false,
+    readOnly: false,
     listeners: {},
     children: [],
     addEventListener(name, callback) {
       this.listeners[name] = callback;
     },
+    focus() {},
     appendChild(child) {
       this.children.push(child);
     },
   };
 }
 
-function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = false, oauth } = {}) {
+function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = false, emailCode } = {}) {
   const elements = new Map();
   const getElement = (id) => {
     if (!elements.has(id)) elements.set(id, makeElement());
@@ -47,11 +50,14 @@ function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = fals
     "email",
     "password",
     "googleSignIn",
-    "appleSignIn",
-    "appleAccountNote",
+    "emailCodeStart",
+    "emailCodePanel",
+    "emailCodeInput",
+    "emailCodeVerify",
+    "emailCodeChange",
+    "emailCodeStatus",
   ].forEach(getElement);
-  getElement("appleSignIn").hidden = true;
-  getElement("appleAccountNote").hidden = true;
+  getElement("emailCodePanel").hidden = true;
   const values = new Map();
   if (token) {
     values.set("base44_access_token", token);
@@ -78,12 +84,10 @@ function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = fals
     },
   };
   const request = fetchImpl || (async () => { throw new Error("unexpected fetch"); });
-  const listeners = {};
-  const window = {
-    location,
-    localStorage,
-    AlefitOAuth: oauth,
-    addEventListener(name, callback) { listeners[name] = callback; },
+  const window = { location, localStorage, addEventListener() {} };
+  window.AlefitEmailCode = emailCode || {
+    async send() { throw new Error("unexpected email-code send"); },
+    async verify() { throw new Error("unexpected email-code verify"); },
   };
   window.AlefitSession = {
     save(session) {
@@ -130,10 +134,13 @@ function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = fals
     URLSearchParams,
     fetch: request,
     console,
+    Date,
+    setInterval: () => 1,
+    clearInterval() {},
   };
 
   vm.runInNewContext(loginScript, context);
-  return { elements, values, location, window, listeners };
+  return { elements, values, location, window };
 }
 
 function makeCallbackBrowser({ search = "", hash = "", storageBlocked = false, fetchImpl, pending, exchange }) {
@@ -288,6 +295,77 @@ async function testSignInFromRegistrationReturnsToOnboarding() {
   assert.equal(browser.values.get("token"), "returning-user-token");
 }
 
+async function testEmailCodeLoginVerifiesSessionAndRoutesToSavedPlan() {
+  const calls = [];
+  const browser = makeBrowser({
+    emailCode: {
+      async send(email, options) {
+        calls.push({method:"send", email, options});
+        return {sent:true, retry_after_seconds:60, message:"Check your email."};
+      },
+      async verify(email, code) {
+        calls.push({method:"verify", email, code});
+        return {
+          access_token:"otp-token",
+          refresh_token:"otp-refresh",
+          user:{id:"existing-athlete", email},
+        };
+      },
+    },
+  });
+  browser.elements.get("email").value = " Athlete@Example.Test ";
+  await browser.elements.get("emailCodeStart").listeners.click();
+  assert.equal(browser.elements.get("emailCodePanel").hidden, false);
+  assert.equal(browser.elements.get("email").readOnly, true);
+  assert.equal(browser.elements.get("emailCodeStart").disabled, true);
+  assert.equal(browser.elements.get("emailCodeStart").textContent, "Resend code in 60s");
+  browser.elements.get("emailCodeInput").value = "123456";
+  await browser.elements.get("emailCodeVerify").listeners.click();
+
+  assert.equal(JSON.stringify(calls), JSON.stringify([
+    {method:"send", email:"athlete@example.test", options:{createUser:false}},
+    {method:"verify", email:"athlete@example.test", code:"123456"},
+  ]));
+  assert.equal(browser.values.get("token"), "otp-token");
+  assert.equal(browser.location.replacedWith, "/today.html?view=today");
+}
+
+async function testEmailCodeLoginRejectsPartialCodeBeforeVerification() {
+  let verifyCalls = 0;
+  const browser = makeBrowser({
+    emailCode: {
+      async send() { return {sent:true, retry_after_seconds:60}; },
+      async verify() { verifyCalls += 1; throw new Error("unexpected verify"); },
+    },
+  });
+  browser.elements.get("email").value = "athlete@example.test";
+  await browser.elements.get("emailCodeStart").listeners.click();
+  browser.elements.get("emailCodeInput").value = "12x4";
+  browser.elements.get("emailCodeInput").listeners.input();
+  assert.equal(browser.elements.get("emailCodeInput").value, "124");
+  await browser.elements.get("emailCodeVerify").listeners.click();
+  assert.equal(verifyCalls, 0);
+  assert.match(browser.elements.get("emailCodeStatus").textContent, /all six digits/i);
+}
+
+async function testEmailCodeRateLimitDisplaysCooldown() {
+  const browser = makeBrowser({
+    emailCode: {
+      async send() {
+        const error = new Error("Too many code requests.");
+        error.status = 429;
+        error.retryAfterSeconds = 15;
+        throw error;
+      },
+      async verify() { throw new Error("unexpected verify"); },
+    },
+  });
+  browser.elements.get("email").value = "athlete@example.test";
+  await browser.elements.get("emailCodeStart").listeners.click();
+  assert.equal(browser.elements.get("emailCodeStart").disabled, true);
+  assert.equal(browser.elements.get("emailCodeStart").textContent, "Try again in 15s");
+}
+
 async function testIncompleteManualLoginIsRejectedWithoutSuccessTracking() {
   let trackedEvents = 0;
   const browser = makeBrowser({
@@ -431,86 +509,19 @@ async function testCallbackCancellationAndExpiredTransaction() {
   }
 }
 
-async function testAppleButtonOnlyAppearsWhenServerAdvertisesApple() {
-  const unavailable = makeBrowser({
-    oauth: {availableProviders: async () => ["email", "google"]},
-  });
-  await unavailable.listeners.load();
-  await flushPromises();
-  assert.equal(unavailable.elements.get("appleSignIn").hidden, true);
-
-  const available = makeBrowser({
-    oauth: {availableProviders: async () => ["email", "apple"]},
-  });
-  await available.listeners.load();
-  await flushPromises();
-  assert.equal(available.elements.get("appleSignIn").hidden, false);
-  assert.equal(available.elements.get("appleAccountNote").hidden, false);
-}
-
-async function testAppleLoginStartsSignupContinuation() {
-  let destination = null;
-  const browser = makeBrowser({
-    oauth: {
-      availableProviders: async () => ["email", "apple"],
-      startApple: async (returnTo) => { destination = returnTo; },
-    },
-  });
-  await browser.elements.get("appleSignIn").listeners.click();
-  assert.equal(destination, "/Register.html?apple_signup=1");
-}
-
-async function testAppleCallbackCancellationNamesTheProvider() {
-  const browser = makeCallbackBrowser({
-    search: "?error=access_denied",
-    pending: {provider:"apple", started:Date.now(), returnTo:"/Register.html?apple_signup=1"},
-  });
-  await flushPromises();
-  assert.match(browser.elements.get("errMsg").textContent, /Apple sign-in was cancelled/i);
-}
-
-async function testApplePkceCallbackReturnsToSavedOnboardingDestination() {
-  const browser = makeCallbackBrowser({
-    search: "?code=apple-code",
-    pending: {
-      provider:"apple",
-      verifier:"b".repeat(64),
-      started:Date.now(),
-      returnTo:"/Register.html?apple_signup=1",
-    },
-    exchange: async (body) => {
-      assert.equal(body.code, "apple-code");
-      assert.equal(body.code_verifier, "b".repeat(64));
-      return {access_token:"apple-session"};
-    },
-    fetchImpl: async () => ({
-      ok:true,
-      status:200,
-      json:async()=>({id:"apple-user", email:"private-relay@privaterelay.appleid.com"}),
-    }),
-  });
-  await flushPromises();
-  assert.equal(
-    browser.location.replacedWith,
-    "https://alefit.example/Register.html?apple_signup=1",
-  );
-  assert.equal(browser.values.get("token"), "apple-session");
-}
-
 async function run() {
   const tests = [
     testPkceCallbackRestoresPendingDestination,
     testCallbackCancellationAndExpiredTransaction,
-    testAppleButtonOnlyAppearsWhenServerAdvertisesApple,
-    testAppleLoginStartsSignupContinuation,
-    testAppleCallbackCancellationNamesTheProvider,
-    testApplePkceCallbackReturnsToSavedOnboardingDestination,
     testSavedSessionSurvivesProviderOutage,
     testMalformedSuccessfulSessionIsNotTrusted,
     testInvalidSavedSessionIsCleared,
     testValidSavedSessionRedirects,
     testManualLoginStoresOnlyACompleteSession,
     testSignInFromRegistrationReturnsToOnboarding,
+    testEmailCodeLoginVerifiesSessionAndRoutesToSavedPlan,
+    testEmailCodeLoginRejectsPartialCodeBeforeVerification,
+    testEmailCodeRateLimitDisplaysCooldown,
     testIncompleteManualLoginIsRejectedWithoutSuccessTracking,
     testBlockedStorageShowsActionableError,
     testGoogleCallbackKeepsTokenDuringProviderOutage,

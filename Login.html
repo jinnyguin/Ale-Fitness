@@ -129,10 +129,13 @@
     .google-btn:focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; }
     .google-btn:disabled { opacity: .55; cursor: wait; }
     .google-btn svg { width: 1.2rem; height: 1.2rem; flex: 0 0 auto; }
-    .apple-btn { margin-top: .65rem; }
-    .apple-btn[hidden], .oauth-provider-note[hidden] { display:none; }
-    .apple-btn svg { width:1.2rem;height:1.2rem;flex:0 0 auto;fill:#111; }
-    .oauth-provider-note { margin:.65rem 0 0;color:#929b93;font-size:.72rem;line-height:1.5; }
+    .email-code-panel { margin-top: .9rem; padding: 1rem; border: 1px solid var(--line); border-radius: .55rem; }
+    .email-code-panel[hidden] { display:none; }
+    .email-code-panel p { color:var(--muted);font-size:.8rem;line-height:1.5;margin:0 0 .8rem; }
+    .email-code-panel input { text-align:center;letter-spacing:.35em;font-size:1.3rem; }
+    .email-code-actions { display:flex;justify-content:space-between;gap:1rem;margin-top:.75rem; }
+    .email-code-actions button { background:none;border:0;color:var(--lime);font:700 .75rem 'Inter','Segoe UI',system-ui,sans-serif;cursor:pointer;padding:.45rem 0; }
+    .email-code-actions button:disabled { color:#69716b;cursor:wait; }
     .oauth-divider { display: flex; align-items: center; gap: .9rem; margin: 1.1rem 0 0; color: #657067; font-size: .7rem; }
     .oauth-divider::before, .oauth-divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
     .error-msg {
@@ -296,6 +299,17 @@
     <button type="submit" class="btn" id="submitBtn">Sign In</button>
   </form>
   <div class="oauth-divider" aria-hidden="true">or</div>
+  <button type="button" class="google-btn" id="emailCodeStart" hidden>Continue with Email Code</button>
+  <section class="email-code-panel" id="emailCodePanel" hidden aria-labelledby="emailCodeHeading">
+    <p id="emailCodeHeading">Enter the six-digit code sent to your email. If it expires, request a new code.</p>
+    <label for="emailCodeInput">Six-digit code</label>
+    <input type="text" id="emailCodeInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" aria-describedby="emailCodeStatus"/>
+    <button type="button" class="btn" id="emailCodeVerify">Verify and continue</button>
+    <div class="email-code-actions">
+      <button type="button" id="emailCodeChange">Use a different email</button>
+    </div>
+    <p id="emailCodeStatus" role="status" aria-live="polite"></p>
+  </section>
   <button type="button" class="google-btn" id="googleSignIn">
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.9 6.1-15Z"/>
@@ -305,13 +319,6 @@
     </svg>
     <span>Continue with Google</span>
   </button>
-  <button type="button" class="google-btn apple-btn" id="appleSignIn" hidden>
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M16.8 12.8c0-2 1.6-3 1.7-3.1-1-1.4-2.5-1.6-3.1-1.7-1.3-.1-2.5.8-3.2.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.9-3.6 2.2-1.6 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.1 2.5 2 1 0 1.4-.7 2.7-.7s1.7.7 2.8.7 1.8-1 2.5-2.1c.8-1.1 1.1-2.2 1.1-2.3 0 0-1.7-.7-1.7-3.5ZM14.8 6.5c.6-.8 1-1.8.9-2.9-.9.1-2 .7-2.7 1.5-.6.7-1.1 1.7-1 2.7 1 .1 2.1-.4 2.8-1.3Z"/>
-    </svg>
-    <span>Continue with Apple</span>
-  </button>
-  <p class="oauth-provider-note" id="appleAccountNote" hidden>Apple may use a private relay email. If you already have an ALEFIT account, keep using its sign-in method; ALEFIT never merges plans by email alone.</p>
   <div class="links">
     <div class="links-row">
       <a href="/ForgotPassword.html">Forgot password?</a>
@@ -322,6 +329,7 @@
 </div>
 </main>
 <script src="/member-routing.js"></script>
+<script src="/auth-email-code.js"></script>
 <script>
 (function() {
   var APP_ID = '6a1f3d189ebdbe71fa7d256c';
@@ -477,12 +485,131 @@
     }
   });
 
+  var emailCodeStart = document.getElementById('emailCodeStart');
+  var emailCodePanel = document.getElementById('emailCodePanel');
+  var emailCodeInput = document.getElementById('emailCodeInput');
+  var emailCodeVerify = document.getElementById('emailCodeVerify');
+  var emailCodeChange = document.getElementById('emailCodeChange');
+  var emailCodeStatus = document.getElementById('emailCodeStatus');
+  var emailCodeAddress = '';
+  var verifiedEmailCodeSession = null;
+  var emailCodeCooldownTimer = null;
+  if (window.AlefitEmailCode && typeof window.AlefitEmailCode.isEnabled === 'function') {
+    window.AlefitEmailCode.isEnabled().then(function(enabled) {
+      emailCodeStart.hidden = !enabled;
+    });
+  }
+  function beginEmailCodeCooldown(seconds) {
+    if (emailCodeCooldownTimer) clearInterval(emailCodeCooldownTimer);
+    var remainingSeconds = Math.max(1, Math.ceil(Number(seconds) || 60));
+    var endsAt = Date.now() + remainingSeconds * 1000;
+    emailCodeStart.disabled = true;
+    function updateCooldown() {
+      var remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      if (!remaining) {
+        clearInterval(emailCodeCooldownTimer);
+        emailCodeCooldownTimer = null;
+        emailCodeStart.disabled = false;
+        emailCodeStart.textContent = emailCodePanel.hidden ? 'Continue with Email Code' : 'Resend code';
+        return;
+      }
+      emailCodeStart.textContent = (emailCodePanel.hidden ? 'Try again in ' : 'Resend code in ') + remaining + 's';
+    }
+    updateCooldown();
+    emailCodeCooldownTimer = setInterval(updateCooldown, 1000);
+  }
+  emailCodeStart.addEventListener('click', async function() {
+    errorMsg.style.display = 'none';
+    var typedEmail = document.getElementById('email').value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typedEmail)) {
+      showError('Enter a valid email address to receive a sign-in code.');
+      document.getElementById('email').focus();
+      return;
+    }
+    if (emailCodeAddress && typedEmail !== emailCodeAddress) {
+      showError('Use “Use a different email” before changing the address for this code.');
+      return;
+    }
+    manualSignInStarted = true;
+    emailCodeStart.disabled = true;
+    emailCodeStart.textContent = emailCodeAddress ? 'Resending…' : 'Sending code…';
+    emailCodeStatus.textContent = 'Requesting a secure sign-in code…';
+    try {
+      var result = await window.AlefitEmailCode.send(typedEmail, {createUser:false});
+      emailCodeAddress = typedEmail;
+      document.getElementById('email').readOnly = true;
+      emailCodePanel.hidden = false;
+      emailCodeInput.value = '';
+      emailCodeStatus.textContent = result.message || 'If this email is registered, a six-digit code will arrive shortly.';
+      beginEmailCodeCooldown(result.retry_after_seconds || 60);
+      emailCodeInput.focus();
+    } catch (error) {
+      emailCodeStatus.textContent = error.message || 'Could not send a code. Please try again.';
+      showError(error.message || 'Could not send a code. Please try again.');
+      if (error.status === 429) beginEmailCodeCooldown(error.retryAfterSeconds || 60);
+      else {
+        emailCodeStart.disabled = false;
+        emailCodeStart.textContent = emailCodeAddress ? 'Resend code' : 'Continue with Email Code';
+      }
+    }
+  });
+  emailCodeInput.addEventListener('input', function() {
+    emailCodeInput.value = emailCodeInput.value.replace(/\D/g, '').slice(0, 6);
+  });
+  emailCodeVerify.addEventListener('click', async function() {
+    errorMsg.style.display = 'none';
+    if (!emailCodeAddress) {
+      showError('Request a code first.');
+      return;
+    }
+    if (!verifiedEmailCodeSession && !/^\d{6}$/.test(emailCodeInput.value)) {
+      emailCodeStatus.textContent = 'Enter all six digits from the email.';
+      emailCodeInput.focus();
+      return;
+    }
+    emailCodeVerify.disabled = true;
+    emailCodeStart.disabled = true;
+    emailCodeVerify.textContent = verifiedEmailCodeSession ? 'Opening your plan…' : 'Verifying…';
+    emailCodeStatus.textContent = verifiedEmailCodeSession ?
+      'You are signed in. Opening your saved training…' : 'Verifying your code…';
+    try {
+      if (!verifiedEmailCodeSession) {
+        verifiedEmailCodeSession = await window.AlefitEmailCode.verify(emailCodeAddress, emailCodeInput.value);
+      }
+      await saveSession(verifiedEmailCodeSession);
+    } catch (error) {
+      if (verifiedEmailCodeSession) {
+        emailCodeVerify.textContent = 'Open your plan';
+        emailCodeVerify.disabled = false;
+        emailCodeStatus.textContent = 'You are signed in, but ALEFIT could not open your plan yet. Try again.';
+        showError('You are signed in, but we could not open your plan. Check your connection and try again.');
+      } else {
+        emailCodeVerify.disabled = false;
+        emailCodeVerify.textContent = 'Verify and continue';
+        emailCodeStatus.textContent = error.message || 'That code could not be verified.';
+        showError(error.message || 'That code could not be verified.');
+        if (error.status === 429) beginEmailCodeCooldown(error.retryAfterSeconds || 60);
+      }
+    }
+  });
+  emailCodeChange.addEventListener('click', function() {
+    emailCodeAddress = '';
+    verifiedEmailCodeSession = null;
+    emailCodePanel.hidden = true;
+    emailCodeInput.value = '';
+    emailCodeVerify.disabled = false;
+    emailCodeVerify.textContent = 'Verify and continue';
+    document.getElementById('email').readOnly = false;
+    emailCodeStatus.textContent = '';
+    errorMsg.style.display = 'none';
+    if (!emailCodeStart.disabled) emailCodeStart.textContent = 'Continue with Email Code';
+  });
+
   var googleButton = document.getElementById('googleSignIn');
   var googleButtonMarkup = googleButton.innerHTML;
   googleButton.addEventListener('click', async function() {
     errorMsg.style.display = 'none';
     googleButton.disabled = true;
-    appleButton.disabled = true;
     googleButton.textContent = 'Connecting to Google…';
     try {
       if (!window.AlefitOAuth || typeof window.AlefitOAuth.startGoogle !== 'function') {
@@ -493,42 +620,11 @@
       showError(err.message || 'Google sign-in could not be started. Please try again.');
       googleButton.disabled = false;
       googleButton.innerHTML = googleButtonMarkup;
-      appleButton.disabled = false;
-    }
-  });
-  var appleButton = document.getElementById('appleSignIn');
-  var appleButtonMarkup = appleButton.innerHTML;
-  var appleAccountNote = document.getElementById('appleAccountNote');
-  window.addEventListener('load', function() {
-    if (!window.AlefitOAuth || typeof window.AlefitOAuth.availableProviders !== 'function') return;
-    window.AlefitOAuth.availableProviders().then(function(providers) {
-      if (!Array.isArray(providers) || !providers.includes('apple')) return;
-      appleButton.hidden = false;
-      appleAccountNote.hidden = false;
-    });
-  }, {once:true});
-  appleButton.addEventListener('click', async function() {
-    errorMsg.style.display = 'none';
-    appleButton.disabled = true;
-    googleButton.disabled = true;
-    appleButton.textContent = 'Connecting to Apple…';
-    try {
-      if (!window.AlefitOAuth || typeof window.AlefitOAuth.startApple !== 'function') {
-        throw new Error('Apple sign-in is not enabled yet. Please use email sign-in.');
-      }
-      await window.AlefitOAuth.startApple("/Register.html?apple_signup=1");
-    } catch(err) {
-      showError(err.message || 'Apple sign-in could not be started. Please try again.');
-      appleButton.disabled = false;
-      appleButton.innerHTML = appleButtonMarkup;
-      googleButton.disabled = false;
     }
   });
   window.addEventListener('pageshow', function () {
     googleButton.disabled = false;
     googleButton.innerHTML = googleButtonMarkup;
-    appleButton.disabled = false;
-    appleButton.innerHTML = appleButtonMarkup;
   });
   })();
 </script>

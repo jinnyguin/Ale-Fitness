@@ -29,9 +29,9 @@
     onboardingId: saved.onboardingId || (window.crypto && window.crypto.randomUUID ?
       window.crypto.randomUUID() : "onboarding-" + Date.now() + "-" + Math.random().toString(36).slice(2))
   };
-  var signupQuery = new URLSearchParams(window.location.search);
-  var socialSignupReturn = signupQuery.get("google_signup") === "1" || signupQuery.get("apple_signup") === "1";
-  var socialSignupProvider = signupQuery.get("apple_signup") === "1" ? "Apple" : "Google";
+  var signupResumeParams = new URLSearchParams(window.location.search);
+  var signupResume = signupResumeParams.get("google_signup") === "1" ||
+    signupResumeParams.get("email_code_signup") === "1";
   var accountNotice = "";
   var signupPuterSdkPromise = null;
   state.showSports = false;
@@ -1407,31 +1407,36 @@
       '<button type="button" class="button account-google" id="google-signup">' +
       '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.9 6.1-15Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.2A20.4 20.4 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.6a12.3 12.3 0 0 1 0-7.2v-5.2H5.8a20.1 20.1 0 0 0 0 17.6l6.8-5.2Z"/><path fill="#EA4335" d="M24 12c3 0 5.6 1 7.7 3.1l5.8-5.8C34 5.9 29.4 4 24 4A20.4 20.4 0 0 0 5.8 15.2l6.8 5.2C14.2 15.6 18.7 12 24 12Z"/></svg>' +
       '<span>Continue with Google</span></button>' +
-      '<button type="button" class="button account-apple" id="apple-signup" hidden>' +
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.8 12.8c0-2 1.6-3 1.7-3.1-1-1.4-2.5-1.6-3.1-1.7-1.3-.1-2.5.8-3.2.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.9-3.6 2.2-1.6 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.1 2.5 2 1 0 1.4-.7 2.7-.7s1.7.7 2.8.7 1.8-1 2.5-2.1c.8-1.1 1.1-2.2 1.1-2.3 0 0-1.7-.7-1.7-3.5ZM14.8 6.5c.6-.8 1-1.8.9-2.9-.9.1-2 .7-2.7 1.5-.6.7-1.1 1.7-1 2.7 1 .1 2.1-.4 2.8-1.3Z"/></svg>' +
-      '<span>Continue with Apple</span></button>' +
-      '<p class="account-apple-note" id="apple-signup-note" hidden>Apple may use a private relay email. If you already have an ALEFIT account, keep using its sign-in method; ALEFIT never merges plans by email alone.</p>' +
       '<div class="account-oauth-divider" aria-hidden="true">or create an account with email</div>' +
       '<form id="form" novalidate>' +
       '<div class="field"><label for="name">Full name</label><input id="name" type="text" autocomplete="name" required minlength="2" maxlength="80" placeholder="Your name"></div>' +
       '<div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required maxlength="254" placeholder="your@email.com"></div>' +
       '<div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="Minimum 8 characters"></div>' +
       '</form>' +
+      '<button type="button" class="button secondary account-email-code" id="email-code-start" hidden>Continue with Email Code</button>' +
+      '<p class="account-code-hint" id="email-code-hint" hidden>Get a six-digit code by email. No password needed.</p>' +
+      '<p class="account-code-unavailable" id="email-code-unavailable" hidden>Email-code sign-in will appear after Supabase email delivery is configured and verified.</p>' +
+      '<section class="account-code-panel" id="email-code-panel" hidden aria-labelledby="email-code-heading">' +
+      '<p id="email-code-heading">Enter the six-digit code sent to your email. If it expires, request a new code.</p>' +
+      '<label for="email-code-input">Six-digit code</label>' +
+      '<input id="email-code-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" aria-describedby="email-code-status">' +
+      '<button type="button" class="button" id="email-code-verify">Verify and save my plan</button>' +
+      '<div class="account-code-actions"><button type="button" class="text-btn" id="email-code-change">Use a different email</button></div>' +
+      '<p id="email-code-status" role="status" aria-live="polite"></p></section>' +
       '<div class="footer"><button type="button" class="button" id="create">Create account & set up Coach</button></div>' +
       '<p class="account-login-link">Already have an account? <a href="/Login.html?from_url=%2FRegister.html">Sign in</a></p>' +
       '</section>';
     var form = document.getElementById("form");
     var googleButton = document.getElementById("google-signup");
     var googleButtonMarkup = googleButton.innerHTML;
-    var appleButton = document.getElementById("apple-signup");
-    var appleButtonMarkup = appleButton.innerHTML;
-    var appleNote = document.getElementById("apple-signup-note");
     var accountStatus = document.getElementById("account-status");
-    if (window.AlefitOAuth && typeof window.AlefitOAuth.availableProviders === "function") {
-      window.AlefitOAuth.availableProviders().then(function (providers) {
-        if (!Array.isArray(providers) || !providers.includes("apple")) return;
-        appleButton.hidden = false;
-        appleNote.hidden = false;
+    var emailCodeUnavailable = document.getElementById("email-code-unavailable");
+    var emailCodeHint = document.getElementById("email-code-hint");
+    if (window.AlefitEmailCode && typeof window.AlefitEmailCode.isEnabled === "function") {
+      window.AlefitEmailCode.isEnabled().then(function (enabled) {
+        emailCodeStart.hidden = !enabled;
+        emailCodeHint.hidden = !enabled;
+        emailCodeUnavailable.hidden = enabled;
       });
     }
     if (!(window.puter && window.puter.auth && typeof window.puter.auth.signIn === "function")) {
@@ -1453,46 +1458,171 @@
       var error = root.querySelector(".error");
       if (error) error.remove();
     });
-    async function startSocialSignup(provider, button, buttonMarkup) {
+    var emailCodeStart = document.getElementById("email-code-start");
+    var emailCodePanel = document.getElementById("email-code-panel");
+    var emailCodeInput = document.getElementById("email-code-input");
+    var emailCodeVerify = document.getElementById("email-code-verify");
+    var emailCodeChange = document.getElementById("email-code-change");
+    var emailCodeStatus = document.getElementById("email-code-status");
+    var pendingCodeEmail = "";
+    var pendingCodeName = "";
+    var verifiedCodeSession = null;
+    var codeCooldownTimer = null;
+    var puterPreparedForCode = false;
+    function beginCodeCooldown(seconds) {
+      if (codeCooldownTimer) clearInterval(codeCooldownTimer);
+      var until = Date.now() + Math.max(1, Math.ceil(Number(seconds) || 60)) * 1000;
+      emailCodeStart.disabled = true;
+      function updateCodeCooldown() {
+        var remaining = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+        if (!remaining) {
+          clearInterval(codeCooldownTimer);
+          codeCooldownTimer = null;
+          emailCodeStart.disabled = false;
+          emailCodeStart.textContent = emailCodePanel.hidden ? "Continue with Email Code" : "Resend code";
+          return;
+        }
+        emailCodeStart.textContent = (emailCodePanel.hidden ? "Try again in " : "Resend code in ") + remaining + "s";
+      }
+      updateCodeCooldown();
+      codeCooldownTimer = setInterval(updateCodeCooldown, 1000);
+    }
+    emailCodeStart.onclick = async function () {
+      var nameInput = document.getElementById("name");
+      var emailInput = document.getElementById("email");
+      var typedName = nameInput.value.trim();
+      var typedEmail = emailInput.value.trim().toLowerCase();
+      if (!pendingCodeEmail) {
+        if (typedName.length < 2) {
+          showError("Enter your name to create your ALEFIT account.");
+          nameInput.focus();
+          return;
+        }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typedEmail)) {
+          showError("Enter a valid email address to receive your code.");
+          emailInput.focus();
+          return;
+        }
+        if (!hasPuterSignupConsent()) return;
+        persist();
+        pendingCodeName = typedName;
+        pendingCodeEmail = typedEmail;
+      }
+      emailCodeStart.disabled = true;
+      emailCodeStart.textContent = pendingCodeEmail ? "Sending code…" : "Sending code…";
+      emailCodeStatus.textContent = "Preparing your account and requesting a secure code…";
+      try {
+        if (!puterPreparedForCode) {
+          accountStatus.textContent = "Preparing a temporary Coach identity…";
+          await prepareTemporaryPuterUser();
+          puterPreparedForCode = true;
+          accountStatus.textContent = "";
+        }
+        var result = await window.AlefitEmailCode.send(pendingCodeEmail, {
+          createUser: true,
+          fullName: pendingCodeName,
+        });
+        nameInput.readOnly = true;
+        emailInput.readOnly = true;
+        emailCodePanel.hidden = false;
+        emailCodeInput.value = "";
+        emailCodeStatus.textContent = "We sent a six-digit code if this email can be used for ALEFIT. Check your inbox and spam folder.";
+        beginCodeCooldown(result.retry_after_seconds || 60);
+        emailCodeInput.focus();
+      } catch (error) {
+        accountStatus.textContent = "";
+        emailCodeStatus.textContent = error.message || "Could not send your code. Your plan preview is still saved here.";
+        showError(error.message || "Could not send your code. Your plan preview is still saved here.");
+        if (emailCodePanel.hidden) {
+          pendingCodeEmail = "";
+          pendingCodeName = "";
+        }
+        if (error.status === 429) beginCodeCooldown(error.retryAfterSeconds || 60);
+        else {
+          emailCodeStart.disabled = false;
+          emailCodeStart.textContent = pendingCodeEmail ? "Resend code" : "Continue with Email Code";
+        }
+      }
+    };
+    emailCodeInput.addEventListener("input", function () {
+      emailCodeInput.value = emailCodeInput.value.replace(/\D/g, "").slice(0, 6);
+    });
+    async function finishEmailCodeSignup(session) {
+      if (!session || !session.access_token || !session.user || !session.user.id) {
+        throw new Error("The email-code service did not return a valid sign-in session.");
+      }
+      window.AlefitSession.save(session);
+      if (window.AlefitMember) {
+        window.AlefitMember.markSignedIn(session.user);
+        await window.AlefitMember.routeAfterSignIn(session.user, "/Register.html?email_code_signup=1");
+      } else {
+        window.location.replace("/Register.html?email_code_signup=1");
+      }
+    }
+    emailCodeVerify.onclick = async function () {
+      if (!verifiedCodeSession && !/^\d{6}$/.test(emailCodeInput.value)) {
+        emailCodeStatus.textContent = "Enter all six digits from the email.";
+        emailCodeInput.focus();
+        return;
+      }
+      emailCodeVerify.disabled = true;
+      emailCodeStart.disabled = true;
+      emailCodeVerify.textContent = verifiedCodeSession ? "Opening your plan…" : "Verifying…";
+      emailCodeStatus.textContent = verifiedCodeSession ? "You are signed in. Opening your training…" : "Verifying your code…";
+      try {
+        if (!verifiedCodeSession) {
+          verifiedCodeSession = await window.AlefitEmailCode.verify(pendingCodeEmail, emailCodeInput.value);
+        }
+        await finishEmailCodeSignup(verifiedCodeSession);
+      } catch (error) {
+        if (verifiedCodeSession) {
+          emailCodeVerify.disabled = false;
+          emailCodeVerify.textContent = "Open your plan";
+          emailCodeStatus.textContent = "You are signed in, but ALEFIT could not open your plan yet. Try again.";
+        } else {
+          emailCodeVerify.disabled = false;
+          emailCodeVerify.textContent = "Verify and save my plan";
+          emailCodeStatus.textContent = error.message || "That code could not be verified.";
+          showError(error.message || "That code could not be verified.");
+          if (error.status === 429) beginCodeCooldown(error.retryAfterSeconds || 60);
+        }
+      }
+    };
+    emailCodeChange.onclick = function () {
+      pendingCodeEmail = "";
+      pendingCodeName = "";
+      verifiedCodeSession = null;
+      emailCodePanel.hidden = true;
+      emailCodeInput.value = "";
+      emailCodeVerify.disabled = false;
+      emailCodeVerify.textContent = "Verify and save my plan";
+      document.getElementById("name").readOnly = false;
+      document.getElementById("email").readOnly = false;
+      emailCodeStatus.textContent = "";
+      if (!emailCodeStart.disabled) emailCodeStart.textContent = "Continue with Email Code";
+    };
+    googleButton.onclick = async function () {
       persist();
       if (!hasPuterSignupConsent()) return;
-      var providerName = provider === "apple" ? "Apple" : "Google";
       googleButton.disabled = true;
-      appleButton.disabled = true;
-      button.textContent = "Preparing Coach setup…";
+      googleButton.textContent = "Preparing Coach setup…";
       var status = document.getElementById("account-status");
-      if (status) status.textContent = "Preparing a temporary Coach identity before " + providerName + " sign-in…";
+      if (status) status.textContent = "Preparing a temporary Coach identity before Google sign-in…";
       try {
         await prepareTemporaryPuterUser();
-        button.textContent = "Connecting to " + providerName + "…";
-        if (status) status.textContent = "Puter setup is ready. Connecting to " + providerName + "…";
-        var startOAuth = provider === "apple" ?
-          window.AlefitOAuth && window.AlefitOAuth.startApple :
-          window.AlefitOAuth && window.AlefitOAuth.startGoogle;
-        if (typeof startOAuth !== "function") {
-          throw new Error(providerName + " sign-in is not enabled yet. Please use email sign-in.");
-        }
-        await startOAuth("/Register.html?" + provider + "_signup=1");
+        googleButton.textContent = "Connecting to Google…";
+        if (status) status.textContent = "Puter setup is ready. Connecting to Google…";
+        await window.AlefitOAuth.startGoogle("/Register.html?google_signup=1");
       } catch (error) {
         googleButton.disabled = false;
         googleButton.innerHTML = googleButtonMarkup;
-        appleButton.disabled = false;
-        appleButton.innerHTML = appleButtonMarkup;
         if (status) status.textContent = "";
-        showError(error.message || providerName + " sign-in could not be started. Your onboarding progress is still saved in this tab.");
+        showError(error.message || "Google sign-in could not be started. Your onboarding progress is still saved in this tab.");
       }
     }
-    googleButton.onclick = function () {
-      return startSocialSignup("google", googleButton, googleButtonMarkup);
-    };
-    appleButton.onclick = function () {
-      return startSocialSignup("apple", appleButton, appleButtonMarkup);
-    };
     window.onpageshow = function () {
       googleButton.disabled = false;
       googleButton.innerHTML = googleButtonMarkup;
-      appleButton.disabled = false;
-      appleButton.innerHTML = appleButtonMarkup;
     };
     document.getElementById("create").onclick = register;
   }
@@ -1751,16 +1881,16 @@
       var status = await response.json();
       var hasPlan = !!status.plan;
       if (window.AlefitMember) window.AlefitMember.markSetupComplete(hasPlan);
-      if (hasPlan && (socialSignupReturn || !(state.step === 6 && state.plan))) {
+      if (hasPlan && (signupResume || !(state.step === 6 && state.plan))) {
         window.location.replace("/today.html?view=today");
         return;
       }
-      if (socialSignupReturn) {
+      if (signupResume) {
         accountNotice = "You're signed in. Let's build your personalized training plan.";
-        socialSignupReturn = false;
+        signupResume = false;
         window.history.replaceState(null, "", "/Register.html");
       }
-      if (state.step === 6 && state.plan && !records.length) {
+      if (state.step === 6 && state.plan) {
         state.context = { workoutLogs: [], readiness: [] };
         render();
         savePlan();
@@ -1775,8 +1905,8 @@
     routeSignedInUser();
   } else {
     render();
-    if (socialSignupReturn) {
-      showError(socialSignupProvider + " sign-in did not finish. Your onboarding progress is still saved in this browser.");
+    if (signupResume) {
+      showError("Sign-in did not finish. Your onboarding progress is still saved in this browser.");
     }
   }
 }());

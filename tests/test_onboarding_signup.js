@@ -11,7 +11,6 @@ function makeElement(id, root, getElementById) {
     value: "",
     type: "",
     tagName: "DIV",
-    hidden: id === "apple-signup" || id === "apple-signup-note",
     checked: false,
     textContent: "",
     innerHTML: id === "google-signup" ? "<span>Continue with Google</span>" : "",
@@ -43,7 +42,7 @@ function makeElement(id, root, getElementById) {
   return element;
 }
 
-function makeBrowser({ fetchImpl, token = "", search = "", draft, localDraftOnly, puter, oauth } = {}) {
+function makeBrowser({ fetchImpl, token = "", search = "", draft, localDraftOnly, puter, oauth, emailCode } = {}) {
   const elements = new Map();
   let controls = [];
   let tiles = [];
@@ -186,10 +185,25 @@ function makeBrowser({ fetchImpl, token = "", search = "", draft, localDraftOnly
     requestAnimationFrame(callback) { callback(); },
     puter: puter || { auth: { isSignedIn: () => true, signIn: async () => ({}) } },
     AlefitOAuth: oauth,
+    AlefitEmailCode: emailCode || {
+      async send() { throw new Error("unexpected email-code send"); },
+      async verify() { throw new Error("unexpected email-code verify"); },
+    },
+    AlefitSession: {
+      save(session) {
+        values.set("base44_access_token", session.access_token);
+        values.set("token", session.access_token);
+        values.set("alefit_user", JSON.stringify(session.user));
+      },
+    },
     ALEFITTrainingEngine: trainingEngine,
     AlefitMember: {
       markSignedIn(user) { values.set("alefit_member_account", user && user.id || "known"); },
       markSetupComplete(complete) { values.set("alefit_member_setup_complete", complete ? "1" : "0"); },
+      async routeAfterSignIn(user, preferredPath) {
+        location.replace(preferredPath);
+        return preferredPath;
+      },
     },
     trackEvent() {},
   };
@@ -204,6 +218,8 @@ function makeBrowser({ fetchImpl, token = "", search = "", draft, localDraftOnly
     Date,
     JSON,
     console,
+    setInterval: () => 1,
+    clearInterval() {},
   };
   vm.runInNewContext(onboardingScript, context);
   return { root, elements, getElementById, location, values, progressWrap, window };
@@ -264,6 +280,104 @@ async function testSignupSavesGuestPlanAndOpensToday() {
   assert.deepEqual(order, ["puter", "alefit"], "temporary Puter setup must finish before ALEFIT creates the account");
 }
 
+async function testEmailCodeSignupPreservesPlanAndCreatesSession() {
+  const order = [];
+  const browser = makeBrowser({
+    draft: {
+      step:6,
+      onboardingId:"email-code-plan",
+      prefs:{
+        sport:"basketball", goals:["speed"], experience:"new", consistency:"low",
+        equipment:["bodyweight"], days:2, duration:40, age:"adult",
+        availableDays:[1,4], limitations:"", load:""
+      },
+      plan:{name:"Basketball speed base", summary:"A two-day introductory block."},
+    },
+    puter: {auth:{
+      isSignedIn:() => false,
+      signIn:async (options) => {
+        order.push("puter");
+        assert.deepEqual(JSON.parse(JSON.stringify(options)), {attempt_temp_user_creation:true});
+        return {temporary:true};
+      },
+    }},
+    emailCode: {
+      async send(email, options) {
+        order.push("send-code");
+        assert.equal(email, "athlete@example.test");
+        assert.deepEqual(JSON.parse(JSON.stringify(options)), {
+          createUser:true,
+          fullName:"Test Athlete",
+        });
+        return {sent:true,retry_after_seconds:60};
+      },
+      async verify(email, code) {
+        order.push("verify-code");
+        assert.equal(email, "athlete@example.test");
+        assert.equal(code, "004271");
+        return {
+          access_token:"otp-new-user-token",
+          refresh_token:"otp-new-user-refresh",
+          user:{id:"otp-new-user",email},
+        };
+      },
+    },
+  });
+  click(browser, "next");
+  browser.getElementById("name").value = "Test Athlete";
+  browser.getElementById("email").value = "athlete@example.test";
+  browser.getElementById("puter-signup-consent").checked = true;
+  await click(browser, "email-code-start");
+  assert.equal(browser.getElementById("email-code-panel").hidden, false);
+  assert.equal(browser.getElementById("email").readOnly, true);
+  assert.ok(browser.values.get("alefit_onboarding_draft"), "the plan draft is persisted before requesting a code");
+
+  browser.getElementById("email-code-input").value = "004271";
+  await click(browser, "email-code-verify");
+  assert.deepEqual(order, ["puter", "send-code", "verify-code"]);
+  assert.equal(browser.values.get("token"), "otp-new-user-token");
+  assert.equal(browser.values.get("alefit_member_account"), "otp-new-user");
+  assert.equal(browser.location.replacedWith, "/Register.html?email_code_signup=1");
+  assert.ok(browser.values.get("alefit_onboarding_draft"), "the plan draft stays until durable plan-save succeeds");
+}
+
+async function testEmailCodeReturnResumesAndDurablySavesTheGuestPlan() {
+  const calls = [];
+  const browser = makeBrowser({
+    token:"verified-email-code-token",
+    search:"?email_code_signup=1",
+    draft:{
+      step:6,
+      onboardingId:"email-code-resume-plan",
+      prefs:{
+        sport:"strength", goals:["strength"], experience:"new", consistency:"low",
+        equipment:["dumbbells"], days:2, duration:40, age:"adult",
+        availableDays:[1,4], limitations:"", load:""
+      },
+      plan:{name:"Strength starter",summary:"A two-day beginner block.",weeks:[{week:1,sessions:[]}]},
+    },
+    fetchImpl:async (url, options) => {
+      calls.push(url);
+      if (/\/member-status$/.test(url)) {
+        return {
+          ok:true,status:200,
+          json:async()=>({user:{id:"otp-new-user"},setup_complete:false,plan:null}),
+        };
+      }
+      assert.match(url, /\/onboarding-plan$/);
+      const savedPlan = JSON.parse(options.body).generated_plan;
+      assert.equal(savedPlan.profile.sport, "strength");
+      assert.equal(savedPlan.weeks.length, 4);
+      return {ok:true,status:200,json:async()=>({id:"saved-email-code-plan"})};
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(calls.some((url) => /\/onboarding-plan$/.test(url)));
+  assert.equal(browser.values.get("alefit_onboarding_draft"), undefined);
+  assert.equal(browser.location.replacedWith, "/today.html?view=today");
+}
+
 async function testSignupFailureShowsRetryableHelpfulError() {
   const browser = makeBrowser({
     draft: { step: 6, prefs: { sport: "general", goals: ["fitness"], equipment: ["bodyweight"], age: "adult" } },
@@ -315,7 +429,6 @@ async function testConfirmationRequiredKeepsMemberAndDraftForEmailReturn() {
 async function testReturningUserWithPlanIsSentToDashboard() {
   const browser = makeBrowser({
     token: "returning-token",
-    search: "?apple_signup=1",
     fetchImpl: async () => ({
       ok: true,
       status: 200,
@@ -333,7 +446,6 @@ async function testReturningUserWithPlanIsSentToDashboard() {
 async function testSignedInUserWithoutPlanStartsOnboarding() {
   const browser = makeBrowser({
     token: "new-user-token",
-    search: "?apple_signup=1",
     fetchImpl: async () => ({
       ok: true,
       status: 200,
@@ -681,42 +793,15 @@ async function testGoogleSignupPreparesTemporaryPuterIdentityFirst() {
   assert.deepEqual(order, ["puter", "google"]);
 }
 
-async function testAppleSignupPreparesTemporaryPuterIdentityFirstAndPreservesDraft() {
-  const order = [];
-  const browser = makeBrowser({
-    draft: { step: 6, prefs: { sport: "general", goals: ["fitness"], equipment: ["bodyweight"], age: "adult" } },
-    puter: { auth: {
-      isSignedIn: () => false,
-      signIn: async (options) => {
-        order.push("puter");
-        assert.deepEqual(JSON.parse(JSON.stringify(options)), { attempt_temp_user_creation: true });
-      }
-    } },
-    oauth: {
-      availableProviders: async () => ["email", "apple"],
-      startApple: async (returnTo) => {
-        order.push("apple");
-        assert.equal(returnTo, "/Register.html?apple_signup=1");
-      },
-    },
-  });
-  click(browser, "next");
-  await Promise.resolve();
-  assert.equal(browser.getElementById("apple-signup").hidden, false);
-  browser.getElementById("puter-signup-consent").checked = true;
-  await browser.getElementById("apple-signup").onclick();
-  assert.deepEqual(order, ["puter", "apple"]);
-  assert.ok(browser.values.has("alefit_onboarding_draft"), "onboarding draft persists before Apple OAuth");
-}
-
 async function run() {
   const tests = [
     testGuestStartsWithOnboardingBeforeAccount,
     testSignupSavesGuestPlanAndOpensToday,
+    testEmailCodeSignupPreservesPlanAndCreatesSession,
+    testEmailCodeReturnResumesAndDurablySavesTheGuestPlan,
     testSignupFailureShowsRetryableHelpfulError,
     testSignupRequiresPuterConsentAndHandlesCancelledSetup,
     testGoogleSignupPreparesTemporaryPuterIdentityFirst,
-    testAppleSignupPreparesTemporaryPuterIdentityFirstAndPreservesDraft,
     testConfirmationRequiredKeepsMemberAndDraftForEmailReturn,
     testReturningUserWithPlanIsSentToDashboard,
     testSignedInUserWithoutPlanStartsOnboarding,

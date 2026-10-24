@@ -107,11 +107,6 @@
   }
   var fromUrl = safeReturnPath(query.get('from_url'));
   if (/^\/(?:auth\/callback|OAuthCallback\.html)/i.test(fromUrl)) fromUrl = '/Login.html';
-  var pendingTransaction = null;
-  try {
-    pendingTransaction = JSON.parse(window.sessionStorage.getItem('alefit_oauth_pending') || 'null');
-  } catch (e) {}
-  var oauthProvider = pendingTransaction && pendingTransaction.provider === 'apple' ? 'Apple' : 'Google';
 
   function setError(msg) {
     document.querySelector('.card').setAttribute('aria-busy', 'false');
@@ -137,15 +132,14 @@
   var providerError = params.get('error_description') || params.get('error') ||
     query.get('error_description') || query.get('error');
   if (providerError) {
-    try { window.sessionStorage.removeItem('alefit_oauth_pending'); } catch (e) {}
     setError(/access_denied|cancel/i.test(providerError) ?
-      oauthProvider + ' sign-in was cancelled. Your saved plan has not changed.' :
-      oauthProvider + ' could not complete sign-in. Please try again or use email sign-in.');
+      'Google sign-in was cancelled. Your saved plan has not changed.' :
+      'Google could not complete sign-in. Please try again or use email sign-in.');
     return;
   }
   if (query.get('code')) {
     try {
-      var pending = pendingTransaction;
+      var pending = JSON.parse(window.sessionStorage.getItem('alefit_oauth_pending') || 'null');
       if (!pending || Date.now() - pending.started > 20 * 60 * 1000) {
         throw new Error('Sign-in expired or opened in a different browser. Return to ALEFIT and try again.');
       }
@@ -179,7 +173,7 @@
   }
 
   if (!token) {
-    setError(query.get('error_description') || query.get('error') || oauthProvider + ' sign-in did not return a session.');
+    setError(query.get('error_description') || query.get('error') || 'No access token received.');
     return;
   }
 
@@ -216,7 +210,7 @@
           'Sign-in verification is busy. Please return and try again in a moment.' :
           response.status >= 500 ?
             'Sign-in is temporarily unavailable. Please return and try again in a moment.' :
-            oauthProvider + ' sign-in could not be verified. Please try signing in again.');
+            'Google sign-in could not be verified. Please try signing in again.');
         error.clearSession = response.status === 401 || response.status === 403;
         throw error;
       }
@@ -240,7 +234,7 @@
     if (error && error.clearSession) clearStoredSession();
     var message = error && error.name === 'TypeError' ?
       'Could not reach the sign-in service. Check your connection and try again.' :
-      (error && error.message) || oauthProvider + ' sign-in could not be completed. Please try again.';
+      (error && error.message) || 'Google sign-in could not be completed. Please try again.';
     setError(message);
   });
 })();
