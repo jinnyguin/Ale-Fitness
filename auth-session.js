@@ -4,14 +4,20 @@
   var refreshing = null;
   var rotatedTokens = new Set();
   var APP_ID = "6a1f3d189ebdbe71fa7d256c";
+  var memoryAccessToken = null;
+  var memoryTokenFallback = false;
   function read(key) {
     try { return root.localStorage.getItem(key); } catch (error) { return null; }
+  }
+  function write(key, value) {
+    try { root.localStorage.setItem(key, value); return true; } catch (error) { return false; }
   }
   function remove(key) {
     try { root.localStorage.removeItem(key); } catch (error) {}
   }
   function token() {
-    return read("base44_access_token") || read("token");
+    if (memoryTokenFallback && memoryAccessToken) return memoryAccessToken;
+    return read("base44_access_token") || read("token") || memoryAccessToken;
   }
   function clearRefresh() {
     remove("alefit_refresh_token");
@@ -19,14 +25,32 @@
   }
   function save(session) {
     if (!session || !session.access_token) throw new Error("No valid sign-in session was received.");
-    root.localStorage.setItem("base44_access_token", session.access_token);
-    root.localStorage.setItem("token", session.access_token);
-    if (session.user) root.localStorage.setItem("alefit_user", JSON.stringify(session.user));
+    memoryAccessToken = session.access_token;
+    var baseTokenSaved = write("base44_access_token", session.access_token);
+    var tokenSaved = write("token", session.access_token);
+    memoryTokenFallback = !baseTokenSaved || !tokenSaved;
+    if (session.user) write("alefit_user", JSON.stringify(session.user));
     if (session.refresh_token) {
       // Compatibility for older deployments; new sessions use an HttpOnly cookie.
-      root.localStorage.setItem("alefit_refresh_token", session.refresh_token);
-      root.localStorage.setItem("alefit_refresh_owner", session.access_token);
+      write("alefit_refresh_token", session.refresh_token);
+      write("alefit_refresh_owner", session.access_token);
     } else clearRefresh();
+  }
+  function clear() {
+    memoryAccessToken = null;
+    memoryTokenFallback = false;
+    remove("base44_access_token");
+    remove("token");
+    remove("alefit_user");
+    clearRefresh();
+  }
+  if (typeof root.addEventListener === "function") {
+    root.addEventListener("storage", function (event) {
+      if (!event || (event.key !== "base44_access_token" && event.key !== "token")) return;
+      var persisted = read("base44_access_token") || read("token");
+      memoryAccessToken = persisted || (event.newValue ? String(event.newValue) : null);
+      memoryTokenFallback = !persisted && !!event.newValue;
+    });
   }
   async function timedFetch(url, options) {
     var controller = new AbortController();
@@ -76,10 +100,7 @@
       session = await exchange(legacyRefresh ? {refresh_token:legacyRefresh} : {});
     } catch (error) {
       if (error.status === 401) {
-        remove("base44_access_token");
-        remove("token");
-        remove("alefit_user");
-        clearRefresh();
+        clear();
         return {authenticated:false, user:null};
       }
       throw error;
@@ -91,10 +112,7 @@
     var restoredUser = await response.json().catch(function () { return null; });
     if (!response.ok || !restoredUser || typeof restoredUser.id !== "string" || !restoredUser.id.trim()) {
       if (response.status === 401 || response.status === 403) {
-        remove("base44_access_token");
-        remove("token");
-        remove("alefit_user");
-        clearRefresh();
+        clear();
         return {authenticated:false, user:null};
       }
       throw new Error("Could not finish restoring your sign-in. Please try again.");
@@ -144,5 +162,12 @@
       });
     }
   };
-  root.AlefitSession = {save:save, exchange:exchange, restore:restore, timedFetch:timedFetch};
+  root.AlefitSession = {
+    save:save,
+    clear:clear,
+    accessToken:token,
+    exchange:exchange,
+    restore:restore,
+    timedFetch:timedFetch
+  };
 }(window));

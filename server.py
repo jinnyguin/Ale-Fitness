@@ -62,7 +62,9 @@ def _alefit_cookie_domain():
 
 def _set_refresh_cookie(response, refresh_token):
     forwarded_proto = request.headers.get("X-Forwarded-Proto", "").split(",", 1)[0].strip()
-    secure = request.is_secure or forwarded_proto == "https"
+    # Vercel terminates TLS before Flask; always retain Secure for ALEFIT's
+    # official domain even if the proxy omits its forwarded-proto header.
+    secure = request.is_secure or forwarded_proto == "https" or _alefit_cookie_domain() == ".alefit.org"
     if refresh_token:
         response.set_cookie(
             AUTH_REFRESH_COOKIE,

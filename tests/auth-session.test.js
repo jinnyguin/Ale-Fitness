@@ -68,5 +68,30 @@ function browser(mode) {
   assert.equal(restored.user.id, "restored-athlete");
   assert.equal(restoredValues.get("token"), "cookie-restored");
   assert.equal(restoredValues.has("alefit_refresh_token"), false);
-  console.log("Session refresh: rotation, concurrent requests, outage and account isolation passed.");
+
+  const blockedWindow = {
+    get localStorage() { throw new Error("Safari storage is unavailable"); },
+    location:{origin:"https://alefit.org"},
+    fetch:async (url, options) => {
+      if (url === "/api/oauth/session") {
+        assert.equal(options.credentials, "same-origin");
+        return new Response(JSON.stringify({access_token:"cookie-only-access"}));
+      }
+      const auth = new Headers(options.headers).get("Authorization");
+      if (url.endsWith("/auth/me") && auth === "Bearer cookie-only-access") {
+        return new Response(JSON.stringify({id:"cookie-only-athlete"}));
+      }
+      return new Response("{}", {status:auth === "Bearer cookie-only-access" ? 200 : 401});
+    },
+  };
+  vm.runInNewContext(fs.readFileSync("auth-session.js","utf8"),
+    {window:blockedWindow, URL, Headers, Response, AbortController, setTimeout, clearTimeout, console});
+  const blockedRestore = await blockedWindow.AlefitSession.restore();
+  assert.equal(blockedRestore.authenticated, true);
+  assert.equal(blockedRestore.user.id, "cookie-only-athlete");
+  assert.equal(blockedWindow.AlefitSession.accessToken(), "cookie-only-access");
+  assert.equal((await blockedWindow.fetch("/api/apps/test/dashboard-data", {
+    headers:{Authorization:"Bearer cookie-only-access"},
+  })).status, 200);
+  console.log("Session refresh: rotation, outages, account isolation, cookie restore, and blocked storage passed.");
 })().catch(error=>{console.error(error); process.exitCode=1;});

@@ -3,7 +3,7 @@
 
   var APP = "6a1f3d189ebdbe71fa7d256c";
   var app = document.getElementById("app");
-  var authToken = localStorage.getItem("base44_access_token") || localStorage.getItem("token");
+  var authToken = null;
   var user = null;
   var record = null;
   var plan = null;
@@ -42,6 +42,13 @@
   var avatarHasUnsavedChanges = false;
   var avatarUploading = false;
   var avatarUploadController = null;
+
+  function storageGet(key) {
+    try { return window.localStorage.getItem(key); } catch (error) { return null; }
+  }
+  function storageRemove(key) {
+    try { window.localStorage.removeItem(key); } catch (error) {}
+  }
 
   if (window.history.state && Number.isInteger(window.history.state.alefitNavigationIndex)) {
     appHistoryIndex = window.history.state.alefitNavigationIndex;
@@ -165,15 +172,19 @@
   }
   function goLogin() {
     try {
-      var knownUser = JSON.parse(localStorage.getItem("alefit_user") || "null");
+      var knownUser = JSON.parse(storageGet("alefit_user") || "null");
       if (window.AlefitMember) window.AlefitMember.markSignedIn(knownUser);
-      else if (knownUser && knownUser.id) localStorage.setItem("alefit_member_account", knownUser.id);
+      else if (knownUser && knownUser.id) window.localStorage.setItem("alefit_member_account", knownUser.id);
     } catch (error) {
-      try { localStorage.setItem("alefit_member_account", "known"); } catch (storageError) {}
+      try { window.localStorage.setItem("alefit_member_account", "known"); } catch (storageError) {}
     }
-    localStorage.removeItem("base44_access_token");
-    localStorage.removeItem("token");
-    localStorage.removeItem("alefit_user");
+    if (window.AlefitSession && typeof window.AlefitSession.clear === "function") {
+      window.AlefitSession.clear();
+    } else {
+      storageRemove("base44_access_token");
+      storageRemove("token");
+      storageRemove("alefit_user");
+    }
     window.location.replace("/Login.html?from_url=" + encodeURIComponent(window.location.href));
   }
   function getView() {
@@ -1325,16 +1336,18 @@
         clearPendingAvatarSelection(false);
       }
       try {
-        var knownUser = JSON.parse(localStorage.getItem("alefit_user") || "null");
+        var knownUser = JSON.parse(storageGet("alefit_user") || "null");
         if (window.AlefitMember) window.AlefitMember.markSignedIn(knownUser);
-        else if (knownUser && knownUser.id) localStorage.setItem("alefit_member_account", knownUser.id);
+        else if (knownUser && knownUser.id) window.localStorage.setItem("alefit_member_account", knownUser.id);
       } catch (error) {
-        try { localStorage.setItem("alefit_member_account", "known"); } catch (storageError) {}
+        try { window.localStorage.setItem("alefit_member_account", "known"); } catch (storageError) {}
       }
       logoutButton.disabled = true;
       var status = document.getElementById("profile-message");
       try {
-        var accessToken = localStorage.getItem("base44_access_token") || localStorage.getItem("token");
+        var accessToken = window.AlefitSession && window.AlefitSession.accessToken ?
+          window.AlefitSession.accessToken() :
+          (storageGet("base44_access_token") || storageGet("token"));
         var response = await fetch("/api/auth/session/logout", {
           method: "POST",
           headers: accessToken ? {Authorization:"Bearer " + accessToken} : {}
@@ -1348,11 +1361,15 @@
         }
         return;
       }
-      localStorage.removeItem("base44_access_token");
-      localStorage.removeItem("token");
-      localStorage.removeItem("alefit_user");
-      localStorage.removeItem("alefit_refresh_token");
-      localStorage.removeItem("alefit_refresh_owner");
+      if (window.AlefitSession && typeof window.AlefitSession.clear === "function") {
+        window.AlefitSession.clear();
+      } else {
+        storageRemove("base44_access_token");
+        storageRemove("token");
+        storageRemove("alefit_user");
+        storageRemove("alefit_refresh_token");
+        storageRemove("alefit_refresh_owner");
+      }
       window.location.replace("/Login.html?from_url=%2Ftoday.html");
     };
   }
@@ -1491,9 +1508,17 @@
     return todayView();
   }
   async function load() {
-    if (!authToken) return goLogin();
     appDataReady = false;
     try {
+      if (window.AlefitSession && typeof window.AlefitSession.restore === "function") {
+        var restored = await window.AlefitSession.restore();
+        if (!restored || !restored.authenticated || !restored.access_token) return goLogin();
+        authToken = restored.access_token;
+        user = restored.user || null;
+      } else {
+        authToken = storageGet("base44_access_token") || storageGet("token");
+      }
+      if (!authToken) return goLogin();
       var headers = authHeaders(false);
       var response = await fetch("/api/apps/" + APP + "/dashboard-data", { headers: headers });
       if (response.status === 401) return goLogin();

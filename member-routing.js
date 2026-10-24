@@ -15,7 +15,9 @@
   }
 
   function token() {
-    return read("base44_access_token") || read("token");
+    return read("base44_access_token") || read("token") ||
+      (root.AlefitSession && typeof root.AlefitSession.accessToken === "function" ?
+        root.AlefitSession.accessToken() : null);
   }
 
   function markSignedIn(user) {
@@ -28,6 +30,9 @@
   }
 
   function clearSession() {
+    if (root.AlefitSession && typeof root.AlefitSession.clear === "function") {
+      root.AlefitSession.clear();
+    }
     try {
       root.localStorage.removeItem("base44_access_token");
       root.localStorage.removeItem("token");

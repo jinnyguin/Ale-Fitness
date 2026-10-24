@@ -45,6 +45,20 @@ class OAuthSessionTests(unittest.TestCase):
         self.assertIn("Secure", cookie)
         self.assertIn("HttpOnly", cookie)
 
+    def test_alefit_cookie_stays_secure_if_tls_terminates_before_flask(self):
+        data = {"access_token": "new", "refresh_token": "rotated", "user": {"id": "same-id"}}
+        with patch.object(server, "supabase_auth", return_value=(200, data)), \
+                patch.object(server, "ensure_profile"):
+            response = self.client.post(
+                "/api/oauth/session",
+                json={"refresh_token": "old"},
+                base_url="http://www.alefit.org",
+            )
+        cookie = response.headers["Set-Cookie"]
+        self.assertIn("Domain=alefit.org", cookie)
+        self.assertIn("Secure", cookie)
+        self.assertIn("HttpOnly", cookie)
+
     def test_restore_endpoint_rotates_cookie_and_returns_verified_identity(self):
         data = {
             "access_token": "restored-access",

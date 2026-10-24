@@ -27,3 +27,9 @@ Revalidate the homepage after browser history restores it from the back-forward 
 
 **How to apply:** Test Back navigation in a real browser session as well as direct loads. Do not remove the gate node when revealing public content, because the same cached page may need it again.
 
+Every protected app entry point, including direct Today and workout links, must restore and verify the shared session before requesting account data. Do not treat missing browser storage as proof that the session is invalid when the HttpOnly refresh cookie can restore it.
+
+**Why:** Safari and direct links can open the dashboard with no readable local access token even though the first-party refresh cookie remains valid.
+
+**How to apply:** Call the shared session restore before dashboard API requests, use the restored access token for that request, and keep transient auth-service failures retryable instead of clearing session state.
+
