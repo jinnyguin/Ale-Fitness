@@ -29,7 +29,9 @@
     onboardingId: saved.onboardingId || (window.crypto && window.crypto.randomUUID ?
       window.crypto.randomUUID() : "onboarding-" + Date.now() + "-" + Math.random().toString(36).slice(2))
   };
-  var googleSignupReturn = new URLSearchParams(window.location.search).get("google_signup") === "1";
+  var signupQuery = new URLSearchParams(window.location.search);
+  var socialSignupReturn = signupQuery.get("google_signup") === "1" || signupQuery.get("apple_signup") === "1";
+  var socialSignupProvider = signupQuery.get("apple_signup") === "1" ? "Apple" : "Google";
   var accountNotice = "";
   var signupPuterSdkPromise = null;
   state.showSports = false;
@@ -1404,7 +1406,12 @@
       '<p class="account-loading" id="account-status" role="status" aria-live="polite"></p>' +
       '<button type="button" class="button account-google" id="google-signup">' +
       '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.9 6.1-15Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.2A20.4 20.4 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.6a12.3 12.3 0 0 1 0-7.2v-5.2H5.8a20.1 20.1 0 0 0 0 17.6l6.8-5.2Z"/><path fill="#EA4335" d="M24 12c3 0 5.6 1 7.7 3.1l5.8-5.8C34 5.9 29.4 4 24 4A20.4 20.4 0 0 0 5.8 15.2l6.8 5.2C14.2 15.6 18.7 12 24 12Z"/></svg>' +
-      '<span>Continue with Google</span></button><div class="account-oauth-divider" aria-hidden="true">or create an account with email</div>' +
+      '<span>Continue with Google</span></button>' +
+      '<button type="button" class="button account-apple" id="apple-signup" hidden>' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.8 12.8c0-2 1.6-3 1.7-3.1-1-1.4-2.5-1.6-3.1-1.7-1.3-.1-2.5.8-3.2.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.9-3.6 2.2-1.6 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.1 2.5 2 1 0 1.4-.7 2.7-.7s1.7.7 2.8.7 1.8-1 2.5-2.1c.8-1.1 1.1-2.2 1.1-2.3 0 0-1.7-.7-1.7-3.5ZM14.8 6.5c.6-.8 1-1.8.9-2.9-.9.1-2 .7-2.7 1.5-.6.7-1.1 1.7-1 2.7 1 .1 2.1-.4 2.8-1.3Z"/></svg>' +
+      '<span>Continue with Apple</span></button>' +
+      '<p class="account-apple-note" id="apple-signup-note" hidden>Apple may use a private relay email. If you already have an ALEFIT account, keep using its sign-in method; ALEFIT never merges plans by email alone.</p>' +
+      '<div class="account-oauth-divider" aria-hidden="true">or create an account with email</div>' +
       '<form id="form" novalidate>' +
       '<div class="field"><label for="name">Full name</label><input id="name" type="text" autocomplete="name" required minlength="2" maxlength="80" placeholder="Your name"></div>' +
       '<div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required maxlength="254" placeholder="your@email.com"></div>' +
@@ -1416,7 +1423,17 @@
     var form = document.getElementById("form");
     var googleButton = document.getElementById("google-signup");
     var googleButtonMarkup = googleButton.innerHTML;
+    var appleButton = document.getElementById("apple-signup");
+    var appleButtonMarkup = appleButton.innerHTML;
+    var appleNote = document.getElementById("apple-signup-note");
     var accountStatus = document.getElementById("account-status");
+    if (window.AlefitOAuth && typeof window.AlefitOAuth.availableProviders === "function") {
+      window.AlefitOAuth.availableProviders().then(function (providers) {
+        if (!Array.isArray(providers) || !providers.includes("apple")) return;
+        appleButton.hidden = false;
+        appleNote.hidden = false;
+      });
+    }
     if (!(window.puter && window.puter.auth && typeof window.puter.auth.signIn === "function")) {
       accountStatus.textContent = "Preparing temporary Coach setup…";
       loadSignupPuterSdk().then(function () {
@@ -1436,28 +1453,46 @@
       var error = root.querySelector(".error");
       if (error) error.remove();
     });
-    googleButton.onclick = async function () {
+    async function startSocialSignup(provider, button, buttonMarkup) {
       persist();
       if (!hasPuterSignupConsent()) return;
+      var providerName = provider === "apple" ? "Apple" : "Google";
       googleButton.disabled = true;
-      googleButton.textContent = "Preparing Coach setup…";
+      appleButton.disabled = true;
+      button.textContent = "Preparing Coach setup…";
       var status = document.getElementById("account-status");
-      if (status) status.textContent = "Preparing a temporary Coach identity before Google sign-in…";
+      if (status) status.textContent = "Preparing a temporary Coach identity before " + providerName + " sign-in…";
       try {
         await prepareTemporaryPuterUser();
-        googleButton.textContent = "Connecting to Google…";
-        if (status) status.textContent = "Puter setup is ready. Connecting to Google…";
-        await window.AlefitOAuth.startGoogle("/Register.html?google_signup=1");
+        button.textContent = "Connecting to " + providerName + "…";
+        if (status) status.textContent = "Puter setup is ready. Connecting to " + providerName + "…";
+        var startOAuth = provider === "apple" ?
+          window.AlefitOAuth && window.AlefitOAuth.startApple :
+          window.AlefitOAuth && window.AlefitOAuth.startGoogle;
+        if (typeof startOAuth !== "function") {
+          throw new Error(providerName + " sign-in is not enabled yet. Please use email sign-in.");
+        }
+        await startOAuth("/Register.html?" + provider + "_signup=1");
       } catch (error) {
         googleButton.disabled = false;
         googleButton.innerHTML = googleButtonMarkup;
+        appleButton.disabled = false;
+        appleButton.innerHTML = appleButtonMarkup;
         if (status) status.textContent = "";
-        showError(error.message || "Google sign-in could not be started. Your onboarding progress is still saved in this tab.");
+        showError(error.message || providerName + " sign-in could not be started. Your onboarding progress is still saved in this tab.");
       }
+    }
+    googleButton.onclick = function () {
+      return startSocialSignup("google", googleButton, googleButtonMarkup);
+    };
+    appleButton.onclick = function () {
+      return startSocialSignup("apple", appleButton, appleButtonMarkup);
     };
     window.onpageshow = function () {
       googleButton.disabled = false;
       googleButton.innerHTML = googleButtonMarkup;
+      appleButton.disabled = false;
+      appleButton.innerHTML = appleButtonMarkup;
     };
     document.getElementById("create").onclick = register;
   }
@@ -1716,13 +1751,13 @@
       var status = await response.json();
       var hasPlan = !!status.plan;
       if (window.AlefitMember) window.AlefitMember.markSetupComplete(hasPlan);
-      if (hasPlan && (googleSignupReturn || !(state.step === 6 && state.plan))) {
+      if (hasPlan && (socialSignupReturn || !(state.step === 6 && state.plan))) {
         window.location.replace("/today.html?view=today");
         return;
       }
-      if (googleSignupReturn) {
+      if (socialSignupReturn) {
         accountNotice = "You're signed in. Let's build your personalized training plan.";
-        googleSignupReturn = false;
+        socialSignupReturn = false;
         window.history.replaceState(null, "", "/Register.html");
       }
       if (state.step === 6 && state.plan && !records.length) {
@@ -1740,8 +1775,8 @@
     routeSignedInUser();
   } else {
     render();
-    if (googleSignupReturn) {
-      showError("Google sign-in did not finish. Your onboarding progress is still saved in this browser.");
+    if (socialSignupReturn) {
+      showError(socialSignupProvider + " sign-in did not finish. Your onboarding progress is still saved in this browser.");
     }
   }
 }());

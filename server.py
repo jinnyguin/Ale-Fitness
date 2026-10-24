@@ -18,6 +18,7 @@ app = Flask(__name__, static_folder=".")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+APPLE_OAUTH_ENABLED = os.environ.get("ALEFIT_APPLE_OAUTH_ENABLED", "").strip().lower() == "true"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 APP_ID = "6a1f3d189ebdbe71fa7d256c"
@@ -668,9 +669,14 @@ def oauth_authorize():
     provider = (request.args.get("provider") or "").lower()
     if provider not in SUPPORTED_OAUTH_PROVIDERS:
         return jsonify({"error": f"Unsupported provider: {provider}"}), 400
+    provider_name = provider.capitalize()
+    if provider == "apple" and not APPLE_OAUTH_ENABLED:
+        return jsonify({
+            "error": "Apple sign-in is not enabled in ALEFIT. Finish Apple and Supabase setup before enabling it."
+        }), 503
     if not SUPABASE_URL or not SUPABASE_KEY:
         return jsonify({
-            "error": f"{provider.capitalize()} sign-in is not configured yet. Please use email sign-in."
+            "error": f"{provider_name} sign-in is not configured yet. Please use email sign-in."
         }), 503
 
     redirect_to = request.args.get("redirect_to") or (
@@ -693,7 +699,7 @@ def oauth_authorize():
         or parsed_redirect.username or parsed_redirect.password
         or parsed_redirect.fragment
     ):
-        return jsonify({"error": "Google sign-in must return to this site's authentication callback."}), 400
+        return jsonify({"error": f"{provider_name} sign-in must return to this site's authentication callback."}), 400
 
     return_to = urllib.parse.parse_qs(parsed_redirect.query).get("from_url", ["/"])[0]
     parsed_return = urllib.parse.urlparse(return_to)
@@ -704,16 +710,16 @@ def oauth_authorize():
         or return_to.startswith("//")
         or "\\" in return_to
     ):
-        return jsonify({"error": "Google sign-in has an invalid return page."}), 400
+        return jsonify({"error": f"{provider_name} sign-in has an invalid return page."}), 400
 
     settings_status, settings = supabase_auth("GET", "/auth/v1/settings")
     if settings_status != 200 or not isinstance(settings, dict):
         return jsonify({
-            "error": f"{provider.capitalize()} sign-in is temporarily unavailable. Please use email sign-in."
+            "error": f"{provider_name} sign-in is temporarily unavailable. Please use email sign-in."
         }), 503
     if not (settings.get("external") or {}).get(provider):
         return jsonify({
-            "error": f"{provider.capitalize()} sign-in is not enabled yet. Enable it in Supabase Auth settings, then try again."
+            "error": f"{provider_name} sign-in is not enabled yet. Enable it in Supabase Auth settings, then try again."
         }), 400
 
     url = (
@@ -839,12 +845,14 @@ def public_settings(app_id):
     providers = ["email"]
     if SUPABASE_URL and SUPABASE_KEY:
         oauth_status, auth_settings = supabase_auth("GET", "/auth/v1/settings")
-        if (
-            oauth_status == 200
-            and isinstance(auth_settings, dict)
-            and (auth_settings.get("external") or {}).get("google")
-        ):
-            providers.append("google")
+        if oauth_status == 200 and isinstance(auth_settings, dict):
+            external = auth_settings.get("external") or {}
+            if external.get("google"):
+                providers.append("google")
+            # Apple stays undiscoverable until the owner explicitly enables it
+            # after configuring and verifying the Apple/Supabase credentials.
+            if APPLE_OAUTH_ENABLED and external.get("apple"):
+                providers.append("apple")
     return jsonify({
         "id": app_id,
         "name": "ALEFIT",

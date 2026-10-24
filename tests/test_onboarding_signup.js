@@ -11,6 +11,7 @@ function makeElement(id, root, getElementById) {
     value: "",
     type: "",
     tagName: "DIV",
+    hidden: id === "apple-signup" || id === "apple-signup-note",
     checked: false,
     textContent: "",
     innerHTML: id === "google-signup" ? "<span>Continue with Google</span>" : "",
@@ -314,6 +315,7 @@ async function testConfirmationRequiredKeepsMemberAndDraftForEmailReturn() {
 async function testReturningUserWithPlanIsSentToDashboard() {
   const browser = makeBrowser({
     token: "returning-token",
+    search: "?apple_signup=1",
     fetchImpl: async () => ({
       ok: true,
       status: 200,
@@ -331,6 +333,7 @@ async function testReturningUserWithPlanIsSentToDashboard() {
 async function testSignedInUserWithoutPlanStartsOnboarding() {
   const browser = makeBrowser({
     token: "new-user-token",
+    search: "?apple_signup=1",
     fetchImpl: async () => ({
       ok: true,
       status: 200,
@@ -678,6 +681,34 @@ async function testGoogleSignupPreparesTemporaryPuterIdentityFirst() {
   assert.deepEqual(order, ["puter", "google"]);
 }
 
+async function testAppleSignupPreparesTemporaryPuterIdentityFirstAndPreservesDraft() {
+  const order = [];
+  const browser = makeBrowser({
+    draft: { step: 6, prefs: { sport: "general", goals: ["fitness"], equipment: ["bodyweight"], age: "adult" } },
+    puter: { auth: {
+      isSignedIn: () => false,
+      signIn: async (options) => {
+        order.push("puter");
+        assert.deepEqual(JSON.parse(JSON.stringify(options)), { attempt_temp_user_creation: true });
+      }
+    } },
+    oauth: {
+      availableProviders: async () => ["email", "apple"],
+      startApple: async (returnTo) => {
+        order.push("apple");
+        assert.equal(returnTo, "/Register.html?apple_signup=1");
+      },
+    },
+  });
+  click(browser, "next");
+  await Promise.resolve();
+  assert.equal(browser.getElementById("apple-signup").hidden, false);
+  browser.getElementById("puter-signup-consent").checked = true;
+  await browser.getElementById("apple-signup").onclick();
+  assert.deepEqual(order, ["puter", "apple"]);
+  assert.ok(browser.values.has("alefit_onboarding_draft"), "onboarding draft persists before Apple OAuth");
+}
+
 async function run() {
   const tests = [
     testGuestStartsWithOnboardingBeforeAccount,
@@ -685,6 +716,7 @@ async function run() {
     testSignupFailureShowsRetryableHelpfulError,
     testSignupRequiresPuterConsentAndHandlesCancelledSetup,
     testGoogleSignupPreparesTemporaryPuterIdentityFirst,
+    testAppleSignupPreparesTemporaryPuterIdentityFirstAndPreservesDraft,
     testConfirmationRequiredKeepsMemberAndDraftForEmailReturn,
     testReturningUserWithPlanIsSentToDashboard,
     testSignedInUserWithoutPlanStartsOnboarding,

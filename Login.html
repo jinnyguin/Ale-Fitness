@@ -129,6 +129,10 @@
     .google-btn:focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; }
     .google-btn:disabled { opacity: .55; cursor: wait; }
     .google-btn svg { width: 1.2rem; height: 1.2rem; flex: 0 0 auto; }
+    .apple-btn { margin-top: .65rem; }
+    .apple-btn[hidden], .oauth-provider-note[hidden] { display:none; }
+    .apple-btn svg { width:1.2rem;height:1.2rem;flex:0 0 auto;fill:#111; }
+    .oauth-provider-note { margin:.65rem 0 0;color:#929b93;font-size:.72rem;line-height:1.5; }
     .oauth-divider { display: flex; align-items: center; gap: .9rem; margin: 1.1rem 0 0; color: #657067; font-size: .7rem; }
     .oauth-divider::before, .oauth-divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
     .error-msg {
@@ -301,6 +305,13 @@
     </svg>
     <span>Continue with Google</span>
   </button>
+  <button type="button" class="google-btn apple-btn" id="appleSignIn" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M16.8 12.8c0-2 1.6-3 1.7-3.1-1-1.4-2.5-1.6-3.1-1.7-1.3-.1-2.5.8-3.2.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.9-3.6 2.2-1.6 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.1 2.5 2 1 0 1.4-.7 2.7-.7s1.7.7 2.8.7 1.8-1 2.5-2.1c.8-1.1 1.1-2.2 1.1-2.3 0 0-1.7-.7-1.7-3.5ZM14.8 6.5c.6-.8 1-1.8.9-2.9-.9.1-2 .7-2.7 1.5-.6.7-1.1 1.7-1 2.7 1 .1 2.1-.4 2.8-1.3Z"/>
+    </svg>
+    <span>Continue with Apple</span>
+  </button>
+  <p class="oauth-provider-note" id="appleAccountNote" hidden>Apple may use a private relay email. If you already have an ALEFIT account, keep using its sign-in method; ALEFIT never merges plans by email alone.</p>
   <div class="links">
     <div class="links-row">
       <a href="/ForgotPassword.html">Forgot password?</a>
@@ -471,6 +482,7 @@
   googleButton.addEventListener('click', async function() {
     errorMsg.style.display = 'none';
     googleButton.disabled = true;
+    appleButton.disabled = true;
     googleButton.textContent = 'Connecting to Google…';
     try {
       if (!window.AlefitOAuth || typeof window.AlefitOAuth.startGoogle !== 'function') {
@@ -481,11 +493,42 @@
       showError(err.message || 'Google sign-in could not be started. Please try again.');
       googleButton.disabled = false;
       googleButton.innerHTML = googleButtonMarkup;
+      appleButton.disabled = false;
+    }
+  });
+  var appleButton = document.getElementById('appleSignIn');
+  var appleButtonMarkup = appleButton.innerHTML;
+  var appleAccountNote = document.getElementById('appleAccountNote');
+  window.addEventListener('load', function() {
+    if (!window.AlefitOAuth || typeof window.AlefitOAuth.availableProviders !== 'function') return;
+    window.AlefitOAuth.availableProviders().then(function(providers) {
+      if (!Array.isArray(providers) || !providers.includes('apple')) return;
+      appleButton.hidden = false;
+      appleAccountNote.hidden = false;
+    });
+  }, {once:true});
+  appleButton.addEventListener('click', async function() {
+    errorMsg.style.display = 'none';
+    appleButton.disabled = true;
+    googleButton.disabled = true;
+    appleButton.textContent = 'Connecting to Apple…';
+    try {
+      if (!window.AlefitOAuth || typeof window.AlefitOAuth.startApple !== 'function') {
+        throw new Error('Apple sign-in is not enabled yet. Please use email sign-in.');
+      }
+      await window.AlefitOAuth.startApple("/Register.html?apple_signup=1");
+    } catch(err) {
+      showError(err.message || 'Apple sign-in could not be started. Please try again.');
+      appleButton.disabled = false;
+      appleButton.innerHTML = appleButtonMarkup;
+      googleButton.disabled = false;
     }
   });
   window.addEventListener('pageshow', function () {
     googleButton.disabled = false;
     googleButton.innerHTML = googleButtonMarkup;
+    appleButton.disabled = false;
+    appleButton.innerHTML = appleButtonMarkup;
   });
   })();
 </script>

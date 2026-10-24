@@ -177,18 +177,62 @@ function testHomepageForwardsOAuthCodeToCallback() {
 
 async function testPublicHomepageOnlyRevealsAfterSessionCheck() {
   let removedPending = false;
+  let pending = true;
+  let loaderRemoved = false;
+  let routeCalls = 0;
+  let replacedWith = "";
+  const listeners = {};
+  const spinner = {style:{}};
+  const actions = {style:{}};
+  const loader = {
+    querySelector(){return spinner;},
+    setAttribute(){},
+    remove(){loaderRemoved = true;},
+  };
+  const heading = {textContent:"Getting your coaching space ready"};
+  const copy = {textContent:"Checking your sign-in and saved training plan."};
+  const elements = {
+    "member-entry-loader":loader,
+    "member-entry-heading":heading,
+    "member-entry-copy":copy,
+    "member-entry-actions":actions,
+  };
   const document = {
     readyState: "complete",
-    documentElement: {classList:{remove(name){removedPending = name === "member-entry-pending";}}},
-    getElementById(){return null;},
+    documentElement: {classList:{
+      add(name){if (name === "member-entry-pending") pending = true;},
+      remove(name){removedPending = name === "member-entry-pending"; if (removedPending) pending = false;},
+    }},
+    getElementById(id){return elements[id] || null;},
   };
   const window = {
-    location: {origin:"https://alefit.example", pathname:"/", search:"", hash:""},
-    AlefitMember: {routeFromHome:async()=>({state:"public"})},
+    location: {
+      origin:"https://alefit.example",
+      pathname:"/",
+      search:"",
+      hash:"",
+      replace(value){replacedWith = String(value);},
+    },
+    addEventListener(name, listener){listeners[name] = listener;},
+    AlefitMember: {routeFromHome:async()=>{
+      routeCalls += 1;
+      if (routeCalls === 1) return {state:"public"};
+      window.location.replace("/today.html?view=today");
+      return {state:"redirect"};
+    }},
   };
   vm.runInNewContext(entrySource, {window, document, URL, URLSearchParams});
   await new Promise(resolve=>setTimeout(resolve, 0));
   assert.equal(removedPending, true);
+  assert.equal(loaderRemoved, false, "the loader stays available for browser-history restoration");
+
+  listeners.pagehide();
+  assert.equal(pending, true, "leaving the homepage hides the public page in the history cache");
+  listeners.pageshow({persisted:true});
+  await new Promise(resolve=>setTimeout(resolve, 0));
+  assert.equal(routeCalls, 2, "a cached homepage rechecks the authenticated member and saved plan");
+  assert.equal(replacedWith, "/today.html?view=today");
+  assert.equal(pending, true, "the public homepage stays hidden while returning members are routed");
 }
 
 async function run() {

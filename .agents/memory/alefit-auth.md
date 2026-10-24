@@ -20,3 +20,15 @@ For durable Supabase sessions on ALEFIT, keep the rotating refresh token in a Se
 **Why:** `www.alefit.org` and `alefit.org` do not share browser storage, and a local setup flag can be missing even when the member already has a saved plan.
 
 **How to apply:** Continue routing from the authenticated server response and `OnboardingPlan` record. Preserve legacy local refresh tokens only as a migration input; new sessions should use the cookie.
+
+Revalidate the homepage after browser history restores it from the back-forward cache. Keep the branded gate available in the document, arm it on `pagehide`, and repeat the auth plus saved-plan check on `pageshow` when `persisted` is true.
+
+**Why:** A cached public homepage does not rerun `DOMContentLoaded`; after sign-in, Back could otherwise reveal the old logged-out page without checking the now-valid session.
+
+**How to apply:** Test Back navigation in a real browser session as well as direct loads. Do not remove the gate node when revealing public content, because the same cached page may need it again.
+
+Treat Apple Private Relay addresses as valid account emails, but keep Supabase's stable user ID as the profile and plan owner. Never merge ALEFIT accounts or training records just because two provider emails match; a relay address may differ from a member's existing address.
+
+**Why:** Email-only matching can attach one athlete's saved plan or history to another account, while Apple's Hide My Email intentionally provides a separate relay address.
+
+**How to apply:** Keep Apple sign-in hidden until the owner configures Apple Developer and Supabase and completes a real sign-in test. Use an explicit authenticated identity-linking flow if members need to connect providers; do not add a profile merge based on email.

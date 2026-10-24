@@ -9,9 +9,30 @@
     return;
   }
 
+  var runVersion = 0;
+  var leavingHome = false;
+
+  function isHomePath() {
+    return root.location.pathname === "/" || root.location.pathname === "/index.html";
+  }
+
+  function showPending() {
+    document.documentElement.classList.add("member-entry-pending");
+    var loader = document.getElementById("member-entry-loader");
+    var heading = document.getElementById("member-entry-heading");
+    var copy = document.getElementById("member-entry-copy");
+    var spinner = loader && loader.querySelector(".member-entry-spinner");
+    var actions = document.getElementById("member-entry-actions");
+    if (heading) heading.textContent = "Getting your coaching space ready";
+    if (copy) copy.textContent = "Checking your sign-in and saved training plan.";
+    if (spinner) spinner.style.display = "";
+    if (loader) loader.setAttribute("aria-busy", "true");
+    if (actions) actions.style.display = "none";
+  }
+
   function removePending() {
     var loader = document.getElementById("member-entry-loader");
-    if (loader) loader.remove();
+    if (loader) loader.setAttribute("aria-busy", "false");
     document.documentElement.classList.remove("member-entry-pending");
   }
 
@@ -40,12 +61,14 @@
     }
   }
 
-  async function run() {
+  async function run(version) {
     if (!root.AlefitMember || typeof root.AlefitMember.routeFromHome !== "function") {
+      if (version !== runVersion || leavingHome) return;
       showError("ALEFIT’s sign-in check did not load. Refresh the page to try again.");
       return;
     }
     var result = await root.AlefitMember.routeFromHome();
+    if (version !== runVersion || leavingHome) return;
     if (!result || result.state === "public") {
       removePending();
     } else if (result.state === "error") {
@@ -54,8 +77,26 @@
   }
 
   function start() {
-    run().catch(function () {
-      showError("Your sign-in service could not be reached. Your plan is unchanged.");
+    leavingHome = false;
+    var version = ++runVersion;
+    run(version).catch(function () {
+      if (version === runVersion && !leavingHome) {
+        showError("Your sign-in service could not be reached. Your plan is unchanged.");
+      }
+    });
+  }
+
+  if (typeof root.addEventListener === "function") {
+    root.addEventListener("pagehide", function () {
+      if (!isHomePath()) return;
+      leavingHome = true;
+      runVersion += 1;
+      showPending();
+    });
+    root.addEventListener("pageshow", function (event) {
+      if (!event.persisted || !isHomePath()) return;
+      showPending();
+      start();
     });
   }
 

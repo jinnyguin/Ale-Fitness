@@ -32,7 +32,7 @@ function makeElement() {
   };
 }
 
-function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = false } = {}) {
+function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = false, oauth } = {}) {
   const elements = new Map();
   const getElement = (id) => {
     if (!elements.has(id)) elements.set(id, makeElement());
@@ -47,7 +47,11 @@ function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = fals
     "email",
     "password",
     "googleSignIn",
+    "appleSignIn",
+    "appleAccountNote",
   ].forEach(getElement);
+  getElement("appleSignIn").hidden = true;
+  getElement("appleAccountNote").hidden = true;
   const values = new Map();
   if (token) {
     values.set("base44_access_token", token);
@@ -74,7 +78,13 @@ function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = fals
     },
   };
   const request = fetchImpl || (async () => { throw new Error("unexpected fetch"); });
-  const window = { location, localStorage, addEventListener() {} };
+  const listeners = {};
+  const window = {
+    location,
+    localStorage,
+    AlefitOAuth: oauth,
+    addEventListener(name, callback) { listeners[name] = callback; },
+  };
   window.AlefitSession = {
     save(session) {
       localStorage.setItem("base44_access_token", session.access_token);
@@ -123,7 +133,7 @@ function makeBrowser({ search = "", token = "", fetchImpl, storageBlocked = fals
   };
 
   vm.runInNewContext(loginScript, context);
-  return { elements, values, location, window };
+  return { elements, values, location, window, listeners };
 }
 
 function makeCallbackBrowser({ search = "", hash = "", storageBlocked = false, fetchImpl, pending, exchange }) {
@@ -421,10 +431,80 @@ async function testCallbackCancellationAndExpiredTransaction() {
   }
 }
 
+async function testAppleButtonOnlyAppearsWhenServerAdvertisesApple() {
+  const unavailable = makeBrowser({
+    oauth: {availableProviders: async () => ["email", "google"]},
+  });
+  await unavailable.listeners.load();
+  await flushPromises();
+  assert.equal(unavailable.elements.get("appleSignIn").hidden, true);
+
+  const available = makeBrowser({
+    oauth: {availableProviders: async () => ["email", "apple"]},
+  });
+  await available.listeners.load();
+  await flushPromises();
+  assert.equal(available.elements.get("appleSignIn").hidden, false);
+  assert.equal(available.elements.get("appleAccountNote").hidden, false);
+}
+
+async function testAppleLoginStartsSignupContinuation() {
+  let destination = null;
+  const browser = makeBrowser({
+    oauth: {
+      availableProviders: async () => ["email", "apple"],
+      startApple: async (returnTo) => { destination = returnTo; },
+    },
+  });
+  await browser.elements.get("appleSignIn").listeners.click();
+  assert.equal(destination, "/Register.html?apple_signup=1");
+}
+
+async function testAppleCallbackCancellationNamesTheProvider() {
+  const browser = makeCallbackBrowser({
+    search: "?error=access_denied",
+    pending: {provider:"apple", started:Date.now(), returnTo:"/Register.html?apple_signup=1"},
+  });
+  await flushPromises();
+  assert.match(browser.elements.get("errMsg").textContent, /Apple sign-in was cancelled/i);
+}
+
+async function testApplePkceCallbackReturnsToSavedOnboardingDestination() {
+  const browser = makeCallbackBrowser({
+    search: "?code=apple-code",
+    pending: {
+      provider:"apple",
+      verifier:"b".repeat(64),
+      started:Date.now(),
+      returnTo:"/Register.html?apple_signup=1",
+    },
+    exchange: async (body) => {
+      assert.equal(body.code, "apple-code");
+      assert.equal(body.code_verifier, "b".repeat(64));
+      return {access_token:"apple-session"};
+    },
+    fetchImpl: async () => ({
+      ok:true,
+      status:200,
+      json:async()=>({id:"apple-user", email:"private-relay@privaterelay.appleid.com"}),
+    }),
+  });
+  await flushPromises();
+  assert.equal(
+    browser.location.replacedWith,
+    "https://alefit.example/Register.html?apple_signup=1",
+  );
+  assert.equal(browser.values.get("token"), "apple-session");
+}
+
 async function run() {
   const tests = [
     testPkceCallbackRestoresPendingDestination,
     testCallbackCancellationAndExpiredTransaction,
+    testAppleButtonOnlyAppearsWhenServerAdvertisesApple,
+    testAppleLoginStartsSignupContinuation,
+    testAppleCallbackCancellationNamesTheProvider,
+    testApplePkceCallbackReturnsToSavedOnboardingDestination,
     testSavedSessionSurvivesProviderOutage,
     testMalformedSuccessfulSessionIsNotTrusted,
     testInvalidSavedSessionIsCleared,

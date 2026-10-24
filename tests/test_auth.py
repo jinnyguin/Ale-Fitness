@@ -25,6 +25,7 @@ class AuthRouteTests(unittest.TestCase):
         with (
             patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
             patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "APPLE_OAUTH_ENABLED", False),
             patch.object(server, "supabase_auth", return_value=(200, {"external": {"google": False}})),
         ):
             disabled = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
@@ -37,6 +38,25 @@ class AuthRouteTests(unittest.TestCase):
         ):
             enabled = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
         self.assertEqual(enabled.get_json()["auth"]["providers"], ["email", "google"])
+
+    def test_public_auth_settings_require_both_apple_gate_and_supabase_provider(self):
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "APPLE_OAUTH_ENABLED", False),
+            patch.object(server, "supabase_auth", return_value=(200, {"external": {"apple": True}})),
+        ):
+            gated = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
+        self.assertEqual(gated.get_json()["auth"]["providers"], ["email"])
+
+        with (
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "APPLE_OAUTH_ENABLED", True),
+            patch.object(server, "supabase_auth", return_value=(200, {"external": {"apple": True}})),
+        ):
+            enabled = self.client.get(f"/api/apps/public/prod/public-settings/by-id/{APP_ID}")
+        self.assertEqual(enabled.get_json()["auth"]["providers"], ["email", "apple"])
 
     def test_registration_falls_back_to_local_auth_when_provider_is_unavailable(self):
         with (
@@ -294,6 +314,96 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("this site's authentication callback", response.get_json()["error"].lower())
         auth_call.assert_not_called()
+
+    def test_apple_oauth_stays_blocked_until_owner_enables_it(self):
+        with (
+            patch.object(server, "APPLE_OAUTH_ENABLED", False),
+            patch.object(server, "supabase_auth") as auth_call,
+        ):
+            response = self.client.get(
+                "/api/oauth/authorize",
+                query_string={
+                    "provider": "apple",
+                    "redirect_to": "http://localhost/auth/callback?from_url=%2FRegister.html%3Fapple_signup%3D1",
+                },
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("Apple and Supabase setup", response.get_json()["error"])
+        auth_call.assert_not_called()
+
+    def test_apple_oauth_uses_supabase_pkce_authorize_when_fully_enabled(self):
+        redirect_to = (
+            "http://localhost/auth/callback"
+            "?from_url=%2FRegister.html%3Fapple_signup%3D1"
+        )
+        with (
+            patch.object(server, "APPLE_OAUTH_ENABLED", True),
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(
+                server,
+                "supabase_auth",
+                return_value=(200, {"external": {"apple": True}}),
+            ),
+        ):
+            response = self.client.get(
+                "/api/oauth/authorize",
+                query_string={"provider": "apple", "redirect_to": redirect_to},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        oauth_url = urlparse(response.get_json()["url"])
+        oauth_query = parse_qs(oauth_url.query)
+        self.assertEqual(oauth_url.netloc, "auth.example.test")
+        self.assertEqual(oauth_query["provider"], ["apple"])
+        self.assertEqual(oauth_query["redirect_to"], [redirect_to])
+
+    def test_apple_oauth_stays_unavailable_if_supabase_provider_is_disabled(self):
+        with (
+            patch.object(server, "APPLE_OAUTH_ENABLED", True),
+            patch.object(server, "SUPABASE_URL", "https://auth.example.test"),
+            patch.object(server, "SUPABASE_KEY", "public-test-key"),
+            patch.object(server, "supabase_auth", return_value=(200, {"external": {"apple": False}})),
+        ):
+            response = self.client.get(
+                "/api/oauth/authorize",
+                query_string={
+                    "provider": "apple",
+                    "redirect_to": "http://localhost/auth/callback?from_url=%2FRegister.html%3Fapple_signup%3D1",
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("not enabled", response.get_json()["error"].lower())
+
+    def test_apple_private_relay_session_preserves_supabase_user_id(self):
+        session = {
+            "access_token": "apple-access",
+            "refresh_token": "apple-refresh",
+            "expires_in": 3600,
+            "user": {
+                "id": "apple-provider-user",
+                "email": "private-relay@privaterelay.appleid.com",
+                "user_metadata": {},
+            },
+        }
+        with (
+            patch.object(server, "supabase_auth", return_value=(200, session)),
+            patch.object(server, "ensure_profile") as ensure_profile,
+        ):
+            response = self.client.post(
+                "/api/oauth/session",
+                json={"code": "single-use-code", "code_verifier": "v" * 48},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["user"]["id"], "apple-provider-user")
+        ensure_profile.assert_called_once_with(
+            "apple-provider-user",
+            "private-relay@privaterelay.appleid.com",
+            "",
+        )
 
     def test_local_user_can_log_in_without_contacting_remote_provider(self):
         with (
