@@ -720,6 +720,42 @@ class AuthRouteTests(unittest.TestCase):
         query = parse_qs(urlparse(path).query)
         self.assertEqual(query["redirect_to"], ["http://localhost/ResetPassword.html"])
         self.assertEqual(body, {"email": "athlete@example.test"})
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+
+    def test_password_reset_passes_pkce_challenge_to_supabase(self):
+        challenge = "a" * 43
+        with patch.object(server, "supabase_auth", return_value=(200, {})) as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password-request",
+                json={
+                    "email": "athlete@example.test",
+                    "code_challenge": challenge,
+                    "code_challenge_method": "s256",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        method, path, body = auth_call.call_args.args
+        self.assertEqual(method, "POST")
+        query = parse_qs(urlparse(path).query)
+        self.assertEqual(query["code_challenge"], [challenge])
+        self.assertEqual(query["code_challenge_method"], ["s256"])
+        self.assertEqual(query["redirect_to"], ["http://localhost/ResetPassword.html"])
+        self.assertEqual(body, {"email": "athlete@example.test"})
+
+    def test_password_reset_rejects_malformed_pkce_challenge(self):
+        with patch.object(server, "supabase_auth") as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password-request",
+                json={
+                    "email": "athlete@example.test",
+                    "code_challenge": "invalid",
+                    "code_challenge_method": "plain",
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+        auth_call.assert_not_called()
 
     def test_password_reset_request_rejects_malformed_provider_success(self):
         with patch.object(server, "supabase_auth", return_value=(200, ["unexpected"])):
@@ -784,6 +820,117 @@ class AuthRouteTests(unittest.TestCase):
             {"password": "correct horse battery"},
             token="recovery-token",
         )
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+
+    def test_password_reset_verifies_token_hash_then_updates_password(self):
+        with patch.object(
+            server,
+            "supabase_auth",
+            side_effect=[
+                (200, {"access_token": "recovery-access-token"}),
+                (200, {"user": {"id": "supabase-user-id"}}),
+            ],
+        ) as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={
+                    "token_hash": "one-time-recovery-hash",
+                    "type": "recovery",
+                    "new_password": "correct horse battery",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"message": "Password updated successfully."})
+        self.assertNotIn("access_token", response.get_json())
+        self.assertEqual(
+            auth_call.call_args_list[0].args,
+            (
+                "POST",
+                "/auth/v1/verify",
+                {"token_hash": "one-time-recovery-hash", "type": "recovery"},
+            ),
+        )
+        self.assertEqual(
+            auth_call.call_args_list[1].args,
+            ("PUT", "/auth/v1/user", {"password": "correct horse battery"}),
+        )
+        self.assertEqual(auth_call.call_args_list[1].kwargs, {"token": "recovery-access-token"})
+
+    def test_password_reset_exchanges_pkce_code_then_updates_password(self):
+        with patch.object(
+            server,
+            "supabase_auth",
+            side_effect=[
+                (200, {"access_token": "recovery-access-token", "refresh_token": "not-returned"}),
+                (200, {"user": {"id": "supabase-user-id"}}),
+            ],
+        ) as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={
+                    "code": "recovery-auth-code",
+                    "code_verifier": "v" * 64,
+                    "type": "recovery",
+                    "new_password": "correct horse battery",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            auth_call.call_args_list[0].args,
+            (
+                "POST",
+                "/auth/v1/token?grant_type=pkce",
+                {"auth_code": "recovery-auth-code", "code_verifier": "v" * 64},
+            ),
+        )
+        self.assertEqual(auth_call.call_args_list[1].kwargs, {"token": "recovery-access-token"})
+        self.assertNotIn("refresh_token", response.get_json())
+
+    def test_password_reset_rejects_expired_hash_without_updating_password(self):
+        with patch.object(server, "supabase_auth", return_value=(401, {"error": "expired"})) as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={
+                    "token_hash": "expired-recovery-hash",
+                    "type": "recovery",
+                    "new_password": "correct horse battery",
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["code"], "invalid_recovery_link")
+        self.assertIn("Request a new link", response.get_json()["error"])
+        auth_call.assert_called_once()
+
+    def test_password_reset_rejects_pkce_code_without_verifier(self):
+        with patch.object(server, "supabase_auth") as auth_call:
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={
+                    "code": "recovery-auth-code",
+                    "new_password": "correct horse battery",
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["code"], "recovery_browser_mismatch")
+        auth_call.assert_not_called()
+
+    def test_password_reset_policy_error_is_clear(self):
+        with patch.object(server, "supabase_auth", return_value=(422, {"error": "weak_password"})):
+            response = self.client.post(
+                f"/api/apps/{APP_ID}/auth/reset-password",
+                json={
+                    "reset_token": "recovery-access-token",
+                    "new_password": "not-strong-enough",
+                },
+            )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.get_json()["code"], "password_policy")
+        self.assertIn("stronger password", response.get_json()["error"])
 
     def test_password_reset_completion_rejects_malformed_provider_success(self):
         with patch.object(server, "supabase_auth", return_value=(200, ["unexpected"])):

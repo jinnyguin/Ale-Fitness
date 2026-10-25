@@ -33,3 +33,9 @@ Every protected app entry point, including direct Today and workout links, must 
 
 **How to apply:** Call the shared session restore before dashboard API requests, use the restored access token for that request, and keep transient auth-service failures retryable instead of clearing session state.
 
+Password recovery must accept Supabase access-token, token-hash, and PKCE-code link formats. Verify one-time recovery material with Supabase only when the member submits a new password; never trust a URL token as proof without provider verification.
+
+**Why:** Supabase recovery templates and flow settings can return different credential formats, while email scanners or link previews may open a recovery URL before the member does.
+
+**How to apply:** Keep recovery credentials out of logs and remove them from the address bar after parsing. Bind PKCE recovery to a short-lived verifier stored in the requesting browser, update the password only through Supabase Auth, and never alter the member's profile, plan, or workout history.
+

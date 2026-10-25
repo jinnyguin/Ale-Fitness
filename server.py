@@ -754,13 +754,17 @@ def register_page():
 @app.route("/forgot-password")
 @app.route("/forgotpassword.html")
 def forgot_password_page():
-    return send_file("ForgotPassword.html")
+    response = make_response(send_file("ForgotPassword.html"))
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route("/reset-password")
 @app.route("/resetpassword.html")
 def reset_password_page():
-    return send_file("ResetPassword.html")
+    response = make_response(send_file("ResetPassword.html"))
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route("/account")
@@ -1436,42 +1440,70 @@ def auth_email_code_verify(app_id):
     return _email_code_provider_error(status, data, verifying=True)
 
 
+def _password_recovery_response(payload, status=200):
+    response = jsonify(payload)
+    response.status_code = status
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.route("/api/apps/<app_id>/auth/reset-password-request", methods=["POST"])
 def auth_reset_request(app_id):
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
-        return jsonify({"error": "Please enter a valid email address."}), 400
+        return _password_recovery_response({"error": "Please enter a valid email address."}, 400)
     email_value = body.get("email")
     email = email_value.strip().lower() if isinstance(email_value, str) else ""
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        return jsonify({"error": "Please enter a valid email address."}), 400
+        return _password_recovery_response({"error": "Please enter a valid email address."}, 400)
     if len(email) > 254:
-        return jsonify({"error": "Email address is too long."}), 400
+        return _password_recovery_response({"error": "Email address is too long."}, 400)
 
+    # Bind new Supabase recovery codes to the browser that requested them.
+    # Older token/hash recovery links remain supported by the completion route.
+    code_challenge = body.get("code_challenge")
+    code_challenge_method = body.get("code_challenge_method", "s256")
+    if code_challenge is not None:
+        if (
+            not isinstance(code_challenge, str)
+            or not re.fullmatch(r"[A-Za-z0-9_-]{43}", code_challenge)
+            or code_challenge_method != "s256"
+        ):
+            return _password_recovery_response(
+                {"error": "Could not securely prepare this reset request. Please try again."},
+                400,
+            )
     # Use the current site host, not a caller-supplied Origin, for recovery links.
     origin = request.host_url.rstrip("/")
     redirect_to = f"{origin}/ResetPassword.html"
-    recover_path = "/auth/v1/recover?redirect_to=" + urllib.parse.quote(
-        redirect_to, safe=""
-    )
+    recover_params = {"redirect_to": redirect_to}
+    if code_challenge:
+        recover_params["code_challenge"] = code_challenge
+        recover_params["code_challenge_method"] = "s256"
+    recover_path = "/auth/v1/recover?" + urllib.parse.urlencode(recover_params)
     status, data = supabase_auth(
         "POST",
         recover_path,
         {"email": email},
     )
     if status == 200 and isinstance(data, dict):
-        return jsonify({"message": "If this email exists, a reset link has been sent."})
+        return _password_recovery_response({
+            "message": "If this email exists, a reset link has been sent."
+        })
     if status == 200:
         app.logger.warning("Password reset request returned an incomplete success response.")
-        return jsonify({
+        return _password_recovery_response({
             "error": "Password recovery is temporarily unavailable. Please try again later."
         }), 503
     if status == 429:
-        return jsonify({
+        return _password_recovery_response({
             "error": "Too many password reset requests. Please wait and try again."
         }), 429
-    app.logger.warning("Password reset request failed with HTTP status %s.", status)
-    return jsonify({
+    app.logger.warning(
+        "ALEFIT_AUTH event=password_recovery_request_failed status=%s",
+        status,
+    )
+    return _password_recovery_response({
         "error": "Password recovery is temporarily unavailable. Please try again later."
     }), 503
 
@@ -1480,34 +1512,152 @@ def auth_reset_request(app_id):
 def auth_reset_password(app_id):
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
-        return jsonify({"error": "Please submit a valid password reset form."}), 400
-    token = body.get("reset_token")
+        return _password_recovery_response(
+            {"error": "Please submit a valid password reset form."}, 400
+        )
+    reset_token = body.get("reset_token")
+    reset_token = reset_token.strip() if isinstance(reset_token, str) else ""
+    token_hash = body.get("token_hash")
+    token_hash = token_hash.strip() if isinstance(token_hash, str) else ""
+    code = body.get("code")
+    code = code.strip() if isinstance(code, str) else ""
+    code_verifier = body.get("code_verifier")
+    code_verifier = code_verifier.strip() if isinstance(code_verifier, str) else ""
+    token_type = body.get("type", "recovery")
     new_password = body.get("new_password")
-    if not isinstance(token, str) or not token.strip():
-        return jsonify({"error": "This reset link is invalid or has expired."}), 400
-    token = token.strip()
+    recovery_modes = sum(bool(value) for value in (reset_token, token_hash, code))
+    if (
+        recovery_modes != 1
+        or token_type != "recovery"
+        or len(reset_token) > 8192
+        or len(token_hash) > 4096
+        or len(code) > 4096
+    ):
+        return _password_recovery_response({
+            "error": "This reset link is invalid, expired, or has already been used. Request a new link.",
+            "code": "invalid_recovery_link",
+        }, 400)
     if not isinstance(new_password, str) or len(new_password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters."}), 400
+        return _password_recovery_response(
+            {"error": "Password must be at least 8 characters."}, 400
+        )
     if len(new_password) > 128:
-        return jsonify({"error": "Password must be 128 characters or fewer."}), 400
-    status, data = supabase_auth("PUT", "/auth/v1/user", {"password": new_password}, token=token)
+        return _password_recovery_response(
+            {"error": "Password must be 128 characters or fewer."}, 400
+        )
+
+    access_token = reset_token
+    if token_hash:
+        status, data = supabase_auth(
+            "POST",
+            "/auth/v1/verify",
+            {"token_hash": token_hash, "type": "recovery"},
+        )
+        if status != 200 or not isinstance(data, dict) or not data.get("access_token"):
+            app.logger.info(
+                "ALEFIT_AUTH event=password_recovery_link_rejected stage=verify status=%s",
+                status,
+            )
+            if status == 429:
+                return _password_recovery_response({
+                    "error": "Too many reset attempts. Wait a moment and try again.",
+                    "code": "rate_limited",
+                }, 429)
+            if status in (400, 401, 403, 404, 410, 422):
+                return _password_recovery_response({
+                    "error": "This reset link is invalid, expired, or has already been used. Request a new link.",
+                    "code": "invalid_recovery_link",
+                }, 400)
+            return _password_recovery_response({
+                "error": "The reset service is temporarily unavailable. Your password was not changed. Please try again.",
+                "code": "service_unavailable",
+            }, 503)
+        access_token = data["access_token"]
+    elif code:
+        if not re.fullmatch(r"[A-Za-z0-9._~-]{43,128}", code_verifier):
+            return _password_recovery_response({
+                "error": "This reset link must be opened in the browser where it was requested. Request a new link if needed.",
+                "code": "recovery_browser_mismatch",
+            }, 400)
+        status, data = supabase_auth(
+            "POST",
+            "/auth/v1/token?grant_type=pkce",
+            {"auth_code": code, "code_verifier": code_verifier},
+        )
+        if status != 200 or not isinstance(data, dict) or not data.get("access_token"):
+            app.logger.info(
+                "ALEFIT_AUTH event=password_recovery_link_rejected stage=code_exchange status=%s",
+                status,
+            )
+            if status == 429:
+                return _password_recovery_response({
+                    "error": "Too many reset attempts. Wait a moment and try again.",
+                    "code": "rate_limited",
+                }, 429)
+            if status in (400, 401, 403, 404, 410, 422):
+                return _password_recovery_response({
+                    "error": "This reset link is invalid, expired, or has already been used. Request a new link.",
+                    "code": "invalid_recovery_link",
+                }, 400)
+            return _password_recovery_response({
+                "error": "The reset service is temporarily unavailable. Your password was not changed. Please try again.",
+                "code": "service_unavailable",
+            }, 503)
+        access_token = data["access_token"]
+
+    one_time_recovery = bool(token_hash or code)
+    status, data = supabase_auth(
+        "PUT",
+        "/auth/v1/user",
+        {"password": new_password},
+        token=access_token,
+    )
     if status == 200 and isinstance(data, dict):
-        return jsonify({"message": "Password updated successfully"})
+        return _password_recovery_response({
+            "message": "Password updated successfully."
+        })
     if status == 200:
         app.logger.warning("Password reset completion returned an incomplete success response.")
-        return jsonify({
-            "error": "Password recovery is temporarily unavailable. Please try again later."
-        }), 503
+        return _password_recovery_response({
+            "error": "Password recovery is temporarily unavailable. The reset service could not confirm the password change. Please try again.",
+            "code": "service_unavailable",
+        }, 503)
     if status == 429:
-        return jsonify({
-            "error": "Too many password reset attempts. Please wait and try again."
-        }), 429
-    if status in (400, 401, 403, 404, 422):
-        return jsonify({"error": "This reset link is invalid or has expired."}), 400
-    app.logger.warning("Password reset completion failed with HTTP status %s.", status)
-    return jsonify({
-        "error": "Password recovery is temporarily unavailable. Please try again later."
-    }), 503
+        return _password_recovery_response({
+            "error": (
+                "Too many reset attempts. Request a fresh reset link before trying again."
+                if one_time_recovery else
+                "Too many password reset attempts. Please wait and try again."
+            ),
+            "code": "recovery_link_used" if one_time_recovery else "rate_limited",
+        }, 429)
+    if status == 422:
+        return _password_recovery_response({
+            "error": (
+                "That password does not meet the account's security requirements. Request a fresh reset link, then choose a stronger password."
+                if one_time_recovery else
+                "That password does not meet the account's security requirements. Choose a stronger password and try again."
+            ),
+            "code": "recovery_link_used" if one_time_recovery else "password_policy",
+        }, 422)
+    if status in (400, 401, 403, 404, 410):
+        return _password_recovery_response({
+            "error": "This reset link is invalid, expired, or has already been used. Request a new link.",
+            "code": "invalid_recovery_link",
+        }, 400)
+    app.logger.warning(
+        "ALEFIT_AUTH event=password_recovery_update_failed status=%s one_time_link=%s",
+        status,
+        one_time_recovery,
+    )
+    return _password_recovery_response({
+        "error": (
+            "ALEFIT could not confirm the password change after verifying this one-time link. Try signing in with the new password; if that fails, request a fresh reset link."
+            if one_time_recovery else
+            "The reset service is temporarily unavailable. Your password was not changed. Please try again."
+        ),
+        "code": "recovery_link_used" if one_time_recovery else "service_unavailable",
+    }, 503)
 
 
 @app.route("/api/apps/<app_id>/auth/change-password", methods=["POST"])
