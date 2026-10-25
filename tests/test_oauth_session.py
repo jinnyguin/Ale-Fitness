@@ -45,6 +45,57 @@ class OAuthSessionTests(unittest.TestCase):
         self.assertIn("Secure", cookie)
         self.assertIn("HttpOnly", cookie)
 
+    def test_current_cookie_takes_precedence_over_legacy_browser_refresh_token(self):
+        data = {"access_token": "new", "refresh_token": "rotated", "user": {"id": "same-id"}}
+        for path in ("/api/oauth/session", "/api/auth/session/restore"):
+            client = server.app.test_client()
+            client.set_cookie(
+                domain="alefit.org",
+                origin_only=False,
+                key=server.AUTH_REFRESH_COOKIE,
+                value="current-cookie-refresh",
+            )
+            with self.subTest(path=path), \
+                    patch.object(server, "supabase_auth", return_value=(200, data)) as auth, \
+                    patch.object(server, "ensure_profile"):
+                response = client.post(
+                    path,
+                    json={"refresh_token": "stale-local-storage-refresh"},
+                    base_url="https://www.alefit.org",
+                )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                auth.call_args.args[2],
+                {"refresh_token": "current-cookie-refresh"},
+            )
+
+    def test_legacy_refresh_is_fallback_if_cookie_refresh_is_rejected(self):
+        data = {"access_token": "new", "refresh_token": "rotated", "user": {"id": "same-id"}}
+        calls = []
+
+        def auth(method, path, body, **kwargs):
+            calls.append(body["refresh_token"])
+            if body["refresh_token"] == "expired-cookie-refresh":
+                return 400, {}
+            return 200, data
+
+        client = server.app.test_client()
+        client.set_cookie(
+            domain="alefit.org",
+            origin_only=False,
+            key=server.AUTH_REFRESH_COOKIE,
+            value="expired-cookie-refresh",
+        )
+        with patch.object(server, "supabase_auth", side_effect=auth), \
+                patch.object(server, "ensure_profile"):
+            response = client.post(
+                "/api/oauth/session",
+                json={"refresh_token": "valid-legacy-refresh"},
+                base_url="https://www.alefit.org",
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, ["expired-cookie-refresh", "valid-legacy-refresh"])
+
     def test_alefit_cookie_stays_secure_if_tls_terminates_before_flask(self):
         data = {"access_token": "new", "refresh_token": "rotated", "user": {"id": "same-id"}}
         with patch.object(server, "supabase_auth", return_value=(200, data)), \

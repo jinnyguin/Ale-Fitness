@@ -130,6 +130,29 @@ def _restore_supabase_session(refresh_token):
     return data, None
 
 
+def _restore_request_session(body):
+    """Prefer the current HttpOnly cookie, falling back to legacy browser state."""
+    cookie_refresh = request.cookies.get(AUTH_REFRESH_COOKIE)
+    legacy_refresh = body.get("refresh_token")
+    if not isinstance(legacy_refresh, str) or not legacy_refresh:
+        legacy_refresh = None
+
+    if cookie_refresh:
+        session, error = _restore_supabase_session(cookie_refresh)
+        # A stale cookie can outlive the old localStorage migration token.
+        # Retry that token only after an explicit invalid-session response.
+        if (
+            error
+            and error[0] == 401
+            and legacy_refresh
+            and legacy_refresh != cookie_refresh
+        ):
+            return _restore_supabase_session(legacy_refresh)
+        return session, error
+
+    return _restore_supabase_session(legacy_refresh)
+
+
 # ---------------------------------------------------------------------------
 # Supabase Auth helpers
 # ---------------------------------------------------------------------------
@@ -512,11 +535,82 @@ ensure_local_auth_table()
 
 AUTH_GUARD_SCRIPT = """<script>
 (function(){
-  var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
-  if (!token) {
-    var from = encodeURIComponent(window.location.href);
-    window.location.replace('/Login.html?from_url=' + from);
+  var html = document.documentElement;
+  var overlayId = "member-auth-guard";
+  var returnUrl = window.location.href;
+  html.classList.add("member-auth-pending");
+  document.write('<style>' +
+    'html.member-auth-pending body{visibility:hidden!important}' +
+    'html.member-auth-pending body::before{content:"Checking your ALEFIT sign-in…";position:fixed;inset:0;z-index:99999;display:grid;place-items:center;visibility:visible;background:#080a08;color:#d4ff00;font:600 15px system-ui,sans-serif}' +
+    'html.member-auth-error body{visibility:hidden!important}' +
+    '#member-auth-guard{visibility:visible!important;position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:24px;background:#080a08;color:#f4f5ef;font:500 15px/1.5 system-ui,sans-serif}' +
+    '#member-auth-guard .card{width:min(100%,380px);padding:28px;border:1px solid rgba(212,255,0,.2);border-radius:18px;background:#131710;text-align:center}' +
+    '#member-auth-guard button,#member-auth-guard a{margin:12px 6px 0;padding:10px 14px;border:1px solid #d4ff00;background:transparent;color:#d4ff00;font:600 13px system-ui,sans-serif;text-decoration:none;cursor:pointer}' +
+    '</style>');
+
+  function login() {
+    if (window.__alefitMemberRedirecting) return;
+    window.__alefitMemberRedirecting = true;
+    window.location.replace("/Login.html?from_url=" + encodeURIComponent(returnUrl));
   }
+
+  function showError(message) {
+    html.classList.remove("member-auth-pending");
+    html.classList.add("member-auth-error");
+    if (!document.body) {
+      document.addEventListener("DOMContentLoaded", function(){ showError(message); }, {once:true});
+      return;
+    }
+    var oldOverlay = document.getElementById(overlayId);
+    if (oldOverlay) oldOverlay.remove();
+    var overlay = document.createElement("div");
+    overlay.id = overlayId;
+    var card = document.createElement("section");
+    card.className = "card";
+    var heading = document.createElement("h1");
+    heading.textContent = "We couldn’t check your ALEFIT account";
+    var copy = document.createElement("p");
+    copy.textContent = message || "Your plan is unchanged. Check your connection and try again.";
+    var retry = document.createElement("button");
+    retry.type = "button";
+    retry.textContent = "Try again";
+    retry.addEventListener("click", function(){
+      var currentOverlay = document.getElementById(overlayId);
+      if (currentOverlay) currentOverlay.remove();
+      html.classList.remove("member-auth-error");
+      html.classList.add("member-auth-pending");
+      verify();
+    });
+    var signIn = document.createElement("a");
+    signIn.href = "/Login.html?from_url=" + encodeURIComponent(returnUrl);
+    signIn.textContent = "Sign in";
+    card.appendChild(heading);
+    card.appendChild(copy);
+    card.appendChild(retry);
+    card.appendChild(signIn);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  }
+
+  async function verify() {
+    try {
+      if (!window.AlefitSession || typeof window.AlefitSession.restore !== "function") {
+        throw new Error("ALEFIT’s session check did not load. Refresh the page to try again.");
+      }
+      var session = await window.AlefitSession.restore();
+      if (!session || !session.authenticated || !session.access_token) {
+        login();
+        return;
+      }
+      html.classList.remove("member-auth-pending", "member-auth-error");
+      var overlay = document.getElementById(overlayId);
+      if (overlay) overlay.remove();
+    } catch (error) {
+      showError(error && error.message);
+    }
+  }
+
+  verify();
 })();
 </script>"""
 
@@ -740,7 +834,6 @@ def oauth_session():
     body = request.get_json(silent=True) or {}
     if not isinstance(body, dict):
         return jsonify({"error": "Invalid sign-in request."}), 400
-    refresh_token = body.get("refresh_token") or request.cookies.get(AUTH_REFRESH_COOKIE)
     if body.get("code"):
         verifier = body.get("code_verifier", "")
         if not isinstance(verifier, str) or not re.fullmatch(r"[A-Za-z0-9._~-]{43,128}", verifier):
@@ -748,9 +841,9 @@ def oauth_session():
         grant = "pkce"
         payload = {"auth_code": body["code"], "code_verifier": verifier}
         status, data = supabase_auth("POST", "/auth/v1/token?grant_type=" + grant, payload)
-    elif isinstance(refresh_token, str) and refresh_token:
+    elif request.cookies.get(AUTH_REFRESH_COOKIE) or body.get("refresh_token"):
         grant = "refresh_token"
-        data, error = _restore_supabase_session(refresh_token)
+        data, error = _restore_request_session(body)
         if error:
             status, error_data = error
             response = jsonify(error_data)
@@ -788,8 +881,7 @@ def restore_auth_session():
     body = request.get_json(silent=True) or {}
     if not isinstance(body, dict):
         return jsonify({"error": "Invalid session restore request."}), 400
-    refresh_token = body.get("refresh_token") or request.cookies.get(AUTH_REFRESH_COOKIE)
-    session, error = _restore_supabase_session(refresh_token)
+    session, error = _restore_request_session(body)
     if error:
         status, data = error
         response = jsonify(data)

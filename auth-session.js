@@ -2,6 +2,7 @@
   "use strict";
   var nativeFetch = root.fetch.bind(root);
   var refreshing = null;
+  var restoring = null;
   var rotatedTokens = new Set();
   var APP_ID = "6a1f3d189ebdbe71fa7d256c";
   var memoryAccessToken = null;
@@ -75,7 +76,7 @@
     }
     return data;
   }
-  async function restore() {
+  async function restoreOnce() {
     var current = token();
     if (current) {
       var check = await timedFetch("/api/apps/" + APP_ID + "/auth/me", {
@@ -119,6 +120,27 @@
     }
     try { root.localStorage.setItem("alefit_user", JSON.stringify(restoredUser)); } catch (error) {}
     return {authenticated:true, user:restoredUser, access_token:session.access_token};
+  }
+  function restore() {
+    if (!restoring) {
+      var locks = root.navigator && root.navigator.locks;
+      if (locks && typeof locks.request === "function") {
+        var enteredLock = false;
+        restoring = locks.request("alefit-auth-session-restore", {mode:"exclusive"}, function () {
+          enteredLock = true;
+          // Read localStorage again after acquiring the lock. Another tab may
+          // already have rotated the cookie and saved a fresh access token.
+          return restoreOnce();
+        }).catch(function (error) {
+          if (!enteredLock) return restoreOnce();
+          throw error;
+        });
+      } else {
+        restoring = restoreOnce();
+      }
+      restoring = restoring.finally(function () { restoring = null; });
+    }
+    return restoring;
   }
   // Only retry this app's API and only for the currently saved account.
   // New refresh tokens are HttpOnly cookies; legacy browser refresh tokens are migrated.

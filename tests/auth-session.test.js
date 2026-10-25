@@ -69,6 +69,84 @@ function browser(mode) {
   assert.equal(restoredValues.get("token"), "cookie-restored");
   assert.equal(restoredValues.has("alefit_refresh_token"), false);
 
+  const concurrentValues = new Map();
+  let concurrentRestores = 0;
+  const concurrentWindow = {
+    localStorage: {
+      getItem:key => concurrentValues.get(key) || null,
+      setItem:(key,value) => concurrentValues.set(key,String(value)),
+      removeItem:key => concurrentValues.delete(key),
+    },
+    location:{origin:"https://alefit.example"},
+    fetch:async (url, options) => {
+      if (url === "/api/oauth/session") {
+        concurrentRestores++;
+        await new Promise(resolve => setTimeout(resolve, 5));
+        return new Response(JSON.stringify({access_token:"shared-cookie-access"}));
+      }
+      if (url.endsWith("/auth/me")) {
+        return new Response(JSON.stringify({id:"same-restored-member"}));
+      }
+      return new Response("{}", {status:401});
+    },
+  };
+  vm.runInNewContext(fs.readFileSync("auth-session.js","utf8"),
+    {window:concurrentWindow, URL, Headers, Response, AbortController, setTimeout, clearTimeout, console});
+  const concurrent = await Promise.all([
+    concurrentWindow.AlefitSession.restore(),
+    concurrentWindow.AlefitSession.restore(),
+  ]);
+  assert.equal(concurrentRestores, 1, "concurrent page restores must share one refresh request");
+  assert(concurrent.every(session => session.user.id === "same-restored-member"));
+
+  let crossTabRefreshes = 0;
+  let lockTail = Promise.resolve();
+  const crossTabLocks = {
+    request: async (_name, _options, callback) => {
+      const previous = lockTail;
+      let release;
+      lockTail = new Promise(resolve => { release = resolve; });
+      await previous;
+      try { return await callback(); }
+      finally { release(); }
+    },
+  };
+  const sharedStorage = new Map([["token", "expired-access"]]);
+  function crossTabWindow() {
+    const storage = {
+      getItem:key => sharedStorage.get(key) || null,
+      setItem:(key,value) => sharedStorage.set(key,String(value)),
+      removeItem:key => sharedStorage.delete(key),
+    };
+    const window = {
+      localStorage:storage,
+      navigator:{locks:crossTabLocks},
+      location:{origin:"https://alefit.example"},
+      fetch:async (url, options) => {
+        const auth = new Headers(options.headers).get("Authorization");
+        if (url === "/api/oauth/session") {
+          crossTabRefreshes++;
+          await new Promise(resolve => setTimeout(resolve, 10));
+          return new Response(JSON.stringify({access_token:"cross-tab-fresh"}));
+        }
+        if (url.endsWith("/auth/me") && auth === "Bearer cross-tab-fresh") {
+          return new Response(JSON.stringify({id:"same-cross-tab-member"}));
+        }
+        return new Response("{}", {status:401});
+      },
+    };
+    vm.runInNewContext(fs.readFileSync("auth-session.js","utf8"),
+      {window, URL, Headers, Response, AbortController, setTimeout, clearTimeout, console});
+    return window;
+  }
+  const [crossTabA, crossTabB] = await Promise.all([
+    crossTabWindow().AlefitSession.restore(),
+    crossTabWindow().AlefitSession.restore(),
+  ]);
+  assert.equal(crossTabRefreshes, 1, "separate tabs must serialize cookie rotation");
+  assert.equal(crossTabA.user.id, "same-cross-tab-member");
+  assert.equal(crossTabB.user.id, "same-cross-tab-member");
+
   const blockedWindow = {
     get localStorage() { throw new Error("Safari storage is unavailable"); },
     location:{origin:"https://alefit.org"},

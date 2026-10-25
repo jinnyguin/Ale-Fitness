@@ -195,18 +195,28 @@
   <div class="card">
     <div class="card-label">Session</div>
     <button class="btn-danger" onclick="logout()">Sign Out</button>
+    <div class="msg msg-err" id="logoutErr" role="status" aria-live="polite"></div>
   </div>
 </div>
 
 <script>
 (function() {
   var APP_ID = '6a1f3d189ebdbe71fa7d256c';
-  var token = localStorage.getItem('base44_access_token') || localStorage.getItem('token');
+  var token = null;
   var user = null;
 
-  if (!token) {
-    window.location.replace('/Login.html?from_url=' + encodeURIComponent(window.location.href));
-    return;
+  function accessToken() {
+    var current = window.AlefitSession && window.AlefitSession.accessToken ?
+      window.AlefitSession.accessToken() : null;
+    if (current) token = current;
+    return token;
+  }
+
+  function authHeaders(json) {
+    var headers = {};
+    if (accessToken()) headers.Authorization = 'Bearer ' + accessToken();
+    if (json) headers['Content-Type'] = 'application/json';
+    return headers;
   }
 
   function initials(name) {
@@ -226,7 +236,7 @@
 
   function loadUser() {
     fetch('/api/apps/' + APP_ID + '/auth/me', {
-      headers: { 'Authorization': 'Bearer ' + token }
+      headers: authHeaders(false)
     }).then(function(r) {
       if (r.status === 401) {
         try {
@@ -234,15 +244,22 @@
           if (window.AlefitMember) window.AlefitMember.markSignedIn(remembered);
           else if (remembered && remembered.id) localStorage.setItem('alefit_member_account', remembered.id);
         } catch (e) { try { localStorage.setItem('alefit_member_account', 'known'); } catch (ignored) {} }
-        localStorage.removeItem('base44_access_token');
-        localStorage.removeItem('token');
+        if (window.AlefitSession) window.AlefitSession.clear();
+        else {
+          try {
+            localStorage.removeItem('base44_access_token');
+            localStorage.removeItem('token');
+          } catch (ignored) {}
+        }
         window.location.replace('/Login.html?from_url=' + encodeURIComponent(window.location.href));
         return null;
       }
+      if (!r.ok) throw new Error('Could not load your account profile. Please try again.');
       return r.json();
     }).then(function(u) {
       if (!u) return;
       user = u;
+      accessToken();
       if (window.AlefitMember) window.AlefitMember.markSignedIn(u);
       var name = u.full_name || '';
       var email = u.email || '';
@@ -270,7 +287,7 @@
     var fd = new FormData();
     fd.append('file', file);
     fetch('/api/apps/' + APP_ID + '/auth/avatar', {
-      method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd
+      method: 'POST', headers: authHeaders(false), body: fd
     }).then(function(r) { return r.json(); }).then(function(d) {
       prog.style.display = 'none';
       if (d.avatar_url) {
@@ -292,7 +309,7 @@
     };
     fetch('/api/apps/' + APP_ID + '/auth/me', {
       method: 'PUT',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      headers: authHeaders(true),
       body: JSON.stringify(payload)
     }).then(function(r) { return r.json(); }).then(function(d) {
       btn.disabled = false; btn.textContent = 'Save Profile';
@@ -316,7 +333,7 @@
     if (pw !== pw2) { showErr('pwErr','Passwords do not match.'); return; }
     fetch('/api/apps/' + APP_ID + '/auth/change-password', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      headers: authHeaders(true),
       body: JSON.stringify({ new_password: pw })
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (d.message) {
@@ -327,25 +344,70 @@
     }).catch(function() { showErr('pwErr','Network error'); });
   };
 
-  window.logout = function() {
+  window.logout = async function() {
     try {
-      var remembered = JSON.parse(localStorage.getItem('alefit_user') || 'null');
+      var remembered = user || JSON.parse(localStorage.getItem('alefit_user') || 'null');
       if (window.AlefitMember) window.AlefitMember.markSignedIn(remembered);
       else if (remembered && remembered.id) localStorage.setItem('alefit_member_account', remembered.id);
     } catch (e) { try { localStorage.setItem('alefit_member_account', 'known'); } catch (ignored) {} }
-    localStorage.removeItem('base44_access_token');
-    localStorage.removeItem('token');
-    localStorage.removeItem('alefit_user');
-    localStorage.removeItem('alefit_refresh_token');
-    localStorage.removeItem('alefit_refresh_owner');
-    window.location.replace('/Login.html?from_url=%2Ftoday.html');
+    var button = document.querySelector('.btn-danger');
+    var message = document.getElementById('logoutErr');
+    if (message) message.style.display = 'none';
+    if (button) { button.disabled = true; button.textContent = 'Signing out…'; }
+    try {
+      var response = await fetch('/api/auth/session/logout', {
+        method: 'POST',
+        headers: accessToken() ? { 'Authorization': 'Bearer ' + accessToken() } : {}
+      });
+      if (!response.ok) throw new Error('Could not securely end this session. Please try again.');
+      if (window.AlefitSession) window.AlefitSession.clear();
+      else {
+        try {
+          localStorage.removeItem('base44_access_token');
+          localStorage.removeItem('token');
+          localStorage.removeItem('alefit_user');
+          localStorage.removeItem('alefit_refresh_token');
+          localStorage.removeItem('alefit_refresh_owner');
+        } catch (ignored) {}
+      }
+      window.location.replace('/Login.html?from_url=%2Ftoday.html');
+    } catch (error) {
+      if (button) { button.disabled = false; button.textContent = 'Sign Out'; }
+      if (message) {
+        message.textContent = error.message || 'Could not sign out. Check your connection and try again.';
+        message.style.display = 'block';
+      }
+    }
   };
 
   function show(id) { document.getElementById(id).style.display = 'block'; }
   function hide(ids) { ids.forEach(function(id) { document.getElementById(id).style.display = 'none'; }); }
   function showErr(id, msg) { var el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
 
-  loadUser();
+  async function startAccount() {
+    try {
+      if (!window.AlefitSession || typeof window.AlefitSession.restore !== 'function') {
+        throw new Error('ALEFIT could not restore your sign-in. Refresh the page to try again.');
+      }
+      var session = await window.AlefitSession.restore();
+      if (!session || !session.authenticated || !session.access_token) {
+        if (!window.__alefitMemberRedirecting) {
+          window.__alefitMemberRedirecting = true;
+          window.location.replace('/Login.html?from_url=' + encodeURIComponent(window.location.href));
+        }
+        return;
+      }
+      token = session.access_token;
+      user = session.user || null;
+      loadUser();
+    } catch (error) {
+      document.getElementById('heroName').textContent = 'Could not restore sign-in';
+      document.getElementById('heroEmail').textContent =
+        error.message || 'Check your connection and try again.';
+    }
+  }
+
+  startAccount();
 })();
 </script>
 </body>

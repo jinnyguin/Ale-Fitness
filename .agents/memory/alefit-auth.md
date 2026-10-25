@@ -15,11 +15,11 @@ Keep onboarding drafts available across the email-confirmation round trip, inclu
 
 **How to apply:** Persist draft state locally with a session-storage fallback, preserve same-origin return paths, and remove the draft only after the plan-save request succeeds.
 
-For durable Supabase sessions on ALEFIT, keep the rotating refresh token in a Secure, HttpOnly, SameSite=Lax cookie scoped to `.alefit.org`; restore and verify the user and saved plan server-side before selecting the first page. Browser member markers are hints only, never proof of sign-in.
+For durable Supabase sessions on ALEFIT, keep the rotating refresh token in a Secure, HttpOnly, SameSite=Lax cookie scoped to `.alefit.org`; restore and verify the user and saved plan server-side before selecting the first page. Prefer the current cookie over legacy localStorage refresh tokens, using legacy tokens only as a fallback after a definitive rejection or when no cookie exists. Browser member markers are hints only, never proof of sign-in.
 
-**Why:** `www.alefit.org` and `alefit.org` do not share browser storage, and a local setup flag can be missing even when the member already has a saved plan.
+**Why:** `www.alefit.org` and `alefit.org` do not share browser storage, and a local setup flag can be missing even when the member already has a saved plan. A stale pre-cookie refresh token must not override or clear a valid current cookie.
 
-**How to apply:** Continue routing from the authenticated server response and `OnboardingPlan` record. Preserve legacy local refresh tokens only as a migration input; new sessions should use the cookie.
+**How to apply:** Continue routing from the authenticated server response and `OnboardingPlan` record. New sessions should use the cookie; retain local refresh state only to recover older sessions when the cookie is missing or definitively invalid.
 
 Revalidate the homepage after browser history restores it from the back-forward cache. Keep the branded gate available in the document, arm it on `pagehide`, and repeat the auth plus saved-plan check on `pageshow` when `persisted` is true.
 
