@@ -76,7 +76,10 @@ class OAuthSessionTests(unittest.TestCase):
         def auth(method, path, body, **kwargs):
             calls.append(body["refresh_token"])
             if body["refresh_token"] == "expired-cookie-refresh":
-                return 400, {}
+                return 400, {
+                    "code": "refresh_token_not_found",
+                    "msg": "Invalid Refresh Token: Refresh Token Not Found",
+                }
             return 200, data
 
         client = server.app.test_client()
@@ -138,7 +141,11 @@ class OAuthSessionTests(unittest.TestCase):
         profile.assert_called_once_with("same-id", "member@example.test", "")
 
     def test_restore_clears_revoked_refresh_cookie_without_claiming_login(self):
-        with patch.object(server, "supabase_auth", return_value=(400, {})):
+        with patch.object(
+            server,
+            "supabase_auth",
+            return_value=(400, {"code": "refresh_token_not_found"}),
+        ):
             response = self.client.post(
                 "/api/auth/session/restore",
                 json={"refresh_token": "revoked"},
@@ -181,10 +188,79 @@ class OAuthSessionTests(unittest.TestCase):
                     query_string={"provider":"google", "redirect_to":invalid}).status_code, 400)
 
     def test_outage_and_rejection_are_distinct(self):
-        for provider_status, expected in [(503, 503), (400, 401), (429, 429)]:
-            with patch.object(server, "supabase_auth", return_value=(provider_status, {})):
-                self.assertEqual(self.client.post("/api/oauth/session",
-                    json={"refresh_token": "old"}).status_code, expected)
+        cases = [
+            (503, {}, 503),
+            (400, {"code": "refresh_token_not_found"}, 401),
+            (400, {"error": "Bad Request"}, 503),
+            (401, {"error": "Unauthorized"}, 503),
+            (403, {"error": "Forbidden"}, 503),
+            (429, {}, 429),
+        ]
+        for provider_status, provider_data, expected in cases:
+            with self.subTest(provider_status=provider_status), \
+                    patch.object(
+                        server,
+                        "supabase_auth",
+                        return_value=(provider_status, provider_data),
+                    ):
+                response = self.client.post(
+                    "/api/oauth/session",
+                    json={"refresh_token": "old"},
+                )
+                self.assertEqual(response.status_code, expected)
+                if expected == 401:
+                    self.assertIn("Max-Age=0", response.headers.get("Set-Cookie", ""))
+                else:
+                    self.assertNotIn("Max-Age=0", response.headers.get("Set-Cookie", ""))
+
+    def test_missing_refresh_is_non_cacheable(self):
+        response = self.client.post("/api/oauth/session", json={})
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+
+    def test_refresh_rejection_classifier_only_expires_known_invalid_sessions(self):
+        cases = [
+            (400, {"msg": "Invalid Refresh Token: Refresh Token Not Found"}, True),
+            (400, {"code": "refresh_token_already_used"}, True),
+            (401, {"error_code": "invalid_grant"}, True),
+            (400, {"msg": "invalid request"}, False),
+            (403, {"error": "Forbidden"}, False),
+        ]
+        for status, data, expected in cases:
+            with self.subTest(status=status, data=data):
+                self.assertEqual(
+                    server._is_definitive_invalid_refresh(status, data),
+                    expected,
+                )
+
+    def test_unclassified_provider_error_preserves_refresh_cookie(self):
+        for provider_status, provider_data in (
+            (400, {"error": "Bad Request"}),
+            (401, {"error": "Unauthorized"}),
+            (403, {"error": "Forbidden"}),
+        ):
+            client = server.app.test_client()
+            client.set_cookie(
+                domain="alefit.org",
+                origin_only=False,
+                key=server.AUTH_REFRESH_COOKIE,
+                value="private-refresh-value",
+            )
+            with self.subTest(provider_status=provider_status), \
+                    patch.object(
+                        server,
+                        "supabase_auth",
+                        return_value=(provider_status, provider_data),
+                    ):
+                response = client.post(
+                    "/api/auth/session/restore",
+                    json={},
+                    base_url="https://www.alefit.org",
+                )
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.headers["Cache-Control"], "no-store")
+                self.assertNotIn("Max-Age=0", response.headers.get("Set-Cookie", ""))
+                self.assertNotIn("private-refresh-value", response.get_data(as_text=True))
 
     def test_incomplete_provider_session_is_rejected(self):
         with patch.object(server, "supabase_auth", return_value=(200, {"access_token": "x"})):

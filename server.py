@@ -91,6 +91,10 @@ def _set_refresh_cookie(response, refresh_token):
 
 def _session_response(session, user, status=200):
     if not session.get("access_token") or not session.get("refresh_token"):
+        app.logger.warning(
+            "ALEFIT_AUTH event=session_issue_rejected path=%s reason=incomplete_provider_session",
+            request.path,
+        )
         response = jsonify({"error": "ALEFIT could not securely save this sign-in. Please try again."})
         response.status_code = 503
         response.headers["Cache-Control"] = "no-store"
@@ -103,7 +107,41 @@ def _session_response(session, user, status=200):
     })
     response.status_code = status
     response.headers["Cache-Control"] = "no-store"
+    host = (request.host or "").split(":", 1)[0].lower()
+    app.logger.info(
+        "ALEFIT_AUTH event=session_issued path=%s host=%s cookie_domain=%s secure=%s",
+        request.path,
+        host,
+        _alefit_cookie_domain() or "host_only",
+        bool(request.is_secure or
+             request.headers.get("X-Forwarded-Proto", "").split(",", 1)[0].strip() == "https" or
+             _alefit_cookie_domain() == ".alefit.org"),
+    )
     return _set_refresh_cookie(response, session.get("refresh_token"))
+
+
+def _is_definitive_invalid_refresh(status, data):
+    """Only classify known refresh/session rejection codes as a signed-out state."""
+    if not isinstance(data, dict):
+        return False
+    error_text = " ".join(
+        str(data.get(key) or "")
+        for key in ("code", "error_code", "error", "msg", "message", "error_description")
+    ).lower()
+    invalid_session_markers = (
+        "refresh_token_not_found",
+        "refresh_token_already_used",
+        "refresh_token_reuse_detected",
+        "invalid_grant",
+        "invalid refresh token",
+        "refresh token not found",
+        "refresh token has expired",
+        "session_not_found",
+        "session not found",
+    )
+    return status in (400, 401, 403) and any(
+        marker in error_text for marker in invalid_session_markers
+    )
 
 
 def _restore_supabase_session(refresh_token):
@@ -124,9 +162,29 @@ def _restore_supabase_session(refresh_token):
         or not isinstance(data.get("user"), dict)
         or not data["user"].get("id")
     ):
-        if status >= 500 or status == 200:
+        if status == 429:
+            classification = "rate_limited"
+            response_status = 429
+        elif _is_definitive_invalid_refresh(status, data):
+            classification = "refresh_rejected"
+            response_status = 401
+        else:
+            # A generic provider 4xx can mean bad configuration or an unexpected
+            # upstream response. Do not erase a member's session unless Supabase
+            # explicitly identifies the refresh/session as invalid.
+            classification = "provider_unavailable_or_unclassified"
+            response_status = 503
+        app.logger.warning(
+            "ALEFIT_AUTH event=provider_refresh_result status=%s classification=%s",
+            status,
+            classification,
+        )
+        if response_status == 503:
             return None, (503, {"error": "Sign-in is temporarily unavailable. Please try again."})
+        if response_status == 429:
+            return None, (429, {"error": "Sign-in is busy. Please try again in a moment."})
         return None, (401, {"error": "Your sign-in has expired. Please sign in again."})
+    app.logger.info("ALEFIT_AUTH event=provider_refresh_result status=200 classification=refreshed")
     return data, None
 
 
@@ -137,6 +195,12 @@ def _restore_request_session(body):
     if not isinstance(legacy_refresh, str) or not legacy_refresh:
         legacy_refresh = None
 
+    app.logger.info(
+        "ALEFIT_AUTH event=restore_request host=%s cookie_present=%s legacy_refresh_present=%s",
+        (request.host or "").split(":", 1)[0].lower(),
+        bool(cookie_refresh),
+        bool(legacy_refresh),
+    )
     if cookie_refresh:
         session, error = _restore_supabase_session(cookie_refresh)
         # A stale cookie can outlive the old localStorage migration token.
@@ -854,7 +918,14 @@ def oauth_session():
             return response
         status = 200
     else:
-        return jsonify({"error": "Sign-in is required."}), 401
+        app.logger.info(
+            "ALEFIT_AUTH event=restore_request host=%s cookie_present=false legacy_refresh_present=false",
+            (request.host or "").split(":", 1)[0].lower(),
+        )
+        response = jsonify({"error": "Sign-in is required."})
+        response.status_code = 401
+        response.headers["Cache-Control"] = "no-store"
+        return response
     if status != 200 or not isinstance(data, dict) or not data.get("access_token") or not data.get("refresh_token"):
         response = jsonify({"error": (
             "Sign-in is temporarily unavailable. Your saved plan is unchanged. Please try again."
@@ -1176,6 +1247,10 @@ def auth_login(app_id):
         if not LOCAL_AUTH_SECRET:
             return jsonify({"error": "Local sign-in is not configured. Please contact support."}), 503
         ensure_profile(local_user["id"], local_user["email"], format_user(local_user)["full_name"])
+        app.logger.info(
+            "ALEFIT_AUTH event=session_issued path=%s auth_system=local_fallback cookie_domain=none",
+            request.path,
+        )
         response = jsonify({
             "access_token": create_local_token(local_user),
             "user": format_user(local_user),
@@ -1592,6 +1667,15 @@ def get_profile_extras(user_id, token=None):
 def auth_me(app_id):
     user, token, auth_status = get_current_user_with_status()
     if not user:
+        credential_type = (
+            "local" if token and token.startswith("local.") else
+            "bearer" if token else "missing"
+        )
+        app.logger.info(
+            "ALEFIT_AUTH event=auth_me_rejected status=%s credential_type=%s",
+            auth_status or 401,
+            credential_type,
+        )
         if auth_status == 429:
             return jsonify({
                 "error": "Sign-in verification is temporarily rate limited. Please try again."
@@ -1757,6 +1841,21 @@ def member_status(app_id):
     """Return the verified member, profile, and saved plan for entry routing."""
     user, token, err = require_auth()
     if err:
+        auth_header = request.headers.get("Authorization", "")
+        credential_type = (
+            "local" if auth_header.startswith("Bearer local.") else
+            "bearer" if auth_header.startswith("Bearer ") else
+            "missing"
+        )
+        app.logger.info(
+            "ALEFIT_AUTH event=member_status_rejected status=401 credential_type=%s",
+            credential_type,
+        )
+        error_response = err[0]
+        if not hasattr(error_response, "headers"):
+            error_response = jsonify(error_response)
+            err = (error_response, err[1])
+        error_response.headers["Cache-Control"] = "no-store"
         return err
 
     conn = None
@@ -1778,8 +1877,15 @@ def member_status(app_id):
             (user["id"],),
         )
         plan_row = cur.fetchone()
-    except Exception:
-        return jsonify({"error": "Could not check your saved training plan. Please try again."}), 503
+    except Exception as exc:
+        app.logger.warning(
+            "ALEFIT_AUTH event=member_status_failed reason=database_lookup_failed exception_type=%s",
+            type(exc).__name__,
+        )
+        response = jsonify({"error": "Could not check your saved training plan. Please try again."})
+        response.status_code = 503
+        response.headers["Cache-Control"] = "no-store"
+        return response
     finally:
         if conn is not None:
             conn.close()
@@ -1795,6 +1901,10 @@ def member_status(app_id):
 
     profile = dict(profile_row or {})
     plan = serialize_record(plan_row)
+    app.logger.info(
+        "ALEFIT_AUTH event=member_status_resolved plan_present=%s",
+        bool(plan),
+    )
     response = jsonify({
         "user": format_user(user),
         "profile": profile,
