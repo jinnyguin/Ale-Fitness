@@ -1477,14 +1477,18 @@ def auth_reset_request(app_id):
     origin = request.host_url.rstrip("/")
     redirect_to = f"{origin}/ResetPassword.html"
     recover_params = {"redirect_to": redirect_to}
+    recover_body = {"email": email}
     if code_challenge:
-        recover_params["code_challenge"] = code_challenge
-        recover_params["code_challenge_method"] = "s256"
+        # Supabase Auth reads PKCE challenge fields from the JSON body, not
+        # from the URL query string. If they are omitted from the body, the
+        # recovery email cannot produce a code that this browser can exchange.
+        recover_body["code_challenge"] = code_challenge
+        recover_body["code_challenge_method"] = "s256"
     recover_path = "/auth/v1/recover?" + urllib.parse.urlencode(recover_params)
     status, data = supabase_auth(
         "POST",
         recover_path,
-        {"email": email},
+        recover_body,
     )
     if status == 200 and isinstance(data, dict):
         return _password_recovery_response({

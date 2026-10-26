@@ -722,7 +722,7 @@ class AuthRouteTests(unittest.TestCase):
         self.assertEqual(body, {"email": "athlete@example.test"})
         self.assertEqual(response.headers["Cache-Control"], "no-store")
 
-    def test_password_reset_passes_pkce_challenge_to_supabase(self):
+    def test_password_reset_sends_pkce_challenge_in_supabase_json_body(self):
         challenge = "a" * 43
         with patch.object(server, "supabase_auth", return_value=(200, {})) as auth_call:
             response = self.client.post(
@@ -738,10 +738,14 @@ class AuthRouteTests(unittest.TestCase):
         method, path, body = auth_call.call_args.args
         self.assertEqual(method, "POST")
         query = parse_qs(urlparse(path).query)
-        self.assertEqual(query["code_challenge"], [challenge])
-        self.assertEqual(query["code_challenge_method"], ["s256"])
+        self.assertNotIn("code_challenge", query)
+        self.assertNotIn("code_challenge_method", query)
         self.assertEqual(query["redirect_to"], ["http://localhost/ResetPassword.html"])
-        self.assertEqual(body, {"email": "athlete@example.test"})
+        self.assertEqual(body, {
+            "email": "athlete@example.test",
+            "code_challenge": challenge,
+            "code_challenge_method": "s256",
+        })
 
     def test_password_reset_rejects_malformed_pkce_challenge(self):
         with patch.object(server, "supabase_auth") as auth_call:

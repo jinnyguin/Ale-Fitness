@@ -39,3 +39,9 @@ Password recovery must accept Supabase access-token, token-hash, and PKCE-code l
 
 **How to apply:** Keep recovery credentials out of logs and remove them from the address bar after parsing. Bind PKCE recovery to a short-lived verifier stored in the requesting browser, update the password only through Supabase Auth, and never alter the member's profile, plan, or workout history.
 
+For Supabase `POST /auth/v1/recover`, put `redirect_to` in the URL query, but put `code_challenge` and `code_challenge_method` in the JSON body.
+
+**Why:** Supabase can send the recovery email even when PKCE challenge fields placed in the query are ignored; the resulting authorization code then cannot be exchanged with the browser's verifier.
+
+**How to apply:** Keep a regression test asserting the exact URL/body split before changing this endpoint or its request construction.
+
