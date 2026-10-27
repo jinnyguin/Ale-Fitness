@@ -1,7 +1,50 @@
 (function (root) {
   "use strict";
   var query = new URLSearchParams(root.location.search || "");
-  if (query.has("code") && root.location.pathname !== "/auth/callback") {
+  var hash = new URLSearchParams((root.location.hash || "").replace(/^#/, ""));
+
+  function readPending(storageName, key, timestampName, maxAge) {
+    try {
+      var storage = root[storageName];
+      var pending = JSON.parse(storage && storage.getItem(key) || "null");
+      if (!pending || typeof pending.verifier !== "string" ||
+          !/^[A-Za-z0-9._~-]{43,128}$/.test(pending.verifier)) return null;
+      var created = pending[timestampName];
+      var age = Date.now() - created;
+      if (typeof created !== "number" || !Number.isFinite(created) ||
+          age < 0 || age >= maxAge) return null;
+      return pending;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  var recoveryPending = readPending(
+    "localStorage", "alefit_password_recovery_pkce", "created", 60 * 60 * 1000
+  );
+  var oauthPending = readPending(
+    "sessionStorage", "alefit_oauth_pending", "started", 20 * 60 * 1000
+  );
+  var recoveryType = query.get("type") === "recovery" || hash.get("type") === "recovery";
+  var hasRecoveryMaterial = ["code", "token_hash", "access_token"].some(function (key) {
+    return query.has(key) || hash.has(key);
+  });
+  var explicitRecoveryCallback = recoveryType && hasRecoveryMaterial;
+  var rootCode = query.has("code") && root.location.pathname !== "/auth/callback";
+  var recoveryCodeIsNewer = recoveryPending &&
+    (!oauthPending || recoveryPending.created >= oauthPending.started);
+
+  if ((explicitRecoveryCallback || (rootCode && recoveryCodeIsNewer)) &&
+      root.location.pathname !== "/ResetPassword" &&
+      root.location.pathname !== "/ResetPassword.html") {
+    var resetPage = new URL("/ResetPassword", root.location.origin);
+    resetPage.search = root.location.search || "";
+    resetPage.hash = root.location.hash || "";
+    root.location.replace(resetPage.toString());
+    return;
+  }
+
+  if (rootCode) {
     var callback = new URL("/auth/callback", root.location.origin);
     callback.search = root.location.search || "";
     callback.hash = root.location.hash || "";

@@ -175,6 +175,84 @@ function testHomepageForwardsOAuthCodeToCallback() {
   );
 }
 
+function testHomepageForwardsRecoveryCodeToResetFormWhenVerifierIsPending() {
+  let destination = null;
+  const document = { documentElement: { classList: { remove() {} } } };
+  const window = {
+    location: {
+      origin: "https://alefit.example",
+      pathname: "/",
+      search: "?code=recovery-code",
+      hash: "",
+      replace(value) { destination = String(value); },
+    },
+    localStorage: {
+      getItem(key) {
+        return key === "alefit_password_recovery_pkce" ?
+          JSON.stringify({verifier:"v".repeat(64), created:Date.now()}) : null;
+      },
+    },
+    sessionStorage: {getItem() { return null; }},
+    AlefitMember: { hasMemberRecord: () => false },
+  };
+  vm.runInNewContext(entrySource, { window, document, URL, URLSearchParams });
+  assert.equal(
+    destination,
+    "https://alefit.example/ResetPassword?code=recovery-code",
+  );
+}
+
+function testExplicitRecoveryCallbackRoutesToResetWithoutLocalVerifier() {
+  let destination = null;
+  const window = {
+    location: {
+      origin: "https://alefit.example",
+      pathname: "/",
+      search: "?token_hash=recovery-hash&type=recovery",
+      hash: "",
+      replace(value) { destination = String(value); },
+    },
+  };
+  vm.runInNewContext(entrySource, {
+    window,
+    document: { documentElement: { classList: { remove() {} } } },
+    URL,
+    URLSearchParams,
+  });
+  assert.equal(
+    destination,
+    "https://alefit.example/ResetPassword?token_hash=recovery-hash&type=recovery",
+  );
+}
+
+function testExpiredRecoveryMarkerDoesNotStealGoogleCallback() {
+  let destination = null;
+  const window = {
+    location: {
+      origin: "https://alefit.example",
+      pathname: "/",
+      search: "?code=google-code",
+      hash: "",
+      replace(value) { destination = String(value); },
+    },
+    localStorage: {
+      getItem(key) {
+        return key === "alefit_password_recovery_pkce" ?
+          JSON.stringify({verifier:"v".repeat(64), created:Date.now() - 60 * 60 * 1000}) : null;
+      },
+    },
+    sessionStorage: {getItem() { return null; }},
+    AlefitMember: { hasMemberRecord: () => false },
+  };
+  vm.runInNewContext(entrySource, {
+    window,
+    document: { documentElement: { classList: { remove() {} } } },
+    URL,
+    URLSearchParams,
+  });
+  assert.equal(destination, "https://alefit.example/auth/callback?code=google-code");
+}
+
 async function testPublicHomepageOnlyRevealsAfterSessionCheck() {
   let removedPending = false;
   let pending = true;
@@ -245,9 +323,12 @@ async function run() {
   await testMemberStatusOutageDoesNotMisrouteToOnboardingOrHome();
   await testUnconfirmedMemberWithoutSessionMustAuthenticate();
   testHomepageForwardsOAuthCodeToCallback();
+  testHomepageForwardsRecoveryCodeToResetFormWhenVerifierIsPending();
+  testExplicitRecoveryCallbackRoutesToResetWithoutLocalVerifier();
+  testExpiredRecoveryMarkerDoesNotStealGoogleCallback();
 
   await testPublicHomepageOnlyRevealsAfterSessionCheck();
-  console.log("8 member routing scenarios, OAuth callback fallback, and public homepage guard passed.");
+  console.log("Member routing, OAuth and password-recovery callback scenarios passed.");
 }
 
 run().catch((error) => {
